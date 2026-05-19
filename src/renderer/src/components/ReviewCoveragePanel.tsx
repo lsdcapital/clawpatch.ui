@@ -1,4 +1,4 @@
-import { ListChecksIcon, RefreshCwIcon, Table2Icon } from "lucide-react";
+import { Table2Icon } from "lucide-react";
 import type { FeatureMapSnapshot } from "../../../shared/types";
 
 interface Props {
@@ -7,8 +7,6 @@ interface Props {
   isBusy: boolean;
   isExpanded: boolean;
   onToggleExpanded: () => void;
-  onRunMap: () => void;
-  onReviewNext: () => void;
   onReviewAllPending: (limit: number) => void;
   onReviewFeature: (featureId: string) => void;
 }
@@ -19,14 +17,11 @@ export function ReviewCoveragePanel({
   isBusy,
   isExpanded,
   onToggleExpanded,
-  onRunMap,
-  onReviewNext,
   onReviewAllPending,
   onReviewFeature,
 }: Props) {
   const coverage = snapshot?.coverage ?? null;
   const pendingCount = coverage?.pendingReviewCount ?? 0;
-  const totalFeatures = coverage?.totalFeatures ?? 0;
   const summary = coverageSummary(snapshot, isLoading);
 
   return (
@@ -37,18 +32,6 @@ export function ReviewCoveragePanel({
           <p>{summary}</p>
         </div>
         <div className="review-coverage-actions">
-          <button disabled={isBusy} onClick={onRunMap}>
-            <RefreshCwIcon aria-hidden="true" />
-            Update map
-          </button>
-          <button
-            className="primary-action"
-            disabled={isBusy || totalFeatures === 0}
-            onClick={onReviewNext}
-          >
-            <ListChecksIcon aria-hidden="true" />
-            Review next
-          </button>
           {pendingCount > 0 ? (
             <button disabled={isBusy} onClick={() => onReviewAllPending(pendingCount)}>
               Review {pendingCount} remaining

@@ -441,17 +441,6 @@ button:disabled {
   justify-content: flex-end;
 }
 
-.primary-action {
-  background: #1f7a4c;
-  border-color: #1f7a4c;
-  color: #ffffff;
-}
-
-.primary-action:hover:not(:disabled) {
-  background: #1b6e44;
-  border-color: #1b6e44;
-}
-
 .feature-map-table {
   border-top: 1px solid var(--border);
   display: grid;
