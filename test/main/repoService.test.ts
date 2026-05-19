@@ -86,6 +86,47 @@ describe("RepoService", () => {
     }).pipe(Effect.provide(makeRepoServiceTestLayer(fixtureRepo, calls)));
   });
 
+  it("skips background status validation while a command is running", async () => {
+    const calls: RunnerCall[] = [];
+    const appData = await makeTempDir();
+    await writeFile(
+      join(appData, "repos.json"),
+      JSON.stringify({
+        repos: [
+          {
+            id: "repo-fixture",
+            name: "clawpatch-repo",
+            path: fixtureRepo,
+            updatedAt: "2026-05-19T00:00:00.000Z",
+          },
+        ],
+      }),
+      "utf8",
+    );
+    const runtime = ManagedRuntime.make(
+      makeRepoServiceTestLayer(fixtureRepo, calls, appData, true),
+    );
+
+    try {
+      const repos = await runtime.runPromise(
+        Effect.gen(function* () {
+          const service = yield* RepoService;
+          return yield* service.listRepos();
+        }),
+      );
+
+      expect(repos[0]).toMatchObject({
+        id: "repo-fixture",
+        isValid: true,
+        lastError: null,
+        findingCount: 1,
+      });
+      expect(calls).toEqual([]);
+    } finally {
+      await runtime.dispose();
+    }
+  });
+
   it.effect("reads feature map coverage through repo service", () => {
     const calls: RunnerCall[] = [];
     return Effect.gen(function* () {
@@ -155,7 +196,12 @@ interface RunnerCall {
   readonly request: ClawpatchCommandRequest;
 }
 
-function makeRepoServiceTestLayer(cwd: string, calls: RunnerCall[], appData?: string) {
+function makeRepoServiceTestLayer(
+  cwd: string,
+  calls: RunnerCall[],
+  appData?: string,
+  isRunning = false,
+) {
   const appDataEffect =
     appData === undefined ? Effect.promise(() => makeTempDir()) : Effect.succeed(appData);
   return Layer.unwrap(
@@ -180,6 +226,7 @@ function makeRepoServiceTestLayer(cwd: string, calls: RunnerCall[], appData?: st
               };
             }),
           interrupt: () => Effect.succeed({ interrupted: true }),
+          isRunning: () => Effect.succeed(isRunning),
         }),
       );
       return RepoServiceLive(appData).pipe(

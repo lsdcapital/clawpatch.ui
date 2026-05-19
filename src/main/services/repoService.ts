@@ -127,17 +127,24 @@ export const RepoServiceLive = (appDataDir: string) =>
         if (!hasClawpatch) {
           lastError = "No .clawpatch state found";
         } else {
-          const status = yield* runner.run(repoPath, { command: "status" }).pipe(
-            Effect.catch((error: unknown) =>
-              Effect.succeed({
-                exitCode: 1,
-                stderr: error instanceof Error ? error.message : String(error),
-                stdout: "",
-              }),
-            ),
-          );
-          isValid = status.exitCode === 0;
-          lastError = isValid ? null : status.stderr || status.stdout || "clawpatch status failed";
+          const isCommandRunning = yield* runner.isRunning(repoPath);
+          if (isCommandRunning) {
+            isValid = true;
+          } else {
+            const status = yield* runner.run(repoPath, { command: "status" }).pipe(
+              Effect.catch((error: unknown) =>
+                Effect.succeed({
+                  exitCode: 1,
+                  stderr: error instanceof Error ? error.message : String(error),
+                  stdout: "",
+                }),
+              ),
+            );
+            isValid = status.exitCode === 0;
+            lastError = isValid
+              ? null
+              : status.stderr || status.stdout || "clawpatch status failed";
+          }
           findings = yield* state
             .readFindingList(repoPath)
             .pipe(Effect.catch(() => Effect.succeed([])));

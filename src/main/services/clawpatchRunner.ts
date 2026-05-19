@@ -36,6 +36,7 @@ export interface ClawpatchRunnerShape {
     onStream?: (event: CommandStreamEvent) => void,
   ) => Effect.Effect<CommandResult, ClawpatchRunnerError>;
   readonly interrupt: (repoPath: string) => Effect.Effect<CommandInterruptResult>;
+  readonly isRunning: (repoPath: string) => Effect.Effect<boolean>;
 }
 
 export class ClawpatchRunner extends Context.Service<ClawpatchRunner, ClawpatchRunnerShape>()(
@@ -96,6 +97,7 @@ export const makeClawpatchRunnerLayer = (runProcess: RunClawpatchProcess = runCl
           }
           return { interrupted: activeCommand.interrupt() };
         }),
+      isRunning: (repoPath) => Effect.sync(() => activeCommands.has(repoPath)),
     });
   });
 
