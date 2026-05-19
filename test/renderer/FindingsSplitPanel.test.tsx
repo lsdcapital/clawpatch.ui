@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { FindingDetail, FindingListItem } from "../../src/shared/types";
 import { clawpatchStatuses } from "../../src/shared/constants";
 import { FindingsSplitPanel } from "../../src/renderer/src/components/FindingsSplitPanel";
@@ -23,7 +23,13 @@ const findings = [
   }),
 ];
 
+const splitWidthStorageKey = "clawpatch.findingsSplitWidth.v1";
+
 describe("FindingsSplitPanel", () => {
+  beforeEach(() => {
+    installLocalStorage();
+  });
+
   it("renders findings and selected finding detail in one resizable panel", () => {
     renderSplitPanel();
 
@@ -58,12 +64,51 @@ describe("FindingsSplitPanel", () => {
     expect(separator).toHaveAttribute("aria-valuenow", "44");
 
     fireEvent.keyDown(separator, { key: "Home" });
-    expect(separator).toHaveAttribute("aria-valuenow", "28");
+    expect(separator).toHaveAttribute("aria-valuenow", "14");
 
     fireEvent.keyDown(separator, { key: "End" });
     expect(separator).toHaveAttribute("aria-valuenow", "62");
+    expect(window.localStorage.getItem(splitWidthStorageKey)).toBe("62");
+  });
+
+  it("loads a saved split width from local storage", () => {
+    window.localStorage.setItem(splitWidthStorageKey, "18");
+
+    renderSplitPanel();
+
+    expect(
+      screen.getByRole("separator", { name: "Resize findings and detail panes" }),
+    ).toHaveAttribute("aria-valuenow", "18");
+  });
+
+  it.each([
+    ["invalid", "42"],
+    ["1", "14"],
+    ["80", "62"],
+  ])("falls back or clamps saved split width %s", (storedWidth, expectedWidth) => {
+    window.localStorage.setItem(splitWidthStorageKey, storedWidth);
+
+    renderSplitPanel();
+
+    expect(
+      screen.getByRole("separator", { name: "Resize findings and detail panes" }),
+    ).toHaveAttribute("aria-valuenow", expectedWidth);
   });
 });
+
+function installLocalStorage(): void {
+  const values = new Map<string, string>();
+
+  Object.defineProperty(window, "localStorage", {
+    configurable: true,
+    value: {
+      getItem: vi.fn((key: string) => values.get(key) ?? null),
+      setItem: vi.fn((key: string, value: string) => {
+        values.set(key, value);
+      }),
+    },
+  });
+}
 
 function renderSplitPanel(overrides: { onRevalidate?: () => void } = {}) {
   return render(

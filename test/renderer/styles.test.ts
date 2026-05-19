@@ -14,7 +14,10 @@ describe("renderer layout styles", () => {
     expect(workspaceBodyRule).toContain("height: 100%;");
     expect(workspaceBodyRule).toContain("grid-row: 3;");
     expect(ruleFor("\\.primary-workspace")).toContain("height: 100%;");
-    expect(ruleFor("\\.findings-workspace")).toContain("height: 100%;");
+    const findingsWorkspaceRule = ruleFor("\\.findings-workspace");
+    expect(findingsWorkspaceRule).toContain("height: 100%;");
+    expect(findingsWorkspaceRule).toContain("minmax(180px, var(--findings-list-width))");
+    expect(findingsWorkspaceRule).not.toContain("300px");
   });
 });
 
