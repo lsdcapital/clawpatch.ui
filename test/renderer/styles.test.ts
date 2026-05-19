@@ -13,11 +13,16 @@ describe("renderer layout styles", () => {
     const workspaceBodyRule = ruleFor("\\.workspace-body");
     expect(workspaceBodyRule).toContain("height: 100%;");
     expect(workspaceBodyRule).toContain("grid-row: 3;");
+    expect(workspaceBodyRule).toContain("padding: 0;");
     expect(ruleFor("\\.primary-workspace")).toContain("height: 100%;");
     const findingsWorkspaceRule = ruleFor("\\.findings-workspace");
     expect(findingsWorkspaceRule).toContain("height: 100%;");
     expect(findingsWorkspaceRule).toContain("minmax(180px, var(--findings-list-width))");
     expect(findingsWorkspaceRule).not.toContain("300px");
+    const edgeToEdgePanelRule = ruleFor("\\.findings-workspace,\\s*\\.review-queue-panel");
+    expect(edgeToEdgePanelRule).toContain("border: 0;");
+    expect(edgeToEdgePanelRule).toContain("border-radius: 0;");
+    expect(edgeToEdgePanelRule).toContain("box-shadow: none;");
   });
 });
 
