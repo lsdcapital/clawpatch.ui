@@ -195,6 +195,32 @@ export function ClawpatchApp() {
     commandMutation.mutate({ repo: selectedRepo, request });
   };
 
+  const runFixWithSavedGuidance = (
+    finding: FindingListItem,
+    status: ClawpatchStatus,
+    note: string,
+  ): void => {
+    if (selectedRepo === null) {
+      return;
+    }
+
+    const repo = selectedRepo;
+    setActiveInspector("output");
+    void (async () => {
+      try {
+        if (note.trim() !== "" || status !== finding.status) {
+          await triageMutation.mutateAsync({ repo, finding, status, note });
+        }
+        await commandMutation.mutateAsync({
+          repo,
+          request: { command: "fix", findingId: finding.findingId },
+        });
+      } catch {
+        // The mutation callbacks already publish the command error to the output log.
+      }
+    })();
+  };
+
   const inspectorMaxWidth = (): number => {
     const body = workspaceBodyRef.current;
     if (body === null) {
@@ -423,9 +449,9 @@ export function ClawpatchApp() {
                     });
                   }
                 }}
-                onFix={() => {
+                onFix={(status, note) => {
                   if (selectedFinding !== null) {
-                    runCommand({ command: "fix", findingId: selectedFinding.findingId });
+                    runFixWithSavedGuidance(selectedFinding, status, note);
                   }
                 }}
                 onRevalidate={() => {

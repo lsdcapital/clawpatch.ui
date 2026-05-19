@@ -179,6 +179,65 @@ describe("ClawpatchApp header actions", () => {
     fireEvent.keyDown(separator, { key: "End" });
     expect(separator).toHaveAttribute("aria-valuenow", "720");
   });
+
+  it("saves the current note before running fix", async () => {
+    const calls: string[] = [];
+    const run = vi.fn<Api["commands"]["run"]>(async (_repoId, request) => {
+      calls.push(`run:${request.command}`);
+      return makeCommandResult(request.command);
+    });
+    const triageSet = vi.fn<Api["triage"]["set"]>(async () => {
+      calls.push("triage");
+      return makeCommandResult("triage");
+    });
+    const finding = makeFixFinding();
+    window.clawpatch = makeApi(run, { findings: [finding], findingDetail: finding, triageSet });
+
+    renderApp();
+
+    await screen.findByRole("heading", { name: "Null branch can throw" });
+    fireEvent.change(screen.getByLabelText("Note for triage and fix"), {
+      target: { value: "Prefer the existing parser helper." },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Run fix" }));
+
+    await waitFor(() =>
+      expect(run).toHaveBeenCalledWith("repo-auth", {
+        command: "fix",
+        findingId: "fnd-bug",
+      }),
+    );
+    expect(triageSet).toHaveBeenCalledWith(
+      "repo-auth",
+      "fnd-bug",
+      "open",
+      "Prefer the existing parser helper.",
+    );
+    expect(calls).toEqual(["triage", "run:fix"]);
+  });
+
+  it("does not run fix when saving the note fails", async () => {
+    const run = vi.fn<Api["commands"]["run"]>(async (_repoId, request) =>
+      makeCommandResult(request.command),
+    );
+    const triageSet = vi.fn<Api["triage"]["set"]>(async () => {
+      throw new Error("triage failed");
+    });
+    const finding = makeFixFinding();
+    window.clawpatch = makeApi(run, { findings: [finding], findingDetail: finding, triageSet });
+
+    renderApp();
+
+    await screen.findByRole("heading", { name: "Null branch can throw" });
+    fireEvent.change(screen.getByLabelText("Note for triage and fix"), {
+      target: { value: "Try the smaller compatibility fix." },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Run fix" }));
+
+    await waitFor(() => expect(triageSet).toHaveBeenCalledTimes(1));
+    await screen.findByText("[error] triage failed");
+    expect(run).not.toHaveBeenCalled();
+  });
 });
 
 function renderApp() {
@@ -196,6 +255,7 @@ function makeApi(
   options: {
     findings?: readonly FindingListItem[];
     findingDetail?: FindingDetail;
+    triageSet?: Api["triage"]["set"];
   } = {},
 ): Api {
   return {
@@ -229,7 +289,7 @@ function makeApi(
       map: async () => makeFeatureMapSnapshot(),
     },
     triage: {
-      set: async () => makeCommandResult("triage"),
+      set: options.triageSet ?? (async () => makeCommandResult("triage")),
     },
     commands: {
       run,
@@ -329,6 +389,40 @@ function makeFeatureMapSnapshot(): FeatureMapSnapshot {
       latestLimitedReviewRun: null,
       hasLimitedReviewRemainder: false,
     },
+  };
+}
+
+function makeFixFinding(): FindingDetail {
+  return {
+    findingId: "fnd-bug",
+    featureId: "feat-profile",
+    title: "Null branch can throw",
+    category: "bug",
+    severity: "medium",
+    confidence: "high",
+    triage: null,
+    status: "open",
+    evidence: [
+      {
+        path: "src/profile.ts",
+        startLine: 12,
+        endLine: 14,
+        symbol: "loadProfile",
+        quote: "return branch.name",
+      },
+    ],
+    linkedPatchAttemptIds: [],
+    createdAt: "2026-05-19T00:00:00.000Z",
+    updatedAt: "2026-05-19T00:00:00.000Z",
+    reasoning: "The branch can be null before the name access.",
+    reproduction: null,
+    recommendation: "Guard the nullable branch before reading its name.",
+    whyTestsDoNotAlreadyCoverThis: null,
+    suggestedRegressionTest: null,
+    minimumFixScope: null,
+    feature: null,
+    patchAttempts: [],
+    history: [],
   };
 }
 
