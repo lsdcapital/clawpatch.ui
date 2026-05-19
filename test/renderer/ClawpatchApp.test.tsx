@@ -31,17 +31,12 @@ describe("ClawpatchApp header actions", () => {
     fireEvent.click(moreButton);
 
     const menu = screen.getByRole("menu", { name: "Repository commands" });
-    expect(within(menu).getByRole("menuitem", { name: "Update map" })).toBeInTheDocument();
+    expect(within(menu).queryByRole("menuitem", { name: "Update map" })).not.toBeInTheDocument();
     expect(within(menu).getByRole("menuitem", { name: "Status" })).toBeInTheDocument();
     expect(within(menu).getByRole("menuitem", { name: "Report" })).toBeInTheDocument();
     expect(within(menu).getByRole("menuitem", { name: "Doctor" })).toBeInTheDocument();
 
-    fireEvent.click(within(menu).getByRole("menuitem", { name: "Update map" }));
-    await waitFor(() => expect(run).toHaveBeenCalledWith("repo-auth", { command: "map" }));
-
-    fireEvent.click(moreButton);
-    const reopenedMenu = screen.getByRole("menu", { name: "Repository commands" });
-    fireEvent.click(within(reopenedMenu).getByRole("menuitem", { name: "Doctor" }));
+    fireEvent.click(within(menu).getByRole("menuitem", { name: "Doctor" }));
     await waitFor(() => expect(run).toHaveBeenCalledWith("repo-auth", { command: "doctor" }));
     expect(screen.queryByRole("button", { name: "Review next" })).not.toBeInTheDocument();
   });
