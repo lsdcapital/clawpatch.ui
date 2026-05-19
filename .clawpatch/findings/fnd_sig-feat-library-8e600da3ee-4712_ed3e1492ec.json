@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "findingId": "fnd_sig-feat-library-8e600da3ee-4712_ed3e1492ec",
+  "featureId": "feat_library_8e600da3ee",
+  "title": "Completed repo commands can refresh the wrong repository after a repo switch",
+  "category": "concurrency",
+  "severity": "medium",
+  "confidence": "medium",
+  "triage": "risk",
+  "evidence": [
+    {
+      "path": "src/renderer/src/routes/ClawpatchApp.tsx",
+      "startLine": 156,
+      "endLine": 162,
+      "symbol": "commandMutation",
+      "quote": "void invalidateRepo(queryClient, selectedRepo?.id ?? null);"
+    },
+    {
+      "path": "src/renderer/src/routes/ClawpatchApp.tsx",
+      "startLine": 171,
+      "endLine": 186,
+      "symbol": "triageMutation",
+      "quote": "void invalidateRepo(queryClient, selectedRepo?.id ?? null);"
+    },
+    {
+      "path": "src/renderer/src/routes/ClawpatchApp.tsx",
+      "startLine": 317,
+      "endLine": 320,
+      "symbol": "RepoSidebar.onSelectRepo",
+      "quote": "setSelectedRepoId(repoId);"
+    }
+  ],
+  "reasoning": "Both command and triage mutations run against the repo passed in their mutation variables, but their success handlers invalidate queries using the currently selected repo from component state. If a user starts a command for repo A and switches to repo B before it finishes, the mutation result is logged but invalidation targets repo B instead of the repo whose data actually changed. Repo A's findings, feature map, and diff can remain stale until another refresh happens.",
+  "reproduction": null,
+  "recommendation": "Use the mutation variables passed to onSuccess to invalidate the repo that the mutation actually ran against, for example onSuccess: (result, variables) => invalidateRepo(queryClient, variables.repo.id). Apply this to both commandMutation and triageMutation.",
+  "whyTestsDoNotAlreadyCoverThis": "No linked tests were provided for renderer mutation behavior, and this race requires simulating a repo selection change while an async mutation is in flight.",
+  "suggestedRegressionTest": "Add a ClawpatchApp test with two repos where window.clawpatch.commands.run is deferred, start a command on repo A, select repo B, resolve the command, and assert invalidation/refetch happens for repo A rather than repo B.",
+  "minimumFixScope": "Update ClawpatchApp mutation success handlers to use mutation variables for cache invalidation.",
+  "status": "open",
+  "history": [],
+  "signature": "sig_feat-library-8e600da3ee_471236051d",
+  "linkedPatchAttemptIds": [],
+  "createdByRunId": "20260519T113652-408557",
+  "createdAt": "2026-05-19T11:38:14.401Z",
+  "updatedAt": "2026-05-19T11:38:14.401Z"
+}

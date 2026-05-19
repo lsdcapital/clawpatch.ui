@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "findingId": "fnd_sig-feat-library-8e600da3ee-3a73_8afc77c93a",
+  "featureId": "feat_library_8e600da3ee",
+  "title": "Command output is retained and re-rendered without bounds",
+  "category": "performance",
+  "severity": "low",
+  "confidence": "medium",
+  "triage": "risk",
+  "evidence": [
+    {
+      "path": "src/renderer/src/routes/ClawpatchApp.tsx",
+      "startLine": 142,
+      "endLine": 145,
+      "symbol": "commands.onStream handler",
+      "quote": "setCommandLog((current) => [...current, { kind: \"stream\", event }]);"
+    },
+    {
+      "path": "src/renderer/src/routes/ClawpatchApp.tsx",
+      "startLine": 159,
+      "endLine": 160,
+      "symbol": "commandMutation.onSuccess",
+      "quote": "setCommandLog((current) => [...current, { kind: \"result\", result }]);"
+    },
+    {
+      "path": "src/renderer/src/components/CommandPanel.tsx",
+      "startLine": 18,
+      "endLine": 28,
+      "symbol": "CommandPanel",
+      "quote": "entries.map((entry) => { ... }).join(\"\\n\")"
+    }
+  ],
+  "reasoning": "Every stream chunk and command result is appended to commandLog for the lifetime of the renderer session, and CommandPanel rebuilds the full output string on every render. A verbose review/fix/status command or several long sessions can grow memory usage and make unrelated UI updates increasingly expensive.",
+  "reproduction": null,
+  "recommendation": "Cap retained command log entries or bytes, add a clear-output action, and render output incrementally or memoize the formatted text so normal UI renders do not repeatedly format the entire history.",
+  "whyTestsDoNotAlreadyCoverThis": "No linked tests exercise large command streams or repeated command output rendering.",
+  "suggestedRegressionTest": "Add a renderer test that sends many stream events and asserts the log is capped or trimmed according to the chosen retention policy.",
+  "minimumFixScope": "Introduce a bounded command log policy in ClawpatchApp and avoid recomputing the full formatted output on every CommandPanel render.",
+  "status": "open",
+  "history": [],
+  "signature": "sig_feat-library-8e600da3ee_3a732f6254",
+  "linkedPatchAttemptIds": [],
+  "createdByRunId": "20260519T113652-408557",
+  "createdAt": "2026-05-19T11:38:14.401Z",
+  "updatedAt": "2026-05-19T11:38:14.401Z"
+}

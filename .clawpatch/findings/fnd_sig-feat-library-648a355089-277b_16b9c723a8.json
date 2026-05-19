@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "findingId": "fnd_sig-feat-library-648a355089-277b_16b9c723a8",
+  "featureId": "feat_library_648a355089",
+  "title": "Literal schemas are built from arrays instead of literal arguments",
+  "category": "bug",
+  "severity": "high",
+  "confidence": "medium",
+  "triage": "risk",
+  "evidence": [
+    {
+      "path": "src/shared/schemas.ts",
+      "startLine": 4,
+      "endLine": 4,
+      "symbol": "ClawpatchStatusSchema",
+      "quote": "export const ClawpatchStatusSchema = Schema.Literals(clawpatchStatuses);"
+    },
+    {
+      "path": "src/shared/schemas.ts",
+      "startLine": 34,
+      "endLine": 35,
+      "symbol": "CommandStreamEventSchema.stream",
+      "quote": "stream: Schema.Literals([\"stdout\", \"stderr\"]),"
+    }
+  ],
+  "reasoning": "In Effect Schema, literal unions are normally constructed from the literal values themselves, not from a single array value. Passing the status array or stream array as one argument risks creating a schema for that array value rather than a union of allowed strings, which would reject valid payloads such as status \"open\" or stream \"stdout\" at runtime and would also distort the exported TypeScript types. This affects command request validation, GUI metadata, finding status fields, and command stream events because they all depend on these schemas.",
+  "reproduction": "Decode any value using one of these schemas, for example a triage request with { command: \"triage\", findingId: \"f1\", status: \"open\" } or a stream event with { runId: \"r1\", stream: \"stdout\", chunk: \"x\" }. If Schema.Literals treats the array as one literal argument, the decode fails even though the API contract expects those string values.",
+  "recommendation": "Construct literal schemas with spread arguments, for example `Schema.Literals(...clawpatchStatuses)` and `Schema.Literals(\"stdout\", \"stderr\")`, or use the correct Effect API for literal unions if the installed version names it differently.",
+  "whyTestsDoNotAlreadyCoverThis": "The feature declares no linked tests, and there is no evidence of schema decode tests for status-bearing requests or command stream events.",
+  "suggestedRegressionTest": "Add tests that decode representative valid values for `ClawpatchStatusSchema`, `ClawpatchCommandRequestSchema` triage requests, `GuiMetadataSchema`, and `CommandStreamEventSchema`, and assert invalid literals are rejected.",
+  "minimumFixScope": "Update the literal schema construction sites in `src/shared/schemas.ts` and add focused schema validation tests.",
+  "status": "open",
+  "history": [],
+  "signature": "sig_feat-library-648a355089_277b15bfd7",
+  "linkedPatchAttemptIds": [],
+  "createdByRunId": "20260519T113652-408557",
+  "createdAt": "2026-05-19T11:37:17.745Z",
+  "updatedAt": "2026-05-19T11:37:17.745Z"
+}

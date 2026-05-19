@@ -22,13 +22,33 @@
   ],
   "contextFiles": [],
   "tests": [],
-  "tags": ["node", "package-script", "project:clawpatch-gui", "project-root:."],
-  "trustBoundaries": ["process-exec", "filesystem"],
-  "status": "pending",
+  "tags": [
+    "node",
+    "package-script",
+    "project:clawpatch-gui",
+    "project-root:."
+  ],
+  "trustBoundaries": [
+    "process-exec",
+    "filesystem"
+  ],
+  "status": "needs-fix",
   "lock": null,
-  "findingIds": [],
+  "findingIds": [
+    "fnd_sig-feat-release-51170e0f9c-f13b_e8e69a5e54"
+  ],
   "patchAttemptIds": [],
-  "analysisHistory": [],
+  "analysisHistory": [
+    {
+      "runId": "20260519T113652-408557",
+      "kind": "review",
+      "summary": "1 finding(s)",
+      "provider": "codex",
+      "model": null,
+      "reasoningEffort": null,
+      "createdAt": "2026-05-19T11:37:11.307Z"
+    }
+  ],
   "createdAt": "2026-05-19T08:07:07.260Z",
-  "updatedAt": "2026-05-19T08:07:07.260Z"
+  "updatedAt": "2026-05-19T11:37:11.307Z"
 }

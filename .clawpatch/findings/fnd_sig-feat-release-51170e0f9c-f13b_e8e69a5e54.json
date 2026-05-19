@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "findingId": "fnd_sig-feat-release-51170e0f9c-f13b_e8e69a5e54",
+  "featureId": "feat_release_51170e0f9c",
+  "title": "Build script skips TypeScript checking",
+  "category": "build-release",
+  "severity": "medium",
+  "confidence": "high",
+  "triage": "risk",
+  "evidence": [
+    {
+      "path": "package.json",
+      "startLine": 8,
+      "endLine": 8,
+      "symbol": "scripts.build",
+      "quote": "\"build\": \"electron-vite build\""
+    },
+    {
+      "path": "package.json",
+      "startLine": 12,
+      "endLine": 12,
+      "symbol": "scripts.typecheck",
+      "quote": "\"typecheck\": \"tsc --noEmit\""
+    }
+  ],
+  "reasoning": "The reviewed feature is defined as package script build running `tsc --noEmit && electron-vite build`, but the actual `build` script only invokes `electron-vite build`. A developer, release job, or package consumer running `pnpm build` can produce release artifacts without the explicit TypeScript no-emit check that the feature promises. `check:ci` runs typecheck separately, but that does not protect the `build` entrypoint itself.",
+  "reproduction": "Run `pnpm build`; it executes `electron-vite build` directly rather than `tsc --noEmit && electron-vite build`.",
+  "recommendation": "Change the build script to `tsc --noEmit && electron-vite build`, or make `build` delegate to the existing `typecheck` script before invoking `electron-vite build`.",
+  "whyTestsDoNotAlreadyCoverThis": "No linked tests are included for this package script behavior, and package scripts are not validated by the listed Vitest test suite evidence.",
+  "suggestedRegressionTest": "Add a package-script assertion that `scripts.build` includes the typecheck step before `electron-vite build`, or add a CI smoke test that runs `pnpm build` against a fixture with a TypeScript error and verifies it fails before bundling.",
+  "minimumFixScope": "package.json `scripts.build`",
+  "status": "open",
+  "history": [],
+  "signature": "sig_feat-release-51170e0f9c_f13bb10a47",
+  "linkedPatchAttemptIds": [],
+  "createdByRunId": "20260519T113652-408557",
+  "createdAt": "2026-05-19T11:37:11.306Z",
+  "updatedAt": "2026-05-19T11:37:11.306Z"
+}

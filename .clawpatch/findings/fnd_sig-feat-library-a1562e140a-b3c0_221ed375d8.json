@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "findingId": "fnd_sig-feat-library-a1562e140a-b3c0_221ed375d8",
+  "featureId": "feat_library_a1562e140a",
+  "title": "Concurrent repo additions can overwrite each other in repos.json",
+  "category": "data-loss",
+  "severity": "medium",
+  "confidence": "medium",
+  "triage": "risk",
+  "evidence": [
+    {
+      "path": "src/main/services/repoService.ts",
+      "startLine": 84,
+      "endLine": 98,
+      "symbol": "readRegistry",
+      "quote": "return { repos: Array.isArray(parsed.repos) ? parsed.repos : [] } satisfies RegistryFile;"
+    },
+    {
+      "path": "src/main/services/repoService.ts",
+      "startLine": 100,
+      "endLine": 119,
+      "symbol": "writeRegistry",
+      "quote": "writeFile(registryPath, `${JSON.stringify(registry, null, 2)}\\n`, \"utf8\")"
+    },
+    {
+      "path": "src/main/services/repoService.ts",
+      "startLine": 187,
+      "endLine": 202,
+      "symbol": "addRepo",
+      "quote": "const registry = yield* readRegistry(); ... registry.repos.push(repo); yield* writeRegistry(registry);"
+    }
+  ],
+  "reasoning": "RepoService.addRepo performs an unlocked read-modify-write of the shared registry file. Two IPC invocations adding different repositories can both read the same initial registry, append independently, and then the later write replaces the earlier write, losing one added repo. Electron ipcMain.handle handlers can be invoked concurrently, so this is not only theoretical for users adding repos from multiple UI actions or windows.",
+  "reproduction": "Start with an empty repos.json, invoke RepoService.addRepo concurrently for two valid repo directories, and arrange both calls to complete readRegistry before either writeRegistry. After both resolve, repos.json may contain only the repo from the last writer.",
+  "recommendation": "Serialize registry mutations per appDataDir, for example by guarding addRepo with an Effect Semaphore/Mutex or a promise queue around readRegistry/writeRegistry. Keep listRepos read-only outside the mutation lock unless stronger consistency is needed.",
+  "whyTestsDoNotAlreadyCoverThis": "test/main/repoService.test.ts covers sequential add/list behavior and malformed registry fallback, but it never runs addRepo concurrently or asserts that multiple simultaneous additions are preserved.",
+  "suggestedRegressionTest": "Add a RepoService test with two concurrent addRepo calls for distinct temp directories and a delayed write/read stub or filesystem barrier, then assert both repos are present in listRepos after both calls settle.",
+  "minimumFixScope": "src/main/services/repoService.ts registry mutation path, plus one concurrent addRepo regression test.",
+  "status": "open",
+  "history": [],
+  "signature": "sig_feat-library-a1562e140a_b3c0ef188a",
+  "linkedPatchAttemptIds": [],
+  "createdByRunId": "20260519T113652-408557",
+  "createdAt": "2026-05-19T11:37:27.433Z",
+  "updatedAt": "2026-05-19T11:37:27.433Z"
+}

@@ -39,13 +39,31 @@
     }
   ],
   "tests": [],
-  "tags": ["node", "typescript", "source-group", "project:clawpatch-gui", "project-root:."],
+  "tags": [
+    "node",
+    "typescript",
+    "source-group",
+    "project:clawpatch-gui",
+    "project-root:."
+  ],
   "trustBoundaries": [],
-  "status": "pending",
+  "status": "needs-fix",
   "lock": null,
-  "findingIds": [],
+  "findingIds": [
+    "fnd_sig-feat-library-648a355089-277b_16b9c723a8"
+  ],
   "patchAttemptIds": [],
-  "analysisHistory": [],
+  "analysisHistory": [
+    {
+      "runId": "20260519T113652-408557",
+      "kind": "review",
+      "summary": "1 finding(s)",
+      "provider": "codex",
+      "model": null,
+      "reasoningEffort": null,
+      "createdAt": "2026-05-19T11:37:17.746Z"
+    }
+  ],
   "createdAt": "2026-05-19T08:07:07.260Z",
-  "updatedAt": "2026-05-19T08:07:07.260Z"
+  "updatedAt": "2026-05-19T11:37:17.746Z"
 }

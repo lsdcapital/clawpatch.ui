@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "findingId": "fnd_sig-feat-library-93c42377fe-a456_90f7067123",
+  "featureId": "feat_library_93c42377fe",
+  "title": "Preload IPC surface has no regression coverage",
+  "category": "test-gap",
+  "severity": "low",
+  "confidence": "high",
+  "triage": "test-gap",
+  "evidence": [
+    {
+      "path": "src/preload/index.ts",
+      "startLine": 22,
+      "endLine": 55,
+      "symbol": "api",
+      "quote": "const api: Api = {"
+    },
+    {
+      "path": "package.json",
+      "startLine": 11,
+      "endLine": 18,
+      "symbol": "scripts",
+      "quote": "\"test\": \"vitest run\""
+    }
+  ],
+  "reasoning": "The preload file is the renderer-facing API contract for every repository, finding, feature, triage, command, stream, and git operation, but the feature declares no linked tests and the package test command is available. A wrong IPC channel, malformed payload object, or broken stream unsubscribe would not be caught before release.",
+  "reproduction": null,
+  "recommendation": "Add focused Vitest coverage that mocks electron's contextBridge and ipcRenderer, imports the preload module, and asserts each exposed method invokes the expected channel with the expected payload. Include a stream test proving onStream registers a handler, forwards only the payload to the listener, and removes the exact handler returned by the unsubscribe function.",
+  "whyTestsDoNotAlreadyCoverThis": "The feature metadata lists no tests for src/preload/index.ts, and no linked test evidence was provided for the exposed API contract.",
+  "suggestedRegressionTest": "Create a preload test that mocks electron, captures the object passed to contextBridge.exposeInMainWorld('clawpatch', api), then exercises repo.add, findings.get, triage.set, commands.run, git.diff, and commands.onStream against mocked ipcRenderer.invoke/on/removeListener.",
+  "minimumFixScope": "Add a test file for src/preload/index.ts and any minimal Vitest mock setup needed for the electron module.",
+  "status": "open",
+  "history": [],
+  "signature": "sig_feat-library-93c42377fe_a456f43bfa",
+  "linkedPatchAttemptIds": [],
+  "createdByRunId": "20260519T113652-408557",
+  "createdAt": "2026-05-19T11:37:33.817Z",
+  "updatedAt": "2026-05-19T11:37:33.817Z"
+}
