@@ -14,6 +14,7 @@ import type {
 } from "../../src/shared/types";
 
 const repoSidebarCollapsedStorageKey = "clawpatch.repoSidebarCollapsed.v1";
+const selectedRepoStorageKey = "clawpatch.selectedRepoId.v1";
 
 describe("ClawpatchApp header actions", () => {
   beforeEach(() => {
@@ -79,6 +80,76 @@ describe("ClawpatchApp header actions", () => {
       "aria-expanded",
       "false",
     );
+  });
+
+  it("restores the last selected repository from local storage", async () => {
+    window.localStorage.setItem(selectedRepoStorageKey, "repo-billing");
+    window.clawpatch = makeApi(
+      vi.fn<Api["commands"]["run"]>(async () => makeCommandResult("map")),
+      { repoList: async () => [makeRepo(), makeRepo({ id: "repo-billing", name: "billing" })] },
+    );
+
+    renderApp();
+
+    await screen.findByRole("heading", { name: "billing" });
+
+    expect(screen.getByRole("heading", { name: "billing" }).nextSibling).toHaveTextContent(
+      "/tmp/billing",
+    );
+    expect(window.localStorage.getItem(selectedRepoStorageKey)).toBe("repo-billing");
+  });
+
+  it("falls back to the first repository when the stored repository is stale", async () => {
+    window.localStorage.setItem(selectedRepoStorageKey, "repo-missing");
+    window.clawpatch = makeApi(
+      vi.fn<Api["commands"]["run"]>(async () => makeCommandResult("map")),
+      { repoList: async () => [makeRepo(), makeRepo({ id: "repo-billing", name: "billing" })] },
+    );
+
+    renderApp();
+
+    await screen.findByRole("heading", { name: "auth" });
+    await waitFor(() =>
+      expect(window.localStorage.getItem(selectedRepoStorageKey)).toBe("repo-auth"),
+    );
+  });
+
+  it("saves the selected repository from the sidebar", async () => {
+    window.clawpatch = makeApi(
+      vi.fn<Api["commands"]["run"]>(async () => makeCommandResult("map")),
+      { repoList: async () => [makeRepo(), makeRepo({ id: "repo-billing", name: "billing" })] },
+    );
+
+    renderApp();
+
+    await screen.findByRole("heading", { name: "auth" });
+    fireEvent.click(screen.getByRole("button", { name: /billing/i }));
+
+    await screen.findByRole("heading", { name: "billing" });
+    expect(window.localStorage.getItem(selectedRepoStorageKey)).toBe("repo-billing");
+  });
+
+  it("saves the newly added repository as the last selected repository", async () => {
+    const billingRepo = makeRepo({ id: "repo-billing", name: "billing" });
+    const add = vi.fn<Api["repo"]["add"]>(async () => billingRepo);
+    const pickFolder = vi.fn<Api["repo"]["pickFolder"]>(async () => "/tmp/billing");
+    const repoList = vi
+      .fn<Api["repo"]["list"]>()
+      .mockResolvedValueOnce([makeRepo()])
+      .mockResolvedValue([makeRepo(), billingRepo]);
+    window.clawpatch = makeApi(
+      vi.fn<Api["commands"]["run"]>(async () => makeCommandResult("map")),
+      { add, pickFolder, repoList },
+    );
+
+    renderApp();
+
+    await screen.findByRole("heading", { name: "auth" });
+    fireEvent.click(screen.getByRole("button", { name: "Add repository" }));
+
+    await waitFor(() => expect(add).toHaveBeenCalledWith("/tmp/billing"));
+    await screen.findByRole("heading", { name: "billing" });
+    expect(window.localStorage.getItem(selectedRepoStorageKey)).toBe("repo-billing");
   });
 
   it("adds repositories from the header plus button", async () => {
@@ -415,6 +486,7 @@ function installLocalStorage(): void {
 function makeApi(
   run: Api["commands"]["run"],
   options: {
+    add?: Api["repo"]["add"];
     findings?: readonly FindingListItem[];
     findingsList?: Api["findings"]["list"];
     featureMap?: Api["features"]["map"];
@@ -422,6 +494,7 @@ function makeApi(
     interrupt?: Api["commands"]["interrupt"];
     gitDiff?: Api["git"]["diff"];
     onStream?: Api["commands"]["onStream"];
+    pickFolder?: Api["repo"]["pickFolder"];
     repoList?: Api["repo"]["list"];
     triageSet?: Api["triage"]["set"];
   } = {},
@@ -429,8 +502,8 @@ function makeApi(
   return {
     repo: {
       list: options.repoList ?? (async () => [makeRepo()]),
-      add: async () => makeRepo(),
-      pickFolder: async () => null,
+      add: options.add ?? (async () => makeRepo()),
+      pickFolder: options.pickFolder ?? (async () => null),
       refresh: async () => ({
         repo: makeRepo(),
         status: null,
@@ -496,17 +569,19 @@ function makeFinding(): FindingDetail {
   };
 }
 
-function makeRepo(): RepoSummary {
+function makeRepo(overrides: Partial<RepoSummary> = {}): RepoSummary {
+  const name = overrides.name ?? "auth";
   return {
     id: "repo-auth",
-    name: "auth",
-    path: "/tmp/auth",
+    name,
+    path: `/tmp/${name}`,
     hasClawpatch: true,
     isValid: true,
     lastError: null,
     findingCount: 0,
     openFindingCount: 0,
     updatedAt: "2026-05-19T00:00:00.000Z",
+    ...overrides,
   };
 }
 

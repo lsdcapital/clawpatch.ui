@@ -55,10 +55,11 @@ const INSPECTOR_RESIZE_TRACK_WIDTH = 8;
 const PRIMARY_MIN_WIDTH = 520;
 const REPO_SIDEBAR_ID = "repo-sidebar";
 const REPO_SIDEBAR_COLLAPSED_STORAGE_KEY = "clawpatch.repoSidebarCollapsed.v1";
+const SELECTED_REPO_STORAGE_KEY = "clawpatch.selectedRepoId.v1";
 
 export function ClawpatchApp() {
   const queryClient = useQueryClient();
-  const [selectedRepoId, setSelectedRepoId] = useState<string | null>(null);
+  const [selectedRepoId, setSelectedRepoId] = useState<string | null>(readStoredSelectedRepoId);
   const [selectedFindingId, setSelectedFindingId] = useState<string | null>(null);
   const [commandLog, setCommandLog] = useState<LogEntry[]>([]);
   const [activeWorkspace, setActiveWorkspace] = useState<ActiveWorkspace>("findings");
@@ -82,10 +83,20 @@ export function ClawpatchApp() {
   );
 
   useEffect(() => {
-    if (selectedRepoId === null && selectedRepo !== null) {
-      setSelectedRepoId(selectedRepo.id);
+    if (reposQuery.data === undefined) {
+      return;
     }
-  }, [selectedRepo, selectedRepoId]);
+    const nextRepoId =
+      reposQuery.data.find((repo) => repo.id === selectedRepoId)?.id ??
+      reposQuery.data[0]?.id ??
+      null;
+    if (nextRepoId !== selectedRepoId) {
+      setSelectedRepoId(nextRepoId);
+    }
+    if (nextRepoId !== null) {
+      persistSelectedRepoId(nextRepoId);
+    }
+  }, [reposQuery.data, selectedRepoId]);
 
   const findingsQuery = useQuery({
     queryKey: ["findings", selectedRepo?.id],
@@ -150,6 +161,7 @@ export function ClawpatchApp() {
     mutationFn: (repoPath: string) => window.clawpatch.repo.add(repoPath),
     onSuccess: (repo) => {
       setSelectedRepoId(repo.id);
+      persistSelectedRepoId(repo.id);
       void queryClient.invalidateQueries({ queryKey: ["repos"] });
     },
   });
@@ -348,6 +360,7 @@ export function ClawpatchApp() {
           onAddRepo={(repoPath) => addRepoMutation.mutate(repoPath)}
           onSelectRepo={(repoId) => {
             setSelectedRepoId(repoId);
+            persistSelectedRepoId(repoId);
             setSelectedFindingId(null);
           }}
         />
@@ -597,6 +610,25 @@ function persistSidebarState(isCollapsed: boolean): void {
     window.localStorage.setItem(REPO_SIDEBAR_COLLAPSED_STORAGE_KEY, String(isCollapsed));
   } catch {
     // The toggle should keep working even if local storage is unavailable.
+  }
+}
+
+function readStoredSelectedRepoId(): string | null {
+  let storedRepoId: string | null;
+  try {
+    storedRepoId = window.localStorage.getItem(SELECTED_REPO_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+
+  return storedRepoId === null || storedRepoId.trim() === "" ? null : storedRepoId;
+}
+
+function persistSelectedRepoId(repoId: string): void {
+  try {
+    window.localStorage.setItem(SELECTED_REPO_STORAGE_KEY, repoId);
+  } catch {
+    // Repo selection should keep working even if local storage is unavailable.
   }
 }
 
