@@ -8,9 +8,17 @@ interface Props {
   isBusy: boolean;
   onTriage: (status: ClawpatchStatus, note: string) => void;
   onFix: () => void;
+  onRevalidate: () => void;
 }
 
-export function FindingDetailPanel({ finding, isLoading, isBusy, onTriage, onFix }: Props) {
+export function FindingDetailPanel({
+  finding,
+  isLoading,
+  isBusy,
+  onTriage,
+  onFix,
+  onRevalidate,
+}: Props) {
   const [status, setStatus] = useState<ClawpatchStatus>("open");
   const [note, setNote] = useState("");
 
@@ -92,6 +100,9 @@ export function FindingDetailPanel({ finding, isLoading, isBusy, onTriage, onFix
             </button>
             <button disabled={isBusy || finding.status === "fixed"} onClick={onFix}>
               Run fix
+            </button>
+            <button disabled={isBusy} onClick={onRevalidate}>
+              Revalidate
             </button>
           </div>
         </div>

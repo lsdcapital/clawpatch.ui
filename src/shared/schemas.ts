@@ -19,6 +19,7 @@ export const ClawpatchCommandRequestSchema = Schema.Union([
     note: Schema.optionalKey(Schema.String),
   }),
   Schema.Struct({ command: Schema.Literal("fix"), findingId: Schema.String }),
+  Schema.Struct({ command: Schema.Literal("revalidate"), findingId: Schema.String }),
   Schema.Struct({ command: Schema.Literal("doctor") }),
 ]);
 

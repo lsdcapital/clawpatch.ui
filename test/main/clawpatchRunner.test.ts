@@ -52,6 +52,14 @@ describe("buildClawpatchArgs", () => {
       "--finding",
       "abc123",
     ]);
+    expect(buildClawpatchArgs({ command: "revalidate", findingId: "abc123" })).toEqual([
+      "--json",
+      "--no-color",
+      "--no-input",
+      "revalidate",
+      "--finding",
+      "abc123",
+    ]);
   });
 
   it("builds native triage args with optional note", () => {
@@ -81,6 +89,12 @@ describe("buildClawpatchArgs", () => {
       "Missing findingId",
     );
     expect(() => buildClawpatchArgs({ command: "fix", findingId: "abc\nreport" })).toThrow(
+      "Invalid findingId",
+    );
+    expect(() => buildClawpatchArgs({ command: "revalidate", findingId: "" })).toThrow(
+      "Missing findingId",
+    );
+    expect(() => buildClawpatchArgs({ command: "revalidate", findingId: "abc\nreport" })).toThrow(
       "Invalid findingId",
     );
   });

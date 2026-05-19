@@ -36,9 +36,19 @@ describe("FindingsSplitPanel", () => {
     expect(screen.getByRole("heading", { name: "Findings" })).toBeInTheDocument();
     expect(screen.getByText("Token is logged in debug output")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Selected detail title" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Revalidate" })).toBeInTheDocument();
     expect(
       screen.getByRole("separator", { name: "Resize findings and detail panes" }),
     ).toBeInTheDocument();
+  });
+
+  it("calls the revalidate handler from the selected finding detail", () => {
+    const onRevalidate = vi.fn();
+    renderSplitPanel({ onRevalidate });
+
+    fireEvent.click(screen.getByRole("button", { name: "Revalidate" }));
+
+    expect(onRevalidate).toHaveBeenCalledOnce();
   });
 
   it("supports keyboard resizing within configured limits", () => {
@@ -100,7 +110,7 @@ function installLocalStorage(): void {
   });
 }
 
-function renderSplitPanel() {
+function renderSplitPanel(overrides: { onRevalidate?: () => void } = {}) {
   return render(
     <FindingsSplitPanel
       findings={findings}
@@ -116,6 +126,7 @@ function renderSplitPanel() {
       onSelectFinding={vi.fn()}
       onTriage={vi.fn()}
       onFix={vi.fn()}
+      onRevalidate={overrides.onRevalidate ?? vi.fn()}
     />,
   );
 }

@@ -24,6 +24,7 @@ interface Props {
   onSelectFinding: (findingId: string) => void;
   onTriage: (status: ClawpatchStatus, note: string) => void;
   onFix: () => void;
+  onRevalidate: () => void;
 }
 
 export function FindingsSplitPanel({
@@ -40,6 +41,7 @@ export function FindingsSplitPanel({
   onSelectFinding,
   onTriage,
   onFix,
+  onRevalidate,
 }: Props) {
   const [listWidth, setListWidth] = useState(readStoredListWidth);
   const [isResizing, setIsResizing] = useState(false);
@@ -137,6 +139,7 @@ export function FindingsSplitPanel({
         isBusy={isBusy}
         onTriage={onTriage}
         onFix={onFix}
+        onRevalidate={onRevalidate}
       />
     </section>
   );

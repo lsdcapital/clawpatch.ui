@@ -3,7 +3,14 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { describe, expect, it, vi } from "vitest";
 import packageJson from "../../package.json";
 import { ClawpatchApp } from "../../src/renderer/src/routes/ClawpatchApp";
-import type { Api, CommandResult, FeatureMapSnapshot, RepoSummary } from "../../src/shared/types";
+import type {
+  Api,
+  CommandResult,
+  FeatureMapSnapshot,
+  FindingDetail,
+  FindingListItem,
+  RepoSummary,
+} from "../../src/shared/types";
 
 describe("ClawpatchApp header actions", () => {
   it("shows the app brand and package version in the sidebar", async () => {
@@ -129,6 +136,26 @@ describe("ClawpatchApp header actions", () => {
     expect(screen.getByRole("complementary", { name: "Command output" })).toBeInTheDocument();
   });
 
+  it("revalidates the selected finding and opens command output", async () => {
+    const run = vi.fn<Api["commands"]["run"]>(async (_repoId, request) =>
+      makeCommandResult(request.command),
+    );
+    window.clawpatch = makeApi(run, { findings: [makeFinding()], findingDetail: makeFinding() });
+
+    renderApp();
+
+    await screen.findByRole("heading", { name: "Token is logged in debug output" });
+    fireEvent.click(screen.getByRole("button", { name: "Revalidate" }));
+
+    await waitFor(() =>
+      expect(run).toHaveBeenCalledWith("repo-auth", {
+        command: "revalidate",
+        findingId: "fnd-security",
+      }),
+    );
+    expect(screen.getByRole("complementary", { name: "Command output" })).toBeInTheDocument();
+  });
+
   it("supports keyboard resizing for the shared inspector", async () => {
     window.clawpatch = makeApi(vi.fn<Api["commands"]["run"]>(async () => makeCommandResult("map")));
 
@@ -164,7 +191,13 @@ function renderApp() {
   );
 }
 
-function makeApi(run: Api["commands"]["run"]): Api {
+function makeApi(
+  run: Api["commands"]["run"],
+  options: {
+    findings?: readonly FindingListItem[];
+    findingDetail?: FindingDetail;
+  } = {},
+): Api {
   return {
     repo: {
       list: async () => [makeRepo()],
@@ -185,9 +218,12 @@ function makeApi(run: Api["commands"]["run"]): Api {
       }),
     },
     findings: {
-      list: async () => [],
+      list: async () => options.findings ?? [],
       get: async () => {
-        throw new Error("No finding expected");
+        if (options.findingDetail === undefined) {
+          throw new Error("No finding expected");
+        }
+        return options.findingDetail;
       },
     },
     features: {
@@ -203,6 +239,33 @@ function makeApi(run: Api["commands"]["run"]): Api {
     git: {
       diff: async () => "",
     },
+  };
+}
+
+function makeFinding(): FindingDetail {
+  return {
+    findingId: "fnd-security",
+    featureId: "feat-auth",
+    title: "Token is logged in debug output",
+    category: "security",
+    severity: "high",
+    confidence: "high",
+    triage: null,
+    status: "open",
+    evidence: [],
+    linkedPatchAttemptIds: [],
+    createdAt: "2026-05-19T00:00:00.000Z",
+    updatedAt: "2026-05-19T00:00:00.000Z",
+    localNote: null,
+    reasoning: "Token values should not be written to logs.",
+    reproduction: null,
+    recommendation: "Remove the log.",
+    whyTestsDoNotAlreadyCoverThis: null,
+    suggestedRegressionTest: null,
+    minimumFixScope: null,
+    feature: null,
+    patchAttempts: [],
+    history: [],
   };
 }
 
