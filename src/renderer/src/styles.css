@@ -1201,7 +1201,19 @@ button.table-row:hover:not(:disabled) {
 
 .triage-controls textarea {
   min-height: 64px;
+  padding-right: 38px;
   resize: vertical;
+}
+
+.note-input {
+  min-width: 0;
+  position: relative;
+}
+
+.note-send-button {
+  bottom: 6px;
+  position: absolute;
+  right: 6px;
 }
 
 .detail-actions {
