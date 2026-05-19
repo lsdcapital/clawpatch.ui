@@ -142,8 +142,11 @@ export function ClawpatchApp() {
   useEffect(() => {
     return window.clawpatch.commands.onStream((event) => {
       setCommandLog((current) => [...current, { kind: "stream", event }]);
+      if (isReviewFeatureDoneEvent(event)) {
+        void invalidateReviewProgress(queryClient);
+      }
     });
-  }, []);
+  }, [queryClient]);
 
   const addRepoMutation = useMutation({
     mutationFn: (repoPath: string) => window.clawpatch.repo.add(repoPath),
@@ -578,4 +581,22 @@ async function invalidateRepo(
     queryClient.invalidateQueries({ queryKey: ["finding"] }),
     queryClient.invalidateQueries({ queryKey: ["diff", repoId] }),
   ]);
+}
+
+async function invalidateReviewProgress(
+  queryClient: ReturnType<typeof useQueryClient>,
+): Promise<void> {
+  await Promise.all([
+    queryClient.invalidateQueries({ queryKey: ["repos"] }),
+    queryClient.invalidateQueries({ queryKey: ["features"] }),
+    queryClient.invalidateQueries({ queryKey: ["findings"] }),
+  ]);
+}
+
+function isReviewFeatureDoneEvent(event: CommandStreamEvent): boolean {
+  if (event.stream !== "stderr") {
+    return false;
+  }
+
+  return event.chunk.split(/\r?\n/).some((line) => line.includes("clawpatch review feature-done"));
 }
