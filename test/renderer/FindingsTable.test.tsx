@@ -37,6 +37,7 @@ describe("FindingsTable filters", () => {
     fireEvent.click(screen.getByText("Filter"));
     fireEvent.click(screen.getByRole("button", { name: "High" }));
 
+    expect(getFilterMenu()).toHaveProperty("open", true);
     expect(screen.getByText("1 of 2 shown")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Clear High filter" })).toBeInTheDocument();
     expect(screen.getByText("Token is logged in debug output")).toBeInTheDocument();
@@ -65,6 +66,16 @@ describe("FindingsTable filters", () => {
     expect(screen.getByRole("button", { name: "Clear Security filter" })).toBeInTheDocument();
     expect(screen.getByText("Token is logged in debug output")).toBeInTheDocument();
     expect(screen.queryByText("Null branch can throw")).not.toBeInTheDocument();
+  });
+
+  it("closes the filter menu when clicking outside it", () => {
+    render(<FilterHarness findings={findings} />);
+
+    fireEvent.click(screen.getByText("Filter"));
+    expect(getFilterMenu()).toHaveProperty("open", true);
+
+    fireEvent.mouseDown(screen.getByLabelText("Search findings"));
+    expect(getFilterMenu()).toHaveProperty("open", false);
   });
 
   it("shows empty states for no findings and no filter matches", () => {
@@ -124,6 +135,12 @@ function FilterHarness({
       onSelectFinding={() => undefined}
     />
   );
+}
+
+function getFilterMenu(): HTMLDetailsElement {
+  const filterMenu = screen.getByText("Filter").closest("details");
+  expect(filterMenu).not.toBeNull();
+  return filterMenu as HTMLDetailsElement;
 }
 
 function makeFinding(overrides: Partial<FindingListItem>): FindingListItem {
