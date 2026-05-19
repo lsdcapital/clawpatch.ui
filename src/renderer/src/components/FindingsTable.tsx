@@ -39,7 +39,7 @@ export function FindingsTable({
   };
 
   return (
-    <section className="panel findings-panel">
+    <div className="findings-list-pane">
       <div className="panel-header">
         <h2>Findings</h2>
         <span>{countLabel}</span>
@@ -134,7 +134,7 @@ export function FindingsTable({
           </div>
         ) : null}
       </div>
-    </section>
+    </div>
   );
 }
 

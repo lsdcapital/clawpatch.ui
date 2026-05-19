@@ -18,8 +18,7 @@ import type {
 } from "../../../shared/types";
 import { CommandPanel } from "../components/CommandPanel";
 import { DiffViewer } from "../components/DiffViewer";
-import { FindingDetailPanel } from "../components/FindingDetailPanel";
-import { FindingsTable } from "../components/FindingsTable";
+import { FindingsSplitPanel } from "../components/FindingsSplitPanel";
 import { RepoSidebar } from "../components/RepoSidebar";
 import { ReviewCoveragePanel } from "../components/ReviewCoveragePanel";
 import {
@@ -298,20 +297,18 @@ export function ClawpatchApp() {
               onReviewAllPending={(limit) => runCommand({ command: "review", limit })}
               onReviewFeature={(featureId) => runCommand({ command: "review", featureId })}
             />
-            <FindingsTable
+            <FindingsSplitPanel
               findings={filteredFindings}
               totalFindingCount={allFindings.length}
               selectedFindingId={selectedFinding?.findingId ?? null}
-              isLoading={findingsQuery.isLoading}
+              isFindingsLoading={findingsQuery.isLoading}
               filters={findingFilters}
               filterOptions={findingFilterOptions}
+              finding={detailQuery.data ?? null}
+              isDetailLoading={detailQuery.isLoading}
+              isBusy={triageMutation.isPending || commandMutation.isPending}
               onFiltersChange={setFindingFilters}
               onSelectFinding={setSelectedFindingId}
-            />
-            <FindingDetailPanel
-              finding={detailQuery.data ?? null}
-              isLoading={detailQuery.isLoading}
-              isBusy={triageMutation.isPending || commandMutation.isPending}
               onTriage={(status, note) => {
                 if (selectedRepo !== null && selectedFinding !== null) {
                   setActiveDrawer("output");

@@ -23,14 +23,14 @@ export function FindingDetailPanel({ finding, isLoading, isBusy, onTriage, onFix
 
   if (finding === null) {
     return (
-      <section className="panel detail-panel">
+      <div className="detail-pane">
         <div className="empty-state">{isLoading ? "Loading finding" : "No finding selected"}</div>
-      </section>
+      </div>
     );
   }
 
   return (
-    <section className="panel detail-panel">
+    <div className="detail-pane">
       <div className="panel-header">
         <h2>{finding.title}</h2>
         <span>{finding.findingId}</span>
@@ -96,7 +96,7 @@ export function FindingDetailPanel({ finding, isLoading, isBusy, onTriage, onFix
           </div>
         </div>
       </div>
-    </section>
+    </div>
   );
 }
 

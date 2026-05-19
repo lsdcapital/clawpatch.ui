@@ -392,7 +392,7 @@ button:disabled {
 .primary-workspace {
   display: grid;
   gap: 10px;
-  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+  grid-template-columns: minmax(0, 1fr);
   grid-template-rows: auto minmax(0, 1fr);
   min-height: 0;
   min-width: 0;
@@ -583,6 +583,54 @@ button:disabled {
   font-weight: 500;
 }
 
+.findings-workspace {
+  display: grid;
+  grid-template-columns: minmax(300px, var(--findings-list-width)) 8px minmax(0, 1fr);
+}
+
+.findings-list-pane,
+.detail-pane {
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.findings-resize-handle {
+  background: #f6f7f8;
+  border-left: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  cursor: col-resize;
+  min-height: 0;
+  position: relative;
+  touch-action: none;
+}
+
+.findings-resize-handle::after {
+  background: #c9ced6;
+  border-radius: 999px;
+  content: "";
+  height: 32px;
+  left: 50%;
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 2px;
+}
+
+.findings-resize-handle:hover,
+.findings-resize-handle:focus-visible,
+.findings-workspace.resizing .findings-resize-handle {
+  background: var(--accent-soft);
+}
+
+.findings-resize-handle:focus-visible {
+  outline: 2px solid rgba(47, 111, 237, 0.25);
+  outline-offset: -2px;
+}
+
 .findings-toolbar {
   background: var(--surface);
   border-bottom: 1px solid var(--border);
@@ -716,13 +764,16 @@ button:disabled {
 }
 
 .findings-table {
+  align-content: start;
   display: grid;
   flex: 1;
+  grid-auto-rows: minmax(34px, max-content);
   min-height: 0;
   overflow: auto;
 }
 
 .table-row {
+  align-items: center;
   background: var(--surface);
   border: 0;
   border-bottom: 1px solid #edf0f2;
@@ -930,11 +981,16 @@ button.table-row:hover:not(:disabled) {
 }
 
 @media (max-width: 1160px) {
-  .primary-workspace {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
   .workspace-body.drawer-open {
     grid-template-columns: minmax(0, 1fr) clamp(340px, 38vw, 440px);
+  }
+
+  .findings-workspace {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(220px, 40%) 0 minmax(0, 1fr);
+  }
+
+  .findings-resize-handle {
+    display: none;
   }
 }
