@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-label="Clawpatch UI icon">
+  <rect width="1024" height="1024" rx="220" fill="#101418"/>
+  <path d="M259 646V378c0-46 37-83 83-83h214c124 0 225 101 225 225s-101 225-225 225H342c-46 0-83-37-83-83v-16Z" fill="#F5F0E8"/>
+  <path d="M381 618V422h169c54 0 98 44 98 98s-44 98-98 98H381Z" fill="#101418"/>
+  <path d="M465 520h311" stroke="#2DBE7E" stroke-width="72" stroke-linecap="round"/>
+  <path d="M537 403 654 520 537 637" fill="none" stroke="#2DBE7E" stroke-width="72" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="342" cy="422" r="42" fill="#E44D61"/>
+  <circle cx="342" cy="618" r="42" fill="#E44D61"/>
+</svg>
