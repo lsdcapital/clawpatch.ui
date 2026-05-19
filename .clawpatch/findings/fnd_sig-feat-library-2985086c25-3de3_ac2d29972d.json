@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "findingId": "fnd_sig-feat-library-2985086c25-3de3_ac2d29972d",
+  "featureId": "feat_library_2985086c25",
+  "title": "Concurrent repo additions can overwrite each other in repos.json",
+  "category": "data-loss",
+  "severity": "medium",
+  "confidence": "medium",
+  "triage": "risk",
+  "evidence": [
+    {
+      "path": "src/main/services/repoService.ts",
+      "startLine": 64,
+      "endLine": 81,
+      "symbol": "readRegistry",
+      "quote": "Reads the current registry into memory and falls back to an empty registry on read/parse failure."
+    },
+    {
+      "path": "src/main/services/repoService.ts",
+      "startLine": 83,
+      "endLine": 103,
+      "symbol": "writeRegistry",
+      "quote": "Writes the entire registry object back to repos.json."
+    },
+    {
+      "path": "src/main/services/repoService.ts",
+      "startLine": 165,
+      "endLine": 181,
+      "symbol": "addRepo",
+      "quote": "addRepo reads the registry, pushes one repo, then writes the whole file without a lock or compare-and-retry."
+    }
+  ],
+  "reasoning": "addRepo performs a read-modify-write cycle over the whole registry file without serialization. If two IPC calls add different repos at the same time, both can read the same initial registry, each append its own repo, and the later write will drop the earlier addition. The renderer currently disables repeated clicks, but the service and IPC handler still expose addRepo as an async operation that can be invoked concurrently.",
+  "reproduction": "Start with an empty repos.json, call repoService.addRepo('/repo-a') and repoService.addRepo('/repo-b') concurrently, and inspect repos.json after both complete; only one of the two additions may remain depending on write ordering.",
+  "recommendation": "Serialize registry mutations per registryPath, or implement atomic compare-and-retry writes. At minimum, make addRepo run under a mutex that covers readRegistry through writeRegistry.",
+  "whyTestsDoNotAlreadyCoverThis": "test/main/repoService.test.ts exercises validation, serial add/list behavior, feature map reads, triage forwarding, and malformed registry fallback, but it never runs two addRepo calls concurrently or asserts that both survive in repos.json.",
+  "suggestedRegressionTest": "Add a RepoService test that uses a controllable writeRegistry or filesystem delay to run two addRepo calls concurrently, then asserts listRepos returns both repositories.",
+  "minimumFixScope": "src/main/services/repoService.ts registry mutation path plus a focused concurrent addRepo regression test.",
+  "status": "open",
+  "history": [],
+  "signature": "sig_feat-library-2985086c25_3de3b849e1",
+  "linkedPatchAttemptIds": [],
+  "createdByRunId": "20260519T090731-6c235c",
+  "createdAt": "2026-05-19T09:08:45.666Z",
+  "updatedAt": "2026-05-19T09:08:45.666Z"
+}
