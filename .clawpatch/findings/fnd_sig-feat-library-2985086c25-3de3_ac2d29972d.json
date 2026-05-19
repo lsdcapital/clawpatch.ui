@@ -36,11 +36,13 @@
   "whyTestsDoNotAlreadyCoverThis": "test/main/repoService.test.ts exercises validation, serial add/list behavior, feature map reads, triage forwarding, and malformed registry fallback, but it never runs two addRepo calls concurrently or asserts that both survive in repos.json.",
   "suggestedRegressionTest": "Add a RepoService test that uses a controllable writeRegistry or filesystem delay to run two addRepo calls concurrently, then asserts listRepos returns both repositories.",
   "minimumFixScope": "src/main/services/repoService.ts registry mutation path plus a focused concurrent addRepo regression test.",
-  "status": "open",
+  "status": "uncertain",
   "history": [],
   "signature": "sig_feat-library-2985086c25_3de3b849e1",
-  "linkedPatchAttemptIds": [],
+  "linkedPatchAttemptIds": [
+    "pat_fnd-sig-feat-library-2985086c25-_be9b4471b0"
+  ],
   "createdByRunId": "20260519T090731-6c235c",
   "createdAt": "2026-05-19T09:08:45.666Z",
-  "updatedAt": "2026-05-19T09:08:45.666Z"
+  "updatedAt": "2026-05-19T12:17:39.654Z"
 }

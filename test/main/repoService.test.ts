@@ -86,6 +86,41 @@ describe("RepoService", () => {
     }).pipe(Effect.provide(makeRepoServiceTestLayer(fixtureRepo, calls)));
   });
 
+  it("preserves concurrent repo additions", async () => {
+    const calls: RunnerCall[] = [];
+    const appData = await makeTempDir();
+    const repoDirs = await Promise.all([
+      makeTempDir(),
+      makeTempDir(),
+      makeTempDir(),
+      makeTempDir(),
+      makeTempDir(),
+    ]);
+    const runtime = ManagedRuntime.make(makeRepoServiceTestLayer(fixtureRepo, calls, appData));
+
+    try {
+      await runtime.runPromise(
+        Effect.gen(function* () {
+          const service = yield* RepoService;
+          yield* Effect.all(repoDirs.map((repoDir) => service.addRepo(repoDir)), {
+            concurrency: "unbounded",
+          });
+        }),
+      );
+
+      const repos = await runtime.runPromise(
+        Effect.gen(function* () {
+          const service = yield* RepoService;
+          return yield* service.listRepos();
+        }),
+      );
+
+      expect(repos.map((repo) => repo.path).toSorted()).toEqual(repoDirs.toSorted());
+    } finally {
+      await runtime.dispose();
+    }
+  });
+
   it("skips background status validation while a command is running", async () => {
     const calls: RunnerCall[] = [];
     const appData = await makeTempDir();

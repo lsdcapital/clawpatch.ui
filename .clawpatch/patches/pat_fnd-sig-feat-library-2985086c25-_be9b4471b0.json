@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "patchAttemptId": "pat_fnd-sig-feat-library-2985086c25-_be9b4471b0",
+  "findingIds": [
+    "fnd_sig-feat-library-2985086c25-3de3_ac2d29972d"
+  ],
+  "featureIds": [
+    "feat_library_2985086c25"
+  ],
+  "status": "applied",
+  "plan": "Serialized RepoService registry mutations with an Effect semaphore so concurrent addRepo calls cannot overwrite each other, and added a focused concurrent additions regression test.",
+  "filesChanged": [
+    "src/main/services/repoService.ts",
+    "test/main/repoService.test.ts"
+  ],
+  "commandsRun": [
+    {
+      "command": "pnpm test",
+      "cwd": "/Users/steflsd/src/lsdcapital/clawpatch.ui",
+      "exitCode": 0,
+      "durationMs": 3293,
+      "stdout": "\n RUN  v4.1.6 /Users/steflsd/src/lsdcapital/clawpatch.ui\n\n ✓ test/main/windowState.test.ts (4 tests) 34ms\n ✓ test/renderer/findingsFilters.test.ts (6 tests) 15ms\n ✓ test/main/effectIpc.test.ts (1 test) 8ms\n ✓ test/main/clawpatchRunner.test.ts (8 tests) 11ms\n ✓ test/main/handlers.test.ts (3 tests) 18ms\n ✓ test/main/clawpatchState.test.ts (5 tests) 62ms\n ✓ test/main/repoService.test.ts (9 tests) 91ms\n ✓ test/renderer/ReviewMapPanel.test.tsx (4 tests) 325ms\n ✓ test/renderer/FindingsTable.test.tsx (5 tests) 416ms\n     ✓ renders filter controls, active chips, and clear behavior  329ms\n ✓ test/preload/index.test.ts (1 test) 14ms\n ✓ test/renderer/styles.test.ts (1 test) 2ms\n ✓ test/shared/schemas.test.ts (6 tests) 6ms\n ✓ test/renderer/FindingsSplitPanel.test.tsx (10 tests) 484ms\n ✓ test/renderer/ClawpatchApp.test.tsx (14 tests) 1510ms\n\n Test Files  14 passed (14)\n      Tests  77 passed (77)\n   Start at  16:17:36\n   Duration  2.85s (transform 1.00s, setup 927ms, import 2.59s, tests 3.00s, environment 8.52s)\n\n",
+      "stderr": "$ vitest run\nstderr | test/renderer/ClawpatchApp.test.tsx > ClawpatchApp header actions > interrupts a running command from command output\nAn update to ClawpatchApp inside a test was not wrapped in act(...).\n\nWhen testing, code that causes React state updates should be wrapped into act(...):\n\nact(() => {\n  /* fire events that update state */\n});\n/* assert on the output */\n\nThis ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act\n\n"
+    }
+  ],
+  "testResults": [
+    {
+      "command": "pnpm test",
+      "cwd": "/Users/steflsd/src/lsdcapital/clawpatch.ui",
+      "exitCode": 0,
+      "durationMs": 3293,
+      "stdout": "\n RUN  v4.1.6 /Users/steflsd/src/lsdcapital/clawpatch.ui\n\n ✓ test/main/windowState.test.ts (4 tests) 34ms\n ✓ test/renderer/findingsFilters.test.ts (6 tests) 15ms\n ✓ test/main/effectIpc.test.ts (1 test) 8ms\n ✓ test/main/clawpatchRunner.test.ts (8 tests) 11ms\n ✓ test/main/handlers.test.ts (3 tests) 18ms\n ✓ test/main/clawpatchState.test.ts (5 tests) 62ms\n ✓ test/main/repoService.test.ts (9 tests) 91ms\n ✓ test/renderer/ReviewMapPanel.test.tsx (4 tests) 325ms\n ✓ test/renderer/FindingsTable.test.tsx (5 tests) 416ms\n     ✓ renders filter controls, active chips, and clear behavior  329ms\n ✓ test/preload/index.test.ts (1 test) 14ms\n ✓ test/renderer/styles.test.ts (1 test) 2ms\n ✓ test/shared/schemas.test.ts (6 tests) 6ms\n ✓ test/renderer/FindingsSplitPanel.test.tsx (10 tests) 484ms\n ✓ test/renderer/ClawpatchApp.test.tsx (14 tests) 1510ms\n\n Test Files  14 passed (14)\n      Tests  77 passed (77)\n   Start at  16:17:36\n   Duration  2.85s (transform 1.00s, setup 927ms, import 2.59s, tests 3.00s, environment 8.52s)\n\n",
+      "stderr": "$ vitest run\nstderr | test/renderer/ClawpatchApp.test.tsx > ClawpatchApp header actions > interrupts a running command from command output\nAn update to ClawpatchApp inside a test was not wrapped in act(...).\n\nWhen testing, code that causes React state updates should be wrapped into act(...):\n\nact(() => {\n  /* fire events that update state */\n});\n/* assert on the output */\n\nThis ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act\n\n"
+    }
+  ],
+  "provider": {
+    "name": "codex",
+    "model": null,
+    "reasoningEffort": null,
+    "requestId": null,
+    "startedAt": "2026-05-19T12:16:25.190Z",
+    "finishedAt": "2026-05-19T12:17:39.654Z"
+  },
+  "git": {
+    "baseSha": "97d53a5e38e03ecdbf0ccc165df28b216a1bc1e7",
+    "commitSha": null,
+    "branchName": "main",
+    "prUrl": null
+  },
+  "createdAt": "2026-05-19T12:16:25.183Z",
+  "updatedAt": "2026-05-19T12:17:39.654Z"
+}

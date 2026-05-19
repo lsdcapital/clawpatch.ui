@@ -5,6 +5,7 @@ import { basename, dirname, resolve } from "node:path";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import * as Semaphore from "effect/Semaphore";
 import type {
   ClawpatchCommandRequest,
   ClawpatchStatus,
@@ -62,6 +63,7 @@ export const RepoServiceLive = (appDataDir: string) =>
       const metadata = yield* UiMetadataService;
       const git = yield* GitService;
       const registryPath = resolve(appDataDir, "repos.json");
+      const registryMutationSemaphore = yield* Semaphore.make(1);
 
       const readRegistry = Effect.fn("repoService.readRegistry")(function* () {
         const raw = yield* Effect.tryPromise(() => readFile(registryPath, "utf8")).pipe(
@@ -173,21 +175,26 @@ export const RepoServiceLive = (appDataDir: string) =>
         }),
         addRepo: Effect.fn("repoService.addRepo")(function* (repoPath) {
           const normalized = yield* normalizeExistingDirectory(repoPath);
-          const registry = yield* readRegistry();
-          const existing = registry.repos.find((repo) => repo.path === normalized);
-          if (existing !== undefined) {
-            return yield* summarizeRepo(existing.path, existing.id);
-          }
+          const repo = yield* registryMutationSemaphore.withPermit(
+            Effect.gen(function* () {
+              const registry = yield* readRegistry();
+              const existing = registry.repos.find((repo) => repo.path === normalized);
+              if (existing !== undefined) {
+                return existing;
+              }
 
-          const repo = {
-            id: repoId(normalized),
-            name: basename(normalized),
-            path: normalized,
-            updatedAt: new Date().toISOString(),
-          };
-          registry.repos.push(repo);
-          yield* writeRegistry(registry);
-          return yield* summarizeRepo(normalized, repo.id);
+              const repo = {
+                id: repoId(normalized),
+                name: basename(normalized),
+                path: normalized,
+                updatedAt: new Date().toISOString(),
+              };
+              registry.repos.push(repo);
+              yield* writeRegistry(registry);
+              return repo;
+            }),
+          );
+          return yield* summarizeRepo(repo.path, repo.id);
         }),
         refreshRepo: Effect.fn("repoService.refreshRepo")(function* (repoIdValue) {
           const repo = yield* requireRepo(repoIdValue);
