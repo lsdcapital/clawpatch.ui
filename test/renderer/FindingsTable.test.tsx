@@ -6,9 +6,12 @@ import { clawpatchStatuses } from "../../src/shared/constants";
 import { FindingsTable } from "../../src/renderer/src/components/FindingsTable";
 import {
   defaultFindingFilters,
+  defaultFindingSort,
   filterFindings,
   getFindingFilterOptions,
+  sortFindings,
   type FindingFilters,
+  type FindingSort,
 } from "../../src/renderer/src/findingsFilters";
 
 describe("FindingsTable filters", () => {
@@ -103,13 +106,44 @@ describe("FindingsTable filters", () => {
         isLoading={false}
         filters={defaultFindingFilters}
         filterOptions={getFindingFilterOptions(findings, clawpatchStatuses)}
+        sort={defaultFindingSort}
         onFiltersChange={vi.fn()}
+        onSortChange={vi.fn()}
         onSelectFinding={onSelectFinding}
       />,
     );
 
     fireEvent.click(screen.getByText("Null branch can throw"));
     expect(onSelectFinding).toHaveBeenCalledWith("fnd-bug");
+  });
+
+  it("sorts visible rows when clicking column headings", () => {
+    const { container } = render(<FilterHarness findings={findings} />);
+
+    expect(visibleTitles(container)).toEqual([
+      "Token is logged in debug output",
+      "Null branch can throw",
+    ]);
+
+    fireEvent.click(screen.getByRole("button", { name: "Sort by Title ascending" }));
+    expect(visibleTitles(container)).toEqual([
+      "Null branch can throw",
+      "Token is logged in debug output",
+    ]);
+    expect(screen.getByRole("columnheader", { name: /Title/ })).toHaveAttribute(
+      "aria-sort",
+      "ascending",
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Sort by Title descending" }));
+    expect(visibleTitles(container)).toEqual([
+      "Token is logged in debug output",
+      "Null branch can throw",
+    ]);
+    expect(screen.getByRole("columnheader", { name: /Title/ })).toHaveAttribute(
+      "aria-sort",
+      "descending",
+    );
   });
 });
 
@@ -121,20 +155,35 @@ function FilterHarness({
   initialFilters?: FindingFilters;
 }) {
   const [filters, setFilters] = useState(initialFilters);
+  const [sort, setSort] = useState<FindingSort>(defaultFindingSort);
   const filteredFindings = useMemo(() => filterFindings(findings, filters), [findings, filters]);
+  const sortedFindings = useMemo(
+    () => sortFindings(filteredFindings, sort),
+    [filteredFindings, sort],
+  );
 
   return (
     <FindingsTable
-      findings={filteredFindings}
+      findings={sortedFindings}
       totalFindingCount={findings.length}
-      selectedFindingId={filteredFindings[0]?.findingId ?? null}
+      selectedFindingId={sortedFindings[0]?.findingId ?? null}
       isLoading={false}
       filters={filters}
       filterOptions={getFindingFilterOptions(findings, clawpatchStatuses)}
+      sort={sort}
       onFiltersChange={setFilters}
+      onSortChange={setSort}
       onSelectFinding={() => undefined}
     />
   );
+}
+
+function visibleTitles(container: HTMLElement): string[] {
+  return Array.from(container.querySelectorAll("button.table-row")).map((row) => {
+    const title = row.querySelector("strong");
+    expect(title).not.toBeNull();
+    return title?.textContent ?? "";
+  });
 }
 
 function getFilterMenu(): HTMLDetailsElement {

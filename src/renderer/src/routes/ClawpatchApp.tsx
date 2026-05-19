@@ -33,9 +33,11 @@ import { RepoSidebar } from "../components/RepoSidebar";
 import { ReviewMapPanel } from "../components/ReviewMapPanel";
 import {
   defaultFindingFilters,
+  defaultFindingSort,
   filterFindings,
   getFindingFilterOptions,
   resolveSelectedFindingId,
+  sortFindings,
 } from "../findingsFilters";
 import { clawpatchStatuses } from "../../../shared/constants";
 
@@ -67,6 +69,7 @@ export function ClawpatchApp() {
   const [inspectorWidth, setInspectorWidth] = useState(INSPECTOR_DEFAULT_WIDTH);
   const [isInspectorResizing, setIsInspectorResizing] = useState(false);
   const [findingFilters, setFindingFilters] = useState(defaultFindingFilters);
+  const [findingSort, setFindingSort] = useState(defaultFindingSort);
   const [isCommandMenuOpen, setIsCommandMenuOpen] = useState(false);
   const [isRepoSidebarCollapsed, setIsRepoSidebarCollapsed] = useState(readStoredSidebarState);
   const workspaceBodyRef = useRef<HTMLDivElement>(null);
@@ -109,6 +112,10 @@ export function ClawpatchApp() {
     () => filterFindings(allFindings, findingFilters),
     [allFindings, findingFilters],
   );
+  const sortedFindings = useMemo(
+    () => sortFindings(filteredFindings, findingSort),
+    [filteredFindings, findingSort],
+  );
   const findingFilterOptions = useMemo(
     () => getFindingFilterOptions(allFindings, clawpatchStatuses),
     [allFindings],
@@ -122,21 +129,21 @@ export function ClawpatchApp() {
 
   const selectedFinding = useMemo(
     () =>
-      filteredFindings.find((finding) => finding.findingId === selectedFindingId) ??
-      filteredFindings[0] ??
+      sortedFindings.find((finding) => finding.findingId === selectedFindingId) ??
+      sortedFindings[0] ??
       null,
-    [filteredFindings, selectedFindingId],
+    [selectedFindingId, sortedFindings],
   );
 
   useEffect(() => {
     if (findingsQuery.data === undefined) {
       return;
     }
-    const nextSelectedFindingId = resolveSelectedFindingId(selectedFindingId, filteredFindings);
+    const nextSelectedFindingId = resolveSelectedFindingId(selectedFindingId, sortedFindings);
     if (nextSelectedFindingId !== selectedFindingId) {
       setSelectedFindingId(nextSelectedFindingId);
     }
-  }, [filteredFindings, findingsQuery.data, selectedFindingId]);
+  }, [findingsQuery.data, selectedFindingId, sortedFindings]);
 
   const detailQuery = useQuery({
     queryKey: ["finding", selectedRepo?.id, selectedFinding?.findingId],
@@ -504,16 +511,18 @@ export function ClawpatchApp() {
           <div className="primary-workspace">
             {activeWorkspace === "findings" ? (
               <FindingsSplitPanel
-                findings={filteredFindings}
+                findings={sortedFindings}
                 totalFindingCount={allFindings.length}
                 selectedFindingId={selectedFinding?.findingId ?? null}
                 isFindingsLoading={findingsQuery.isLoading}
                 filters={findingFilters}
                 filterOptions={findingFilterOptions}
+                sort={findingSort}
                 finding={detailQuery.data ?? null}
                 isDetailLoading={detailQuery.isLoading}
                 isBusy={triageMutation.isPending || commandMutation.isPending}
                 onFiltersChange={setFindingFilters}
+                onSortChange={setFindingSort}
                 onSelectFinding={setSelectedFindingId}
                 onTriage={(status, note) => {
                   if (selectedRepo !== null && selectedFinding !== null) {

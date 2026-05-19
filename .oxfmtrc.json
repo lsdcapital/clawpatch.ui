@@ -1,5 +1,13 @@
 {
   "$schema": "./node_modules/oxfmt/configuration_schema.json",
-  "ignorePatterns": ["out", "dist", "node_modules", ".context", "pnpm-lock.yaml", "*.tsbuildinfo"],
+  "ignorePatterns": [
+    "out",
+    "dist",
+    "node_modules",
+    ".context",
+    ".clawpatch",
+    "pnpm-lock.yaml",
+    "*.tsbuildinfo"
+  ],
   "sortPackageJson": {}
 }

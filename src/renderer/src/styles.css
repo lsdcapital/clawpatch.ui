@@ -1003,6 +1003,36 @@ button.table-row:hover:not(:disabled) {
   z-index: 1;
 }
 
+.sort-header {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  color: inherit;
+  display: inline-grid;
+  font: inherit;
+  font-weight: inherit;
+  gap: 4px;
+  grid-template-columns: minmax(0, max-content) 10px;
+  justify-content: start;
+  min-height: 20px;
+  padding: 0;
+  text-align: left;
+  text-transform: inherit;
+  width: 100%;
+}
+
+.sort-header:hover:not(:disabled),
+.sort-header:focus-visible {
+  background: transparent;
+  border-color: transparent;
+  color: var(--text);
+}
+
+.sort-header.active {
+  color: var(--text);
+}
+
 .severity {
   font-weight: 700;
 }

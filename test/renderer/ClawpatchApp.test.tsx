@@ -341,6 +341,23 @@ describe("ClawpatchApp header actions", () => {
     expect(screen.getByRole("complementary", { name: "Command output" })).toBeInTheDocument();
   });
 
+  it("selects the first sorted finding when the loaded list is unsorted", async () => {
+    const run = vi.fn<Api["commands"]["run"]>(async (_repoId, request) =>
+      makeCommandResult(request.command),
+    );
+    const highRiskFinding = makeFinding();
+    const lowerRiskFinding = makeFixFinding();
+    window.clawpatch = makeApi(run, {
+      findings: [lowerRiskFinding, highRiskFinding],
+      findingDetail: highRiskFinding,
+    });
+
+    renderApp();
+
+    await screen.findByRole("heading", { name: "Token is logged in debug output" });
+    expect(screen.getAllByRole("row")[1]).toHaveTextContent("Token is logged in debug output");
+  });
+
   it("interrupts a running command from command output", async () => {
     let resolveRun: ((result: CommandResult) => void) | undefined;
     const run = vi.fn<Api["commands"]["run"]>(
