@@ -428,6 +428,14 @@ export function ClawpatchApp() {
                     runCommand({ command: "fix", findingId: selectedFinding.findingId });
                   }
                 }}
+                onRevalidate={() => {
+                  if (selectedFinding !== null) {
+                    runCommand({
+                      command: "revalidate",
+                      findingId: selectedFinding.findingId,
+                    });
+                  }
+                }}
               />
             ) : (
               <ReviewMapPanel

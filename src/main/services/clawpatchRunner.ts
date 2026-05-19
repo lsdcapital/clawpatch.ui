@@ -12,7 +12,16 @@ import type {
 import { clawpatchStatuses } from "../../shared/types";
 import { CommandAlreadyRunningError, CommandSpawnError, CommandValidationError } from "../errors";
 
-const commandNames = new Set(["status", "map", "report", "review", "triage", "fix", "doctor"]);
+const commandNames = new Set([
+  "status",
+  "map",
+  "report",
+  "review",
+  "triage",
+  "fix",
+  "revalidate",
+  "doctor",
+]);
 
 export type ClawpatchRunnerError =
   | CommandValidationError
@@ -118,6 +127,7 @@ export function buildClawpatchArgs(request: ClawpatchCommandRequest): string[] {
       return triageArgs;
     }
     case "fix":
+    case "revalidate":
       assertFindingId(request.findingId);
       return [...args, "--finding", request.findingId];
   }
