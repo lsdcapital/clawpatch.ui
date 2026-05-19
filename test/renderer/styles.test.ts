@@ -10,7 +10,9 @@ describe("renderer layout styles", () => {
     expect(ruleFor("body")).toContain("overflow: hidden;");
     expect(ruleFor("\\.app-shell")).toContain("height: 100%;");
     expect(ruleFor("\\.workspace")).toContain("height: 100%;");
-    expect(ruleFor("\\.workspace-body")).toContain("height: 100%;");
+    const workspaceBodyRule = ruleFor("\\.workspace-body");
+    expect(workspaceBodyRule).toContain("height: 100%;");
+    expect(workspaceBodyRule).toContain("grid-row: 3;");
     expect(ruleFor("\\.primary-workspace")).toContain("height: 100%;");
     expect(ruleFor("\\.findings-workspace")).toContain("height: 100%;");
   });
