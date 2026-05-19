@@ -9,6 +9,9 @@ describe("renderer layout styles", () => {
     expect(ruleFor("html,\\s*body,\\s*#root")).toContain("height: 100%;");
     expect(ruleFor("body")).toContain("overflow: hidden;");
     expect(ruleFor("\\.app-shell")).toContain("height: 100%;");
+    expect(ruleFor("\\.app-shell\\.sidebar-collapsed")).toContain(
+      "grid-template-columns: minmax(0, 1fr);",
+    );
     expect(ruleFor("\\.workspace")).toContain("height: 100%;");
     const workspaceBodyRule = ruleFor("\\.workspace-body");
     expect(workspaceBodyRule).toContain("height: 100%;");

@@ -111,6 +111,10 @@ button:disabled {
   min-width: 0;
 }
 
+.app-shell.sidebar-collapsed {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .repo-sidebar {
   background: var(--sidebar);
   border-right: 1px solid var(--border);
@@ -378,6 +382,10 @@ button:disabled {
   min-height: 28px;
   padding: 5px;
   width: 28px;
+}
+
+.sidebar-toggle {
+  flex-shrink: 0;
 }
 
 .command-menu {
