@@ -7,6 +7,7 @@ import type {
   FeatureMapItemSchema,
   FeatureMapSnapshotSchema,
   FindingDetailSchema,
+  FindingHistoryEntrySchema,
   FindingListItemSchema,
   GuiMetadataSchema,
   RepoSnapshotSchema,
@@ -25,6 +26,7 @@ export type RepoSnapshot = typeof RepoSnapshotSchema.Type;
 export type GuiMetadata = typeof GuiMetadataSchema.Type;
 export type EvidenceRef = typeof EvidenceRefSchema.Type;
 export type FindingListItem = typeof FindingListItemSchema.Type;
+export type FindingHistoryEntry = typeof FindingHistoryEntrySchema.Type;
 export type FindingDetail = typeof FindingDetailSchema.Type;
 export type FeatureMapItem = typeof FeatureMapItemSchema.Type;
 export type ReviewRunSummary = typeof ReviewRunSummarySchema.Type;

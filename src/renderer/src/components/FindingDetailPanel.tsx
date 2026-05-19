@@ -25,7 +25,7 @@ export function FindingDetailPanel({
   useEffect(() => {
     if (finding !== null) {
       setStatus(finding.status);
-      setNote(finding.localNote ?? "");
+      setNote("");
     }
   }, [finding]);
 
@@ -36,6 +36,10 @@ export function FindingDetailPanel({
       </div>
     );
   }
+
+  const noteHistory = finding.history.filter(
+    (entry) => entry.note !== null && entry.note.trim() !== "",
+  );
 
   return (
     <div className="detail-pane">
@@ -90,6 +94,23 @@ export function FindingDetailPanel({
         <TextSection title="Reproduction" value={finding.reproduction} />
         <TextSection title="Suggested Test" value={finding.suggestedRegressionTest} />
 
+        {noteHistory.length > 0 ? (
+          <section>
+            <h3>History</h3>
+            <div className="history-list">
+              {noteHistory.map((entry) => (
+                <article className="history-entry" key={historyEntryKey(entry)}>
+                  <div className="history-entry-meta">
+                    <strong>{entry.status ?? entry.kind}</strong>
+                    <time dateTime={entry.createdAt}>{formatHistoryDate(entry.createdAt)}</time>
+                  </div>
+                  <p>{entry.note}</p>
+                </article>
+              ))}
+            </div>
+          </section>
+        ) : null}
+
         <div className="triage-controls">
           <label htmlFor="triage-note">Note</label>
           <textarea
@@ -112,6 +133,24 @@ export function FindingDetailPanel({
       </div>
     </div>
   );
+}
+
+function formatHistoryDate(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+  return date.toLocaleString();
+}
+
+function historyEntryKey(entry: FindingDetail["history"][number]): string {
+  return [
+    entry.createdAt,
+    entry.kind,
+    entry.status ?? "",
+    entry.note ?? "",
+    entry.runId ?? "",
+  ].join(":");
 }
 
 function TextSection({ title, value }: { title: string; value: string | null }) {

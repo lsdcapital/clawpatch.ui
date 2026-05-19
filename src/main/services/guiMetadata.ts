@@ -11,11 +11,6 @@ import { JsonDecodeError } from "../errors";
 export interface GuiMetadataServiceShape {
   readonly read: (repoPath: string) => Effect.Effect<GuiMetadata, unknown>;
   readonly write: (repoPath: string, metadata: GuiMetadata) => Effect.Effect<GuiMetadata, unknown>;
-  readonly setNote: (
-    repoPath: string,
-    findingId: string,
-    note: string,
-  ) => Effect.Effect<GuiMetadata, unknown>;
 }
 
 export class GuiMetadataService extends Context.Service<
@@ -58,20 +53,6 @@ const liveService: GuiMetadataServiceShape = {
     });
     return next;
   }),
-  setNote: Effect.fn("guiMetadata.setNote")(function* (repoPath, findingId, note) {
-    const metadata = yield* liveService.read(repoPath);
-    const nextNotes = { ...metadata.notes };
-    if (note.trim() === "") {
-      delete nextNotes[findingId];
-    } else {
-      nextNotes[findingId] = note;
-    }
-    return yield* liveService.write(repoPath, {
-      ...metadata,
-      notes: nextNotes,
-      lastSelectedFindingId: findingId,
-    });
-  }),
 };
 
 export const GuiMetadataServiceLive = Layer.succeed(
@@ -88,7 +69,6 @@ function normalizeMetadata(metadata: GuiMetadata): GuiMetadata {
     ...defaultMetadata(),
     ...metadata,
     filters: { ...defaultMetadata().filters, ...metadata.filters },
-    notes: metadata.notes ?? {},
     schemaVersion: 1,
   };
 }
@@ -101,7 +81,6 @@ function defaultMetadata(): GuiMetadata {
       status: null,
       search: "",
     },
-    notes: {},
     lastSelectedFindingId: null,
     updatedAt: new Date(0).toISOString(),
   };

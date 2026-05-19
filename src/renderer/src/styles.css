@@ -1005,6 +1005,36 @@ button.table-row:hover:not(:disabled) {
   font-size: 11px;
 }
 
+.history-list {
+  display: grid;
+  gap: 7px;
+}
+
+.history-entry {
+  border-left: 2px solid var(--accent);
+  display: grid;
+  gap: 4px;
+  padding-left: 8px;
+}
+
+.history-entry-meta {
+  align-items: baseline;
+  display: flex;
+  gap: 8px;
+  min-width: 0;
+}
+
+.history-entry-meta strong {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.history-entry-meta time {
+  color: var(--subtle);
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
 .triage-controls {
   border-top: 1px solid var(--border);
   display: grid;

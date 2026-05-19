@@ -211,7 +211,6 @@ function makeApi(
         metadata: {
           schemaVersion: 1,
           filters: { severity: null, status: null, search: "" },
-          notes: {},
           lastSelectedFindingId: null,
           updatedAt: "2026-05-19T00:00:00.000Z",
         },
@@ -256,7 +255,6 @@ function makeFinding(): FindingDetail {
     linkedPatchAttemptIds: [],
     createdAt: "2026-05-19T00:00:00.000Z",
     updatedAt: "2026-05-19T00:00:00.000Z",
-    localNote: null,
     reasoning: "Token values should not be written to logs.",
     reproduction: null,
     recommendation: "Remove the log.",
