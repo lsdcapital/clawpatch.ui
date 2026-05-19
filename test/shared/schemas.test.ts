@@ -4,7 +4,7 @@ import {
   ClawpatchCommandRequestSchema,
   ClawpatchStatusSchema,
   CommandStreamEventSchema,
-  GuiMetadataSchema,
+  UiMetadataSchema,
 } from "../../src/shared/schemas";
 
 describe("shared schemas", () => {
@@ -27,7 +27,7 @@ describe("shared schemas", () => {
     expect(Schema.decodeUnknownSync(ClawpatchCommandRequestSchema)(request)).toEqual(request);
   });
 
-  it("decodes GUI metadata with nullable status filters", () => {
+  it("decodes UI metadata with nullable status filters", () => {
     const metadata = {
       schemaVersion: 1,
       filters: {
@@ -39,7 +39,7 @@ describe("shared schemas", () => {
       updatedAt: "2026-05-19T00:00:00.000Z",
     };
 
-    expect(Schema.decodeUnknownSync(GuiMetadataSchema)(metadata)).toEqual(metadata);
+    expect(Schema.decodeUnknownSync(UiMetadataSchema)(metadata)).toEqual(metadata);
   });
 
   it("decodes command stream event stream literals", () => {

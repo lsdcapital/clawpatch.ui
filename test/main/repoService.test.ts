@@ -10,7 +10,7 @@ import type { ClawpatchCommandRequest, CommandResult } from "../../src/shared/ty
 import { ClawpatchRunner } from "../../src/main/services/clawpatchRunner";
 import { ClawpatchStateServiceLive } from "../../src/main/services/clawpatchState";
 import { GitServiceLive } from "../../src/main/services/gitService";
-import { GuiMetadataServiceLive } from "../../src/main/services/guiMetadata";
+import { UiMetadataServiceLive } from "../../src/main/services/uiMetadata";
 import { RepoService, RepoServiceLive } from "../../src/main/services/repoService";
 
 const fixtureRepo = resolve("test/fixtures/clawpatch-repo");
@@ -234,7 +234,7 @@ function makeRepoServiceTestLayer(
           Layer.mergeAll(
             runnerLayer,
             ClawpatchStateServiceLive,
-            GuiMetadataServiceLive,
+            UiMetadataServiceLive,
             GitServiceLive,
           ),
         ),
@@ -244,7 +244,7 @@ function makeRepoServiceTestLayer(
 }
 
 async function makeTempDir(): Promise<string> {
-  const dir = await mkdtemp(join(tmpdir(), "clawpatch-gui-"));
+  const dir = await mkdtemp(join(tmpdir(), "clawpatch-ui-"));
   tempDirs.push(dir);
   return dir;
 }

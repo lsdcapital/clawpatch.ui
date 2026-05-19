@@ -4,24 +4,22 @@ import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Schema from "effect/Schema";
-import { GuiMetadataSchema } from "../../shared/schemas";
-import type { GuiMetadata } from "../../shared/types";
+import { UiMetadataSchema } from "../../shared/schemas";
+import type { UiMetadata } from "../../shared/types";
 import { JsonDecodeError } from "../errors";
 
-export interface GuiMetadataServiceShape {
-  readonly read: (repoPath: string) => Effect.Effect<GuiMetadata, unknown>;
-  readonly write: (repoPath: string, metadata: GuiMetadata) => Effect.Effect<GuiMetadata, unknown>;
+export interface UiMetadataServiceShape {
+  readonly read: (repoPath: string) => Effect.Effect<UiMetadata, unknown>;
+  readonly write: (repoPath: string, metadata: UiMetadata) => Effect.Effect<UiMetadata, unknown>;
 }
 
-export class GuiMetadataService extends Context.Service<
-  GuiMetadataService,
-  GuiMetadataServiceShape
->()("clawpatch/GuiMetadata") {}
+export class UiMetadataService extends Context.Service<UiMetadataService, UiMetadataServiceShape>()(
+  "clawpatch/UiMetadata",
+) {}
 
-const liveService: GuiMetadataServiceShape = {
-  read: Effect.fn("guiMetadata.read")(function* (repoPath) {
-    const path = metadataPath(repoPath);
-    const raw = yield* Effect.tryPromise(() => readFile(path, "utf8")).pipe(
+const liveService: UiMetadataServiceShape = {
+  read: Effect.fn("uiMetadata.read")(function* (repoPath) {
+    const raw = yield* Effect.tryPromise(() => readFile(metadataPath(repoPath), "utf8")).pipe(
       Effect.catch(() => Effect.succeed(null)),
     );
     if (raw === null) {
@@ -36,15 +34,15 @@ const liveService: GuiMetadataServiceShape = {
       return defaultMetadata();
     }
 
-    const decoded = yield* Schema.decodeUnknownEffect(GuiMetadataSchema)(parsed).pipe(
+    const decoded = yield* Schema.decodeUnknownEffect(UiMetadataSchema)(parsed).pipe(
       Effect.catch(() => Effect.succeed(defaultMetadata())),
     );
     return normalizeMetadata(decoded);
   }),
-  write: Effect.fn("guiMetadata.write")(function* (repoPath, metadata) {
+  write: Effect.fn("uiMetadata.write")(function* (repoPath, metadata) {
     const next = { ...metadata, schemaVersion: 1 as const, updatedAt: new Date().toISOString() };
     yield* Effect.tryPromise({
-      try: () => mkdir(join(repoPath, ".clawpatch", "gui"), { recursive: true }),
+      try: () => mkdir(join(repoPath, ".clawpatch", "ui"), { recursive: true }),
       catch: (cause) => new JsonDecodeError({ path: metadataPath(repoPath), cause }),
     });
     yield* Effect.tryPromise({
@@ -55,16 +53,16 @@ const liveService: GuiMetadataServiceShape = {
   }),
 };
 
-export const GuiMetadataServiceLive = Layer.succeed(
-  GuiMetadataService,
-  GuiMetadataService.of(liveService),
+export const UiMetadataServiceLive = Layer.succeed(
+  UiMetadataService,
+  UiMetadataService.of(liveService),
 );
 
 function metadataPath(repoPath: string): string {
-  return join(repoPath, ".clawpatch", "gui", "state.json");
+  return join(repoPath, ".clawpatch", "ui", "state.json");
 }
 
-function normalizeMetadata(metadata: GuiMetadata): GuiMetadata {
+function normalizeMetadata(metadata: UiMetadata): UiMetadata {
   return {
     ...defaultMetadata(),
     ...metadata,
@@ -73,7 +71,7 @@ function normalizeMetadata(metadata: GuiMetadata): GuiMetadata {
   };
 }
 
-function defaultMetadata(): GuiMetadata {
+function defaultMetadata(): UiMetadata {
   return {
     schemaVersion: 1,
     filters: {

@@ -21,7 +21,7 @@ import { InvalidRepoPathError, RepoNotFoundError } from "../errors";
 import { ClawpatchRunner } from "./clawpatchRunner";
 import { ClawpatchStateService } from "./clawpatchState";
 import { GitService } from "./gitService";
-import { GuiMetadataService } from "./guiMetadata";
+import { UiMetadataService } from "./uiMetadata";
 
 interface RegistryFile {
   repos: Array<Pick<RepoSummary, "id" | "name" | "path" | "updatedAt">>;
@@ -59,7 +59,7 @@ export const RepoServiceLive = (appDataDir: string) =>
     Effect.gen(function* () {
       const runner = yield* ClawpatchRunner;
       const state = yield* ClawpatchStateService;
-      const metadata = yield* GuiMetadataService;
+      const metadata = yield* UiMetadataService;
       const git = yield* GitService;
       const registryPath = resolve(appDataDir, "repos.json");
 
