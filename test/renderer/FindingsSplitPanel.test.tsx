@@ -67,7 +67,9 @@ describe("FindingsSplitPanel", () => {
     const statusSelect = within(detailHeader as HTMLElement).getByRole("combobox", {
       name: "Finding status",
     });
-    fireEvent.change(screen.getByLabelText("Note"), { target: { value: "needs product call" } });
+    fireEvent.change(screen.getByLabelText("Note for triage and fix"), {
+      target: { value: "needs product call" },
+    });
     fireEvent.change(statusSelect, { target: { value: "false-positive" } });
     fireEvent.click(screen.getByRole("button", { name: "Save triage" }));
 

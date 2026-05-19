@@ -23,7 +23,7 @@ interface Props {
   onFiltersChange: (filters: FindingFilters) => void;
   onSelectFinding: (findingId: string) => void;
   onTriage: (status: ClawpatchStatus, note: string) => void;
-  onFix: () => void;
+  onFix: (status: ClawpatchStatus, note: string) => void;
   onRevalidate: () => void;
 }
 

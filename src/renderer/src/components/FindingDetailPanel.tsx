@@ -7,7 +7,7 @@ interface Props {
   isLoading: boolean;
   isBusy: boolean;
   onTriage: (status: ClawpatchStatus, note: string) => void;
-  onFix: () => void;
+  onFix: (status: ClawpatchStatus, note: string) => void;
   onRevalidate: () => void;
 }
 
@@ -112,7 +112,7 @@ export function FindingDetailPanel({
         ) : null}
 
         <div className="triage-controls">
-          <label htmlFor="triage-note">Note</label>
+          <label htmlFor="triage-note">Note for triage and fix</label>
           <textarea
             id="triage-note"
             value={note}
@@ -122,7 +122,10 @@ export function FindingDetailPanel({
             <button disabled={isBusy} onClick={() => onTriage(status, note)}>
               Save triage
             </button>
-            <button disabled={isBusy || finding.status === "fixed"} onClick={onFix}>
+            <button
+              disabled={isBusy || finding.status === "fixed"}
+              onClick={() => onFix(status, note)}
+            >
               Run fix
             </button>
             <button disabled={isBusy} onClick={onRevalidate}>
