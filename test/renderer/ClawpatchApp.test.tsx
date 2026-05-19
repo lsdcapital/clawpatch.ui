@@ -46,7 +46,7 @@ describe("ClawpatchApp header actions", () => {
     expect(screen.queryByRole("button", { name: "Review next" })).not.toBeInTheDocument();
   });
 
-  it("uses one shared inspector for output, diff, and expanded review coverage", async () => {
+  it("uses one shared inspector for output and diff only", async () => {
     const run = vi.fn<Api["commands"]["run"]>(async (_repoId, request) =>
       makeCommandResult(request.command),
     );
@@ -68,18 +68,11 @@ describe("ClawpatchApp header actions", () => {
     expect(screen.getByRole("complementary", { name: "Git diff" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Git Diff" })).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Show map table" }));
-    const reviewInspector = screen.getByRole("complementary", { name: "Review coverage" });
-    expect(
-      within(reviewInspector).getByRole("heading", { name: "Review Coverage" }),
-    ).toBeInTheDocument();
-    expect(
-      within(reviewInspector).getByRole("table", { name: "Review coverage map" }),
-    ).toBeInTheDocument();
-    expect(within(reviewInspector).getByText("Authentication")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Show map table" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("complementary", { name: /review/i })).not.toBeInTheDocument();
   });
 
-  it("switches the shared inspector to command output when a command starts", async () => {
+  it("switches between findings and review queue workspaces", async () => {
     const run = vi.fn<Api["commands"]["run"]>(async (_repoId, request) =>
       makeCommandResult(request.command),
     );
@@ -88,11 +81,33 @@ describe("ClawpatchApp header actions", () => {
     renderApp();
 
     await screen.findByRole("heading", { name: "auth" });
-    fireEvent.click(screen.getByRole("button", { name: "Show map table" }));
-    expect(screen.getByRole("complementary", { name: "Review coverage" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Findings" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("heading", { name: "Findings" })).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "More commands" }));
-    fireEvent.click(screen.getByRole("menuitem", { name: "Update map" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Review Queue" }));
+    expect(screen.getByRole("tab", { name: "Review Queue" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    expect(screen.getByRole("heading", { name: "Review Queue" })).toBeInTheDocument();
+    expect(screen.getByText("2 pending/error of 3 map items")).toBeInTheDocument();
+    expect(screen.getByText("Review pending")).toBeInTheDocument();
+    expect(screen.queryByText(/Review \d+ remaining/)).not.toBeInTheDocument();
+    expect(screen.getByRole("table", { name: "Review queue map" })).toBeInTheDocument();
+  });
+
+  it("switches the shared inspector to command output when a review queue command starts", async () => {
+    const run = vi.fn<Api["commands"]["run"]>(async (_repoId, request) =>
+      makeCommandResult(request.command),
+    );
+    window.clawpatch = makeApi(run);
+
+    renderApp();
+
+    await screen.findByRole("heading", { name: "auth" });
+    fireEvent.click(screen.getByRole("tab", { name: "Review Queue" }));
+
+    fireEvent.click(screen.getByRole("button", { name: "Update map" }));
 
     await waitFor(() => expect(run).toHaveBeenCalledWith("repo-auth", { command: "map" }));
     expect(screen.getByRole("complementary", { name: "Command output" })).toBeInTheDocument();
@@ -204,11 +219,35 @@ function makeFeatureMapSnapshot(): FeatureMapSnapshot {
         findingCount: 0,
         updatedAt: "2026-05-19T00:00:00.000Z",
       },
+      {
+        featureId: "feat-profile",
+        title: "Profile settings",
+        status: "reviewed",
+        kind: "feature",
+        source: "map",
+        ownedFileCount: 2,
+        contextFileCount: 0,
+        testCount: 1,
+        findingCount: 1,
+        updatedAt: "2026-05-18T00:00:00.000Z",
+      },
+      {
+        featureId: "feat-billing",
+        title: "Billing",
+        status: "error",
+        kind: "integration",
+        source: "manual",
+        ownedFileCount: 1,
+        contextFileCount: 1,
+        testCount: 0,
+        findingCount: 0,
+        updatedAt: "2026-05-17T00:00:00.000Z",
+      },
     ],
     coverage: {
-      totalFeatures: 1,
-      pendingReviewCount: 1,
-      pendingReviewFeatureIds: ["feat-auth"],
+      totalFeatures: 3,
+      pendingReviewCount: 2,
+      pendingReviewFeatureIds: ["feat-auth", "feat-billing"],
       latestReviewRun: null,
       latestLimitedReviewRun: null,
       hasLimitedReviewRemainder: false,

@@ -331,6 +331,7 @@ button:disabled {
 }
 
 .workspace-title {
+  flex: 1;
   min-width: 0;
 }
 
@@ -358,6 +359,35 @@ button:disabled {
   gap: 5px;
   justify-content: flex-end;
   position: relative;
+}
+
+.workspace-switcher {
+  align-items: center;
+  background: #eef0f3;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  display: flex;
+  flex-shrink: 0;
+  gap: 2px;
+  padding: 2px;
+}
+
+.workspace-switcher button {
+  background: transparent;
+  border-color: transparent;
+  min-height: 26px;
+  padding: 4px 9px;
+}
+
+.workspace-switcher button:hover:not(:disabled) {
+  background: #f8f9fb;
+  border-color: transparent;
+}
+
+.workspace-switcher button.active {
+  background: var(--surface);
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow);
 }
 
 .icon-button {
@@ -419,9 +449,8 @@ button:disabled {
 
 .primary-workspace {
   display: grid;
-  gap: 10px;
   grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
   height: 100%;
   min-height: 0;
   min-width: 0;
@@ -470,6 +499,48 @@ button:disabled {
   justify-content: flex-end;
 }
 
+.review-queue-panel {
+  min-height: 0;
+}
+
+.review-queue-toolbar {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  display: grid;
+  gap: 7px;
+  padding: 8px 10px;
+}
+
+.review-queue-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-start;
+  min-width: 0;
+}
+
+.review-queue-actions button:first-child {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #ffffff;
+}
+
+.review-queue-actions button:first-child:hover:not(:disabled) {
+  background: #275fd1;
+  border-color: #275fd1;
+}
+
+.review-queue-summary-row {
+  align-items: center;
+  color: var(--muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 11px;
+  gap: 7px;
+  justify-content: space-between;
+  min-width: 0;
+}
+
 .feature-map-table {
   display: grid;
   flex: 1;
@@ -490,6 +561,7 @@ button:disabled {
     minmax(42px, 0.35fr)
     minmax(58px, 0.45fr)
     minmax(160px, 1.8fr)
+    minmax(68px, 0.55fr)
     minmax(72px, 0.55fr);
   min-height: 34px;
   min-width: 0;

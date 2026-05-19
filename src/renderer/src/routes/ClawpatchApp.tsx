@@ -29,7 +29,6 @@ import { CommandPanel } from "../components/CommandPanel";
 import { DiffViewer } from "../components/DiffViewer";
 import { FindingsSplitPanel } from "../components/FindingsSplitPanel";
 import { RepoSidebar } from "../components/RepoSidebar";
-import { ReviewCoveragePanel } from "../components/ReviewCoveragePanel";
 import { ReviewMapPanel } from "../components/ReviewMapPanel";
 import {
   defaultFindingFilters,
@@ -44,7 +43,8 @@ type LogEntry =
   | { kind: "result"; result: CommandResult }
   | { kind: "error"; message: string };
 
-type ActiveInspector = "diff" | "output" | "review" | null;
+type ActiveWorkspace = "findings" | "reviewQueue";
+type ActiveInspector = "diff" | "output" | null;
 
 const INSPECTOR_MIN_WIDTH = 320;
 const INSPECTOR_MAX_WIDTH = 720;
@@ -58,6 +58,7 @@ export function ClawpatchApp() {
   const [selectedRepoId, setSelectedRepoId] = useState<string | null>(null);
   const [selectedFindingId, setSelectedFindingId] = useState<string | null>(null);
   const [commandLog, setCommandLog] = useState<LogEntry[]>([]);
+  const [activeWorkspace, setActiveWorkspace] = useState<ActiveWorkspace>("findings");
   const [activeInspector, setActiveInspector] = useState<ActiveInspector>(null);
   const [inspectorWidth, setInspectorWidth] = useState(INSPECTOR_DEFAULT_WIDTH);
   const [isInspectorResizing, setIsInspectorResizing] = useState(false);
@@ -284,6 +285,24 @@ export function ClawpatchApp() {
             <h1>{selectedRepo?.name ?? "Clawpatch"}</h1>
             <p>{selectedRepo?.path ?? "Add a repository with .clawpatch state to begin."}</p>
           </div>
+          <div className="workspace-switcher" role="tablist" aria-label="Workspace">
+            <button
+              className={activeWorkspace === "findings" ? "active" : ""}
+              onClick={() => setActiveWorkspace("findings")}
+              role="tab"
+              aria-selected={activeWorkspace === "findings"}
+            >
+              Findings
+            </button>
+            <button
+              className={activeWorkspace === "reviewQueue" ? "active" : ""}
+              onClick={() => setActiveWorkspace("reviewQueue")}
+              role="tab"
+              aria-selected={activeWorkspace === "reviewQueue"}
+            >
+              Review Queue
+            </button>
+          </div>
           <div className="header-actions">
             <button
               className={
@@ -392,43 +411,46 @@ export function ClawpatchApp() {
           style={{ "--inspector-width": `${inspectorWidth}px` } as CSSProperties}
         >
           <div className="primary-workspace">
-            <ReviewCoveragePanel
-              snapshot={featureMapQuery.data ?? null}
-              isLoading={featureMapQuery.isLoading}
-              isBusy={commandMutation.isPending || triageMutation.isPending}
-              isExpanded={activeInspector === "review"}
-              onToggleExpanded={() => toggleInspector("review")}
-              onReviewAllPending={(limit) => runCommand({ command: "review", limit })}
-            />
-            <FindingsSplitPanel
-              findings={filteredFindings}
-              totalFindingCount={allFindings.length}
-              selectedFindingId={selectedFinding?.findingId ?? null}
-              isFindingsLoading={findingsQuery.isLoading}
-              filters={findingFilters}
-              filterOptions={findingFilterOptions}
-              finding={detailQuery.data ?? null}
-              isDetailLoading={detailQuery.isLoading}
-              isBusy={triageMutation.isPending || commandMutation.isPending}
-              onFiltersChange={setFindingFilters}
-              onSelectFinding={setSelectedFindingId}
-              onTriage={(status, note) => {
-                if (selectedRepo !== null && selectedFinding !== null) {
-                  setActiveInspector("output");
-                  triageMutation.mutate({
-                    repo: selectedRepo,
-                    finding: selectedFinding,
-                    status,
-                    note,
-                  });
-                }
-              }}
-              onFix={() => {
-                if (selectedFinding !== null) {
-                  runCommand({ command: "fix", findingId: selectedFinding.findingId });
-                }
-              }}
-            />
+            {activeWorkspace === "findings" ? (
+              <FindingsSplitPanel
+                findings={filteredFindings}
+                totalFindingCount={allFindings.length}
+                selectedFindingId={selectedFinding?.findingId ?? null}
+                isFindingsLoading={findingsQuery.isLoading}
+                filters={findingFilters}
+                filterOptions={findingFilterOptions}
+                finding={detailQuery.data ?? null}
+                isDetailLoading={detailQuery.isLoading}
+                isBusy={triageMutation.isPending || commandMutation.isPending}
+                onFiltersChange={setFindingFilters}
+                onSelectFinding={setSelectedFindingId}
+                onTriage={(status, note) => {
+                  if (selectedRepo !== null && selectedFinding !== null) {
+                    setActiveInspector("output");
+                    triageMutation.mutate({
+                      repo: selectedRepo,
+                      finding: selectedFinding,
+                      status,
+                      note,
+                    });
+                  }
+                }}
+                onFix={() => {
+                  if (selectedFinding !== null) {
+                    runCommand({ command: "fix", findingId: selectedFinding.findingId });
+                  }
+                }}
+              />
+            ) : (
+              <ReviewMapPanel
+                snapshot={featureMapQuery.data ?? null}
+                isLoading={featureMapQuery.isLoading}
+                isBusy={commandMutation.isPending || triageMutation.isPending}
+                onReviewFeature={(featureId) => runCommand({ command: "review", featureId })}
+                onReviewPending={(limit) => runCommand({ command: "review", limit })}
+                onUpdateMap={() => runCommand({ command: "map" })}
+              />
+            )}
           </div>
           {activeInspector !== null ? (
             <div
@@ -451,17 +473,10 @@ export function ClawpatchApp() {
             <aside className="workspace-inspector" aria-label={inspectorLabel(activeInspector)}>
               {activeInspector === "diff" ? (
                 <DiffViewer diff={diffQuery.data ?? ""} isLoading={diffQuery.isLoading} />
-              ) : activeInspector === "output" ? (
+              ) : (
                 <CommandPanel
                   entries={commandLog}
                   isRunning={commandMutation.isPending || triageMutation.isPending}
-                />
-              ) : (
-                <ReviewMapPanel
-                  snapshot={featureMapQuery.data ?? null}
-                  isLoading={featureMapQuery.isLoading}
-                  isBusy={commandMutation.isPending || triageMutation.isPending}
-                  onReviewFeature={(featureId) => runCommand({ command: "review", featureId })}
                 />
               )}
             </aside>
@@ -475,9 +490,6 @@ export function ClawpatchApp() {
 function inspectorLabel(activeInspector: Exclude<ActiveInspector, null>): string {
   if (activeInspector === "diff") {
     return "Git diff";
-  }
-  if (activeInspector === "review") {
-    return "Review coverage";
   }
   return "Command output";
 }
