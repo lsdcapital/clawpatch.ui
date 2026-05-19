@@ -5,9 +5,8 @@ import type { FeatureMapSnapshot } from "../../src/shared/types";
 
 describe("ReviewCoveragePanel actions", () => {
   it("keeps review controls tied to map coverage state", () => {
-    const onRunMap = vi.fn();
-    const onReviewNext = vi.fn();
     const onReviewAllPending = vi.fn();
+    const onReviewFeature = vi.fn();
     const onToggleExpanded = vi.fn();
 
     render(
@@ -17,21 +16,19 @@ describe("ReviewCoveragePanel actions", () => {
         isBusy={false}
         isExpanded={true}
         onToggleExpanded={onToggleExpanded}
-        onRunMap={onRunMap}
-        onReviewNext={onReviewNext}
         onReviewAllPending={onReviewAllPending}
-        onReviewFeature={() => undefined}
+        onReviewFeature={onReviewFeature}
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Update map" }));
-    expect(onRunMap).toHaveBeenCalledTimes(1);
-
-    fireEvent.click(screen.getByRole("button", { name: "Review next" }));
-    expect(onReviewNext).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("button", { name: "Update map" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Review next" })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Review 2 remaining" }));
     expect(onReviewAllPending).toHaveBeenCalledWith(2);
+
+    fireEvent.click(screen.getByRole("button", { name: "Review" }));
+    expect(onReviewFeature).toHaveBeenCalledWith("feat-auth");
 
     const tableToggle = screen.getByRole("button", { name: "Hide map table" });
     expect(tableToggle).toHaveAttribute("aria-pressed", "true");
@@ -39,7 +36,7 @@ describe("ReviewCoveragePanel actions", () => {
     expect(onToggleExpanded).toHaveBeenCalledTimes(1);
   });
 
-  it("disables review next without map items and hides review remaining at zero pending", () => {
+  it("hides review actions without pending map items", () => {
     render(
       <ReviewCoveragePanel
         snapshot={makeSnapshot({ totalFeatures: 0, pendingReviewCount: 0 })}
@@ -47,14 +44,12 @@ describe("ReviewCoveragePanel actions", () => {
         isBusy={false}
         isExpanded={false}
         onToggleExpanded={() => undefined}
-        onRunMap={() => undefined}
-        onReviewNext={() => undefined}
         onReviewAllPending={() => undefined}
         onReviewFeature={() => undefined}
       />,
     );
 
-    expect(screen.getByRole("button", { name: "Review next" })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Review next" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /remaining/i })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Show map table" })).toHaveAttribute(
       "aria-pressed",

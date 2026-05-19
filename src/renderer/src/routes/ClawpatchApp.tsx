@@ -5,6 +5,7 @@ import {
   DiffIcon,
   FileTextIcon,
   MoreHorizontalIcon,
+  RefreshCwIcon,
   StethoscopeIcon,
   TerminalSquareIcon,
 } from "lucide-react";
@@ -247,6 +248,17 @@ export function ClawpatchApp() {
                     disabled={selectedRepo === null || commandMutation.isPending}
                     onClick={() => {
                       setIsCommandMenuOpen(false);
+                      runCommand({ command: "map" });
+                    }}
+                  >
+                    <RefreshCwIcon aria-hidden="true" />
+                    Update map
+                  </button>
+                  <button
+                    role="menuitem"
+                    disabled={selectedRepo === null || commandMutation.isPending}
+                    onClick={() => {
+                      setIsCommandMenuOpen(false);
                       runCommand({ command: "status" });
                     }}
                   >
@@ -293,8 +305,6 @@ export function ClawpatchApp() {
               isBusy={commandMutation.isPending || triageMutation.isPending}
               isExpanded={isMapExpanded}
               onToggleExpanded={() => setIsMapExpanded((current) => !current)}
-              onRunMap={() => runCommand({ command: "map" })}
-              onReviewNext={() => runCommand({ command: "review" })}
               onReviewAllPending={(limit) => runCommand({ command: "review", limit })}
               onReviewFeature={(featureId) => runCommand({ command: "review", featureId })}
             />
