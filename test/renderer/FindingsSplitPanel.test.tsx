@@ -38,6 +38,8 @@ describe("FindingsSplitPanel", () => {
     expect(screen.getByRole("heading", { name: "Selected detail title" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Revalidate" })).toBeInTheDocument();
     expect(screen.getByRole("combobox", { name: "Finding status" })).toHaveValue("open");
+    expect(screen.getByText("Needs product call")).toBeInTheDocument();
+    expect(screen.getByText("Accepted risk")).toBeInTheDocument();
     expect(
       screen.getByRole("separator", { name: "Resize findings and detail panes" }),
     ).toBeInTheDocument();
@@ -54,10 +56,7 @@ describe("FindingsSplitPanel", () => {
 
   it("keeps status in the detail header and saves it with the current note", () => {
     const onTriage = vi.fn();
-    renderSplitPanel({
-      finding: makeFindingDetail({ localNote: "needs product call" }),
-      onTriage,
-    });
+    renderSplitPanel({ onTriage });
 
     const detailHeader = screen
       .getByRole("heading", { name: "Selected detail title" })
@@ -68,6 +67,7 @@ describe("FindingsSplitPanel", () => {
     const statusSelect = within(detailHeader as HTMLElement).getByRole("combobox", {
       name: "Finding status",
     });
+    fireEvent.change(screen.getByLabelText("Note"), { target: { value: "needs product call" } });
     fireEvent.change(statusSelect, { target: { value: "false-positive" } });
     fireEvent.click(screen.getByRole("button", { name: "Save triage" }));
 
@@ -177,7 +177,6 @@ function makeFindingListItem(overrides: Partial<FindingListItem>): FindingListIt
     linkedPatchAttemptIds: [],
     createdAt: "2026-01-01T00:00:00.000Z",
     updatedAt: "2026-01-01T00:00:00.000Z",
-    localNote: null,
     ...overrides,
   };
 }
@@ -207,7 +206,27 @@ function makeFindingDetail(overrides: Partial<FindingDetail> = {}): FindingDetai
     minimumFixScope: null,
     feature: null,
     patchAttempts: [],
-    history: [],
+    ...overrides,
+    history: [
+      {
+        runId: null,
+        kind: "triage",
+        status: "uncertain",
+        note: "Needs product call",
+        reasoning: null,
+        commands: [],
+        createdAt: "2026-01-02T00:00:00.000Z",
+      },
+      {
+        runId: "run-2",
+        kind: "triage",
+        status: "wont-fix",
+        note: "Accepted risk",
+        reasoning: null,
+        commands: [],
+        createdAt: "2026-01-03T00:00:00.000Z",
+      },
+    ],
     ...overrides,
   };
 }

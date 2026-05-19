@@ -137,7 +137,7 @@ export const RepoServiceLive = (appDataDir: string) =>
           isValid = status.exitCode === 0;
           lastError = isValid ? null : status.stderr || status.stdout || "clawpatch status failed";
           findings = yield* state
-            .readFindingList(repoPath, yield* metadata.read(repoPath))
+            .readFindingList(repoPath)
             .pipe(Effect.catch(() => Effect.succeed([])));
         }
 
@@ -187,7 +187,7 @@ export const RepoServiceLive = (appDataDir: string) =>
             summarizeRepo(repo.path, repo.id),
             git.readDiff(repo.path),
           ]);
-          const findings = yield* state.readFindingList(repo.path, repoMetadata);
+          const findings = yield* state.readFindingList(repo.path);
           return {
             repo: {
               ...summary,
@@ -205,7 +205,7 @@ export const RepoServiceLive = (appDataDir: string) =>
         }),
         listFindings: Effect.fn("repoService.listFindings")(function* (repoIdValue) {
           const repo = yield* requireRepo(repoIdValue);
-          return yield* state.readFindingList(repo.path, yield* metadata.read(repo.path));
+          return yield* state.readFindingList(repo.path);
         }),
         readFeatureMap: Effect.fn("repoService.readFeatureMap")(function* (repoIdValue) {
           const repo = yield* requireRepo(repoIdValue);
@@ -213,11 +213,7 @@ export const RepoServiceLive = (appDataDir: string) =>
         }),
         getFinding: Effect.fn("repoService.getFinding")(function* (repoIdValue, findingId) {
           const repo = yield* requireRepo(repoIdValue);
-          return yield* state.readFindingDetail(
-            repo.path,
-            findingId,
-            yield* metadata.read(repo.path),
-          );
+          return yield* state.readFindingDetail(repo.path, findingId);
         }),
         runCommand: Effect.fn("repoService.runCommand")(function* (repoIdValue, request, onStream) {
           const repo = yield* requireRepo(repoIdValue);

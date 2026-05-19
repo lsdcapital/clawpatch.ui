@@ -9,8 +9,8 @@ import type {
   FeatureMapItem,
   FeatureMapSnapshot,
   FindingDetail,
+  FindingHistoryEntry,
   FindingListItem,
-  GuiMetadata,
   ReviewRunSummary,
 } from "../../shared/types";
 import { JsonDecodeError } from "../errors";
@@ -42,14 +42,10 @@ type RawFinding = typeof RawFindingSchema.Type;
 export interface ClawpatchStateServiceShape {
   readonly detect: (repoPath: string) => Effect.Effect<boolean, unknown>;
   readonly readFeatureMap: (repoPath: string) => Effect.Effect<FeatureMapSnapshot, unknown>;
-  readonly readFindingList: (
-    repoPath: string,
-    metadata: GuiMetadata,
-  ) => Effect.Effect<FindingListItem[], unknown>;
+  readonly readFindingList: (repoPath: string) => Effect.Effect<FindingListItem[], unknown>;
   readonly readFindingDetail: (
     repoPath: string,
     findingId: string,
-    metadata: GuiMetadata,
   ) => Effect.Effect<FindingDetail, unknown>;
 }
 
@@ -72,9 +68,9 @@ const liveService: ClawpatchStateServiceShape = {
     }
     return false;
   }),
-  readFindingList: Effect.fn("clawpatchState.readFindingList")(function* (repoPath, metadata) {
+  readFindingList: Effect.fn("clawpatchState.readFindingList")(function* (repoPath) {
     const rawFindings = yield* readRawFindings(repoPath);
-    return rawFindings.map((finding) => toFindingListItem(finding, metadata));
+    return rawFindings.map(toFindingListItem);
   }),
   readFeatureMap: Effect.fn("clawpatchState.readFeatureMap")(function* (repoPath) {
     const [featureRecords, runRecords] = yield* Effect.all([
@@ -108,40 +104,34 @@ const liveService: ClawpatchStateServiceShape = {
       },
     };
   }),
-  readFindingDetail: Effect.fn("clawpatchState.readFindingDetail")(
-    function* (repoPath, findingId, metadata) {
-      const finding = (yield* readRawFindings(repoPath)).find(
-        (item) => item.findingId === findingId,
-      );
-      if (finding === undefined) {
-        return yield* Effect.fail(new Error(`Finding not found: ${findingId}`));
-      }
+  readFindingDetail: Effect.fn("clawpatchState.readFindingDetail")(function* (repoPath, findingId) {
+    const finding = (yield* readRawFindings(repoPath)).find((item) => item.findingId === findingId);
+    if (finding === undefined) {
+      return yield* Effect.fail(new Error(`Finding not found: ${findingId}`));
+    }
 
-      const [features, patches] = yield* Effect.all([
-        readRecords(repoPath, "features"),
-        readRecords(repoPath, "patches"),
-      ]);
-      const feature =
-        features.find((item) => objectId(item, "featureId") === finding.featureId) ?? null;
-      const patchIds = new Set(finding.linkedPatchAttemptIds ?? []);
-      const linkedPatches = patches.filter((item) =>
-        patchIds.has(objectId(item, "patchAttemptId")),
-      );
+    const [features, patches] = yield* Effect.all([
+      readRecords(repoPath, "features"),
+      readRecords(repoPath, "patches"),
+    ]);
+    const feature =
+      features.find((item) => objectId(item, "featureId") === finding.featureId) ?? null;
+    const patchIds = new Set(finding.linkedPatchAttemptIds ?? []);
+    const linkedPatches = patches.filter((item) => patchIds.has(objectId(item, "patchAttemptId")));
 
-      return {
-        ...toFindingListItem(finding, metadata),
-        reasoning: finding.reasoning,
-        reproduction: finding.reproduction ?? null,
-        recommendation: finding.recommendation,
-        whyTestsDoNotAlreadyCoverThis: finding.whyTestsDoNotAlreadyCoverThis ?? null,
-        suggestedRegressionTest: finding.suggestedRegressionTest ?? null,
-        minimumFixScope: finding.minimumFixScope ?? null,
-        feature,
-        patchAttempts: linkedPatches,
-        history: [...(finding.history ?? [])],
-      };
-    },
-  ),
+    return {
+      ...toFindingListItem(finding),
+      reasoning: finding.reasoning,
+      reproduction: finding.reproduction ?? null,
+      recommendation: finding.recommendation,
+      whyTestsDoNotAlreadyCoverThis: finding.whyTestsDoNotAlreadyCoverThis ?? null,
+      suggestedRegressionTest: finding.suggestedRegressionTest ?? null,
+      minimumFixScope: finding.minimumFixScope ?? null,
+      feature,
+      patchAttempts: linkedPatches,
+      history: (finding.history ?? []).map(toFindingHistoryEntry),
+    };
+  }),
 };
 
 export const ClawpatchStateServiceLive = Layer.succeed(
@@ -191,7 +181,7 @@ function decodeRawFinding(value: unknown): RawFinding | null {
   }
 }
 
-function toFindingListItem(finding: RawFinding, metadata: GuiMetadata): FindingListItem {
+function toFindingListItem(finding: RawFinding): FindingListItem {
   return {
     findingId: finding.findingId,
     featureId: finding.featureId,
@@ -211,7 +201,18 @@ function toFindingListItem(finding: RawFinding, metadata: GuiMetadata): FindingL
     linkedPatchAttemptIds: [...(finding.linkedPatchAttemptIds ?? [])],
     createdAt: finding.createdAt,
     updatedAt: finding.updatedAt,
-    localNote: metadata.notes[finding.findingId] ?? null,
+  };
+}
+
+function toFindingHistoryEntry(value: unknown): FindingHistoryEntry {
+  return {
+    runId: nullableString(value, "runId"),
+    kind: firstNonEmptyString(stringValue(value, "kind"), "unknown"),
+    status: nullableString(value, "status"),
+    note: nullableString(value, "note"),
+    reasoning: nullableString(value, "reasoning"),
+    commands: arrayValue(value, "commands"),
+    createdAt: firstNonEmptyString(stringValue(value, "createdAt"), ""),
   };
 }
 

@@ -157,7 +157,6 @@ function makeFinding(overrides: Partial<FindingListItem>): FindingListItem {
     linkedPatchAttemptIds: [],
     createdAt: "2026-01-01T00:00:00.000Z",
     updatedAt: "2026-01-01T00:00:00.000Z",
-    localNote: null,
     ...overrides,
   };
 }

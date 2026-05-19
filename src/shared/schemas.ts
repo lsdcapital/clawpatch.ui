@@ -48,7 +48,6 @@ export const GuiMetadataSchema = Schema.Struct({
     status: Schema.NullOr(ClawpatchStatusSchema),
     search: Schema.String,
   }),
-  notes: Schema.Record(Schema.String, Schema.String),
   lastSelectedFindingId: Schema.NullOr(Schema.String),
   updatedAt: Schema.String,
 });
@@ -74,7 +73,16 @@ export const FindingListItemSchema = Schema.Struct({
   linkedPatchAttemptIds: Schema.Array(Schema.String),
   createdAt: Schema.String,
   updatedAt: Schema.String,
-  localNote: Schema.NullOr(Schema.String),
+});
+
+export const FindingHistoryEntrySchema = Schema.Struct({
+  runId: Schema.NullOr(Schema.String),
+  kind: Schema.String,
+  status: Schema.NullOr(Schema.String),
+  note: Schema.NullOr(Schema.String),
+  reasoning: Schema.NullOr(Schema.String),
+  commands: Schema.Array(Schema.Unknown),
+  createdAt: Schema.String,
 });
 
 export const FindingDetailSchema = Schema.Struct({
@@ -87,7 +95,7 @@ export const FindingDetailSchema = Schema.Struct({
   minimumFixScope: Schema.NullOr(Schema.String),
   feature: Schema.NullOr(Schema.Unknown),
   patchAttempts: Schema.Array(Schema.Unknown),
-  history: Schema.Array(Schema.Unknown),
+  history: Schema.Array(FindingHistoryEntrySchema),
 });
 
 export const FeatureMapItemSchema = Schema.Struct({
