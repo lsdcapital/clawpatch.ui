@@ -8,6 +8,7 @@ import type {
 import {
   COMMANDS_RUN_CHANNEL,
   COMMANDS_STREAM_CHANNEL,
+  FEATURES_MAP_CHANNEL,
   FINDINGS_GET_CHANNEL,
   FINDINGS_LIST_CHANNEL,
   GIT_DIFF_CHANNEL,
@@ -26,6 +27,9 @@ const api: Api = {
   findings: {
     list: (repoId) => ipcRenderer.invoke(FINDINGS_LIST_CHANNEL, { repoId }),
     get: (repoId, findingId) => ipcRenderer.invoke(FINDINGS_GET_CHANNEL, { repoId, findingId })
+  },
+  features: {
+    map: (repoId) => ipcRenderer.invoke(FEATURES_MAP_CHANNEL, { repoId })
   },
   triage: {
     set: (repoId: string, findingId: string, status: ClawpatchStatus, note?: string) =>

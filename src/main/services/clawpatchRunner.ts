@@ -16,7 +16,7 @@ import {
   CommandValidationError
 } from "../errors";
 
-const commandNames = new Set(["status", "report", "review", "triage", "fix", "doctor"]);
+const commandNames = new Set(["status", "map", "report", "review", "triage", "fix", "doctor"]);
 
 export type ClawpatchRunnerError =
   | CommandValidationError
@@ -98,10 +98,22 @@ export function buildClawpatchArgs(request: ClawpatchCommandRequest): string[] {
 
   switch (request.command) {
     case "status":
+    case "map":
     case "report":
-    case "review":
     case "doctor":
       return args;
+    case "review": {
+      const reviewArgs = [...args];
+      if (request.featureId !== undefined) {
+        assertClawpatchId(request.featureId, "featureId");
+        reviewArgs.push("--feature", request.featureId);
+      }
+      if (request.limit !== undefined) {
+        assertLimit(request.limit);
+        reviewArgs.push("--limit", String(Math.floor(request.limit)));
+      }
+      return reviewArgs;
+    }
     case "triage": {
       assertFindingId(request.findingId);
       if (!isClawpatchStatus(request.status)) {
@@ -174,11 +186,21 @@ function runClawpatchProcess(input: {
 }
 
 function assertFindingId(findingId: string): void {
-  if (typeof findingId !== "string" || findingId.trim() === "") {
-    throw new Error("Missing findingId");
+  assertClawpatchId(findingId, "findingId");
+}
+
+function assertClawpatchId(id: string, field: string): void {
+  if (typeof id !== "string" || id.trim() === "") {
+    throw new Error(`Missing ${field}`);
   }
-  if (/[\0\r\n]/u.test(findingId)) {
-    throw new Error("Invalid findingId");
+  if (/[\0\r\n]/u.test(id)) {
+    throw new Error(`Invalid ${field}`);
+  }
+}
+
+function assertLimit(limit: number): void {
+  if (!Number.isFinite(limit) || limit < 1 || Math.floor(limit) !== limit) {
+    throw new Error("Invalid review limit");
   }
 }
 

@@ -86,6 +86,19 @@ describe("RepoService", () => {
     }).pipe(Effect.provide(makeRepoServiceTestLayer(fixtureRepo, calls)));
   });
 
+  it.effect("reads feature map coverage through repo service", () => {
+    const calls: RunnerCall[] = [];
+    return Effect.gen(function* () {
+      const service = yield* RepoService;
+
+      const summary = yield* service.addRepo(fixtureRepo);
+      const snapshot = yield* service.readFeatureMap(summary.id);
+
+      expect(snapshot.features.map((feature) => feature.featureId)).toEqual(["feat-1"]);
+      expect(snapshot.coverage.totalFeatures).toBe(1);
+    }).pipe(Effect.provide(makeRepoServiceTestLayer(fixtureRepo, calls)));
+  });
+
   it.effect("uses clawpatch triage for status changes", () => {
     const calls: RunnerCall[] = [];
     return Effect.gen(function* () {

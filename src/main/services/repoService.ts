@@ -10,6 +10,7 @@ import type {
   ClawpatchStatus,
   CommandResult,
   CommandStreamEvent,
+  FeatureMapSnapshot,
   FindingDetail,
   FindingListItem,
   RepoSnapshot,
@@ -30,6 +31,7 @@ export interface RepoServiceShape {
   readonly addRepo: (repoPath: string) => Effect.Effect<RepoSummary, unknown>;
   readonly refreshRepo: (repoId: string) => Effect.Effect<RepoSnapshot, unknown>;
   readonly listFindings: (repoId: string) => Effect.Effect<FindingListItem[], unknown>;
+  readonly readFeatureMap: (repoId: string) => Effect.Effect<FeatureMapSnapshot, unknown>;
   readonly getFinding: (repoId: string, findingId: string) => Effect.Effect<FindingDetail, unknown>;
   readonly runCommand: (
     repoId: string,
@@ -200,6 +202,10 @@ export const RepoServiceLive = (appDataDir: string) =>
         listFindings: Effect.fn("repoService.listFindings")(function* (repoIdValue) {
           const repo = yield* requireRepo(repoIdValue);
           return yield* state.readFindingList(repo.path, yield* metadata.read(repo.path));
+        }),
+        readFeatureMap: Effect.fn("repoService.readFeatureMap")(function* (repoIdValue) {
+          const repo = yield* requireRepo(repoIdValue);
+          return yield* state.readFeatureMap(repo.path);
         }),
         getFinding: Effect.fn("repoService.getFinding")(function* (repoIdValue, findingId) {
           const repo = yield* requireRepo(repoIdValue);
