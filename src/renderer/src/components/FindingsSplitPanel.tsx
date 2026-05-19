@@ -4,7 +4,8 @@ import type { FindingFilterOptions, FindingFilters } from "../findingsFilters";
 import { FindingDetailPanel } from "./FindingDetailPanel";
 import { FindingsTable } from "./FindingsTable";
 
-const MIN_LIST_WIDTH = 28;
+const FINDINGS_SPLIT_WIDTH_STORAGE_KEY = "clawpatch.findingsSplitWidth.v1";
+const MIN_LIST_WIDTH = 14;
 const MAX_LIST_WIDTH = 62;
 const DEFAULT_LIST_WIDTH = 42;
 const KEYBOARD_STEP = 2;
@@ -40,12 +41,14 @@ export function FindingsSplitPanel({
   onTriage,
   onFix,
 }: Props) {
-  const [listWidth, setListWidth] = useState(DEFAULT_LIST_WIDTH);
+  const [listWidth, setListWidth] = useState(readStoredListWidth);
   const [isResizing, setIsResizing] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
 
   const setClampedListWidth = (nextWidth: number): void => {
-    setListWidth(Math.min(MAX_LIST_WIDTH, Math.max(MIN_LIST_WIDTH, nextWidth)));
+    const clampedWidth = clampListWidth(nextWidth);
+    setListWidth(clampedWidth);
+    persistListWidth(clampedWidth);
   };
 
   const updateListWidthFromPointer = (clientX: number): void => {
@@ -137,4 +140,36 @@ export function FindingsSplitPanel({
       />
     </section>
   );
+}
+
+function clampListWidth(nextWidth: number): number {
+  return Math.min(MAX_LIST_WIDTH, Math.max(MIN_LIST_WIDTH, nextWidth));
+}
+
+function readStoredListWidth(): number {
+  let storedWidth: string | null;
+  try {
+    storedWidth = window.localStorage.getItem(FINDINGS_SPLIT_WIDTH_STORAGE_KEY);
+  } catch {
+    return DEFAULT_LIST_WIDTH;
+  }
+
+  if (storedWidth === null) {
+    return DEFAULT_LIST_WIDTH;
+  }
+
+  const parsedWidth = Number(storedWidth);
+  if (!Number.isFinite(parsedWidth)) {
+    return DEFAULT_LIST_WIDTH;
+  }
+
+  return clampListWidth(parsedWidth);
+}
+
+function persistListWidth(width: number): void {
+  try {
+    window.localStorage.setItem(FINDINGS_SPLIT_WIDTH_STORAGE_KEY, String(width));
+  } catch {
+    // Resizing should keep working even if local storage is unavailable.
+  }
 }
