@@ -444,6 +444,15 @@ button:disabled {
   width: 28px;
 }
 
+.icon-button.danger {
+  color: var(--danger);
+}
+
+.icon-button.danger:hover:not(:disabled) {
+  background: var(--danger-soft);
+  border-color: #f1b8b1;
+}
+
 .sidebar-toggle {
   flex-shrink: 0;
 }
@@ -722,6 +731,18 @@ button:disabled {
   flex-shrink: 0;
   font-size: 11px;
   font-weight: 500;
+}
+
+.command-panel-status {
+  align-items: center;
+  display: flex;
+  flex-shrink: 0;
+  gap: 6px;
+}
+
+.command-panel-status .icon-button {
+  min-height: 24px;
+  width: 24px;
 }
 
 .detail-header h2 {

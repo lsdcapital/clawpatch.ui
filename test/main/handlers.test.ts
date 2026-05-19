@@ -3,9 +3,9 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as ManagedRuntime from "effect/ManagedRuntime";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { REPO_PICK_FOLDER_CHANNEL } from "../../src/shared/ipcChannels";
+import { COMMANDS_INTERRUPT_CHANNEL, REPO_PICK_FOLDER_CHANNEL } from "../../src/shared/ipcChannels";
 import type { CommandResult, FeatureMapSnapshot, RepoSummary } from "../../src/shared/types";
-import { RepoService } from "../../src/main/services/repoService";
+import { RepoService, type RepoServiceShape } from "../../src/main/services/repoService";
 import { installIpcHandlers } from "../../src/main/ipc/handlers";
 import { EffectIpcLive, type IpcMainLike } from "../../src/main/ipc/effectIpc";
 
@@ -67,11 +67,46 @@ describe("IPC handlers", () => {
       await runtime.dispose();
     }
   });
+
+  it("interrupts a running command through IPC", async () => {
+    const interruptCommand = vi.fn(() => Effect.succeed({ interrupted: true }));
+    const { registered, runtime } = await installHandlersForTest({ interruptCommand });
+    const listener = registered.get(COMMANDS_INTERRUPT_CHANNEL);
+    if (listener === undefined) {
+      throw new Error("command interrupt IPC handler was not registered");
+    }
+
+    try {
+      await expect(listener({} as IpcMainInvokeEvent, { repoId: "repo-1" })).resolves.toEqual({
+        interrupted: true,
+      });
+      expect(interruptCommand).toHaveBeenCalledWith("repo-1");
+    } finally {
+      await runtime.dispose();
+    }
+  });
 });
 
 type RegisteredListener = (event: IpcMainInvokeEvent, raw: unknown) => unknown | Promise<unknown>;
 
 async function installHandlersForTest(): Promise<{
+  readonly registered: Map<string, RegisteredListener>;
+  readonly listener: RegisteredListener;
+  readonly runtime: ManagedRuntime.ManagedRuntime<any, any>;
+}>;
+async function installHandlersForTest(options: {
+  readonly interruptCommand?: RepoServiceShape["interruptCommand"];
+}): Promise<{
+  readonly registered: Map<string, RegisteredListener>;
+  readonly listener: RegisteredListener;
+  readonly runtime: ManagedRuntime.ManagedRuntime<any, any>;
+}>;
+async function installHandlersForTest(
+  options: {
+    readonly interruptCommand?: RepoServiceShape["interruptCommand"];
+  } = {},
+): Promise<{
+  readonly registered: Map<string, RegisteredListener>;
   readonly listener: RegisteredListener;
   readonly runtime: ManagedRuntime.ManagedRuntime<any, any>;
 }> {
@@ -85,7 +120,7 @@ async function installHandlersForTest(): Promise<{
   let runtime: ManagedRuntime.ManagedRuntime<any, any>;
   runtime = ManagedRuntime.make(
     Layer.mergeAll(
-      makeRepoServiceLayer(),
+      makeRepoServiceLayer(options),
       EffectIpcLive(ipcMain, (effect) => runtime.runPromise(effect)),
     ),
   );
@@ -95,10 +130,14 @@ async function installHandlersForTest(): Promise<{
   if (listener === undefined) {
     throw new Error("repo picker IPC handler was not registered");
   }
-  return { listener, runtime };
+  return { registered, listener, runtime };
 }
 
-function makeRepoServiceLayer() {
+function makeRepoServiceLayer(
+  options: {
+    readonly interruptCommand?: RepoServiceShape["interruptCommand"];
+  } = {},
+) {
   return Layer.succeed(
     RepoService,
     RepoService.of({
@@ -125,6 +164,7 @@ function makeRepoServiceLayer() {
       readFeatureMap: () => Effect.succeed(makeFeatureMapSnapshot()),
       getFinding: () => Effect.die("not implemented"),
       runCommand: () => Effect.succeed(makeCommandResult()),
+      interruptCommand: options.interruptCommand ?? (() => Effect.succeed({ interrupted: false })),
       setTriage: () => Effect.succeed(makeCommandResult()),
       readDiff: () => Effect.succeed(""),
     }),

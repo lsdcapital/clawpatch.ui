@@ -166,4 +166,81 @@ describe("buildClawpatchArgs", () => {
     await expect(first).resolves.toMatchObject({ exitCode: 0 });
     await runtime.dispose();
   });
+
+  it("interrupts an active command and clears it after close", async () => {
+    let finishRun: ((result: CommandResult) => void) | undefined;
+    let interruptCount = 0;
+    const runtime = ManagedRuntime.make(
+      makeClawpatchRunnerLayer(
+        (input) =>
+          new Promise<CommandResult>((resolve) => {
+            finishRun = resolve;
+            input.registerInterrupt(() => {
+              interruptCount += 1;
+              return true;
+            });
+          }),
+      ),
+    );
+
+    const run = runtime.runPromise(
+      Effect.gen(function* () {
+        const runner = yield* ClawpatchRunner;
+        return yield* runner.run("/tmp/repo-a", { command: "status" });
+      }),
+    );
+
+    await expect(
+      runtime.runPromise(
+        Effect.gen(function* () {
+          const runner = yield* ClawpatchRunner;
+          return yield* runner.interrupt("/tmp/repo-a");
+        }),
+      ),
+    ).resolves.toEqual({ interrupted: true });
+    expect(interruptCount).toBe(1);
+
+    const finish = finishRun;
+    if (finish === undefined) {
+      throw new Error("run did not start");
+    }
+    finish({
+      runId: "run-test",
+      command: "clawpatch",
+      args: ["status"],
+      cwd: "/tmp/repo-a",
+      exitCode: 130,
+      durationMs: 1,
+      stdout: "",
+      stderr: "",
+      parsedJson: null,
+    });
+    await expect(run).resolves.toMatchObject({ exitCode: 130 });
+
+    await expect(
+      runtime.runPromise(
+        Effect.gen(function* () {
+          const runner = yield* ClawpatchRunner;
+          return yield* runner.interrupt("/tmp/repo-a");
+        }),
+      ),
+    ).resolves.toEqual({ interrupted: false });
+    await runtime.dispose();
+  });
+
+  it("returns not interrupted for an idle repo", async () => {
+    const runtime = ManagedRuntime.make(
+      makeClawpatchRunnerLayer(() => Promise.reject(new Error("should not run"))),
+    );
+
+    await expect(
+      runtime.runPromise(
+        Effect.gen(function* () {
+          const runner = yield* ClawpatchRunner;
+          return yield* runner.interrupt("/tmp/repo-a");
+        }),
+      ),
+    ).resolves.toEqual({ interrupted: false });
+    await runtime.dispose();
+  });
 });

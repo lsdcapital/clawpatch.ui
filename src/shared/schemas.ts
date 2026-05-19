@@ -35,6 +35,10 @@ export const CommandResultSchema = Schema.Struct({
   parsedJson: Schema.NullOr(Schema.Unknown),
 });
 
+export const CommandInterruptResultSchema = Schema.Struct({
+  interrupted: Schema.Boolean,
+});
+
 export const CommandStreamEventSchema = Schema.Struct({
   runId: Schema.String,
   stream: Schema.Literals(["stdout", "stderr"]),
