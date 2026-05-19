@@ -1,5 +1,7 @@
 import { app, BrowserWindow, ipcMain, screen, type Rectangle } from "electron";
 import { join } from "node:path";
+import * as NodeServices from "@effect/platform-node/NodeServices";
+import type * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as ManagedRuntime from "effect/ManagedRuntime";
 import { COMMANDS_STREAM_CHANNEL } from "../shared/ipcChannels";
@@ -20,15 +22,24 @@ import {
   type WindowBounds,
 } from "./windowState";
 
+type AppLayer = ReturnType<typeof makeAppLayer>;
+type AppRuntime = ManagedRuntime.ManagedRuntime<Layer.Success<AppLayer>, Layer.Error<AppLayer>>;
+
 let mainWindow: BrowserWindow | null = null;
-let appRuntime: ManagedRuntime.ManagedRuntime<any, any> | null = null;
+let appRuntime: AppRuntime | null = null;
 const WINDOW_STATE_SAVE_DEBOUNCE_MS = 250;
 
 async function createWindow(): Promise<void> {
+  const runtime = appRuntime;
+  if (runtime === null) {
+    throw new Error("App runtime is not initialized");
+  }
   const userDataPath = app.getPath("userData");
-  const windowState = await readWindowState(
-    userDataPath,
-    screen.getAllDisplays().map((display) => display.workArea),
+  const windowState = await runtime.runPromise(
+    readWindowState(
+      userDataPath,
+      screen.getAllDisplays().map((display) => display.workArea),
+    ),
   );
 
   mainWindow = new BrowserWindow({
@@ -71,8 +82,16 @@ app.whenReady().then(async () => {
   });
 });
 
-app.on("before-quit", () => {
-  void appRuntime?.dispose();
+app.on("before-quit", (event) => {
+  const runtime = appRuntime;
+  if (runtime === null) {
+    return;
+  }
+  appRuntime = null;
+  event.preventDefault();
+  void runtime.dispose().finally(() => {
+    app.quit();
+  });
 });
 
 app.on("window-all-closed", () => {
@@ -96,16 +115,24 @@ function installWindowStatePersistence(window: BrowserWindow, userDataPath: stri
     if (window.isDestroyed()) {
       return;
     }
-    void writeWindowState(
-      userDataPath,
-      makeWindowStateFile(
-        toWindowBounds(window.getNormalBounds()),
-        window.isMaximized(),
-        window.isFullScreen(),
-      ),
-    ).catch((error: unknown) => {
-      console.error("Unable to write window state", error);
-    });
+    const runtime = appRuntime;
+    if (runtime === null) {
+      return;
+    }
+    void runtime
+      .runPromise(
+        writeWindowState(
+          userDataPath,
+          makeWindowStateFile(
+            toWindowBounds(window.getNormalBounds()),
+            window.isMaximized(),
+            window.isFullScreen(),
+          ),
+        ),
+      )
+      .catch((error: unknown) => {
+        console.error("Unable to write window state", error);
+      });
   };
 
   const saveSoon = (): void => {
@@ -133,20 +160,25 @@ function toWindowBounds(bounds: Rectangle): WindowBounds {
   };
 }
 
-function makeAppRuntime(userDataPath: string): ManagedRuntime.ManagedRuntime<any, any> {
+function makeAppLayer(
+  userDataPath: string,
+  runPromise: <A, E>(effect: Effect.Effect<A, E>) => Promise<A>,
+) {
   const coreLayer = Layer.mergeAll(
     ClawpatchRunnerLive,
     ClawpatchStateServiceLive,
     UiMetadataServiceLive(userDataPath),
     GitServiceLive,
+  ).pipe(Layer.provide(NodeServices.layer));
+  const repoLayer = RepoServiceLive(userDataPath).pipe(
+    Layer.provideMerge(coreLayer),
+    Layer.provide(NodeServices.layer),
   );
-  const repoLayer = RepoServiceLive(userDataPath).pipe(Layer.provideMerge(coreLayer));
-  let runtime: ManagedRuntime.ManagedRuntime<any, any>;
-  runtime = ManagedRuntime.make(
-    Layer.mergeAll(
-      repoLayer,
-      EffectIpcLive(ipcMain, (effect) => runtime.runPromise(effect)),
-    ),
-  );
+  return Layer.mergeAll(NodeServices.layer, repoLayer, EffectIpcLive(ipcMain, runPromise));
+}
+
+function makeAppRuntime(userDataPath: string): AppRuntime {
+  let runtime: AppRuntime;
+  runtime = ManagedRuntime.make(makeAppLayer(userDataPath, (effect) => runtime.runPromise(effect)));
   return runtime;
 }

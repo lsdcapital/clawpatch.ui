@@ -1,10 +1,10 @@
 import { createHash } from "node:crypto";
-import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
-import { basename, dirname, resolve } from "node:path";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
+import * as Path from "effect/Path";
 import * as Semaphore from "effect/Semaphore";
 import type {
   ClawpatchCommandRequest,
@@ -19,35 +19,47 @@ import type {
   RepoSummary,
 } from "../../shared/types";
 import { InvalidRepoPathError, RepoNotFoundError } from "../errors";
-import { ClawpatchRunner } from "./clawpatchRunner";
-import { ClawpatchStateService } from "./clawpatchState";
+import { ClawpatchRunner, type ClawpatchRunnerError } from "./clawpatchRunner";
+import { ClawpatchStateService, type ClawpatchStateError } from "./clawpatchState";
 import { GitService } from "./gitService";
-import { UiMetadataService } from "./uiMetadata";
+import { UiMetadataService, type UiMetadataError } from "./uiMetadata";
 
 interface RegistryFile {
   repos: Array<Pick<RepoSummary, "id" | "name" | "path" | "updatedAt">>;
 }
 
+export type RepoServiceError =
+  | InvalidRepoPathError
+  | RepoNotFoundError
+  | ClawpatchRunnerError
+  | ClawpatchStateError
+  | UiMetadataError;
+
 export interface RepoServiceShape {
-  readonly listRepos: () => Effect.Effect<RepoSummary[], unknown>;
-  readonly addRepo: (repoPath: string) => Effect.Effect<RepoSummary, unknown>;
-  readonly refreshRepo: (repoId: string) => Effect.Effect<RepoSnapshot, unknown>;
-  readonly listFindings: (repoId: string) => Effect.Effect<FindingListItem[], unknown>;
-  readonly readFeatureMap: (repoId: string) => Effect.Effect<FeatureMapSnapshot, unknown>;
-  readonly getFinding: (repoId: string, findingId: string) => Effect.Effect<FindingDetail, unknown>;
+  readonly listRepos: () => Effect.Effect<RepoSummary[], RepoServiceError>;
+  readonly addRepo: (repoPath: string) => Effect.Effect<RepoSummary, RepoServiceError>;
+  readonly refreshRepo: (repoId: string) => Effect.Effect<RepoSnapshot, RepoServiceError>;
+  readonly listFindings: (repoId: string) => Effect.Effect<FindingListItem[], RepoServiceError>;
+  readonly readFeatureMap: (repoId: string) => Effect.Effect<FeatureMapSnapshot, RepoServiceError>;
+  readonly getFinding: (
+    repoId: string,
+    findingId: string,
+  ) => Effect.Effect<FindingDetail, RepoServiceError>;
   readonly runCommand: (
     repoId: string,
     request: ClawpatchCommandRequest,
     onStream?: (event: CommandStreamEvent) => void,
-  ) => Effect.Effect<CommandResult, unknown>;
-  readonly interruptCommand: (repoId: string) => Effect.Effect<CommandInterruptResult, unknown>;
+  ) => Effect.Effect<CommandResult, RepoServiceError>;
+  readonly interruptCommand: (
+    repoId: string,
+  ) => Effect.Effect<CommandInterruptResult, RepoServiceError>;
   readonly setTriage: (
     repoId: string,
     findingId: string,
     status: ClawpatchStatus,
     note?: string,
-  ) => Effect.Effect<CommandResult, unknown>;
-  readonly readDiff: (repoId: string) => Effect.Effect<string, unknown>;
+  ) => Effect.Effect<CommandResult, RepoServiceError>;
+  readonly readDiff: (repoId: string) => Effect.Effect<string, RepoServiceError>;
 }
 
 export class RepoService extends Context.Service<RepoService, RepoServiceShape>()(
@@ -62,13 +74,15 @@ export const RepoServiceLive = (appDataDir: string) =>
       const state = yield* ClawpatchStateService;
       const metadata = yield* UiMetadataService;
       const git = yield* GitService;
-      const registryPath = resolve(appDataDir, "repos.json");
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const registryPath = path.resolve(appDataDir, "repos.json");
       const registryMutationSemaphore = yield* Semaphore.make(1);
 
       const readRegistry = Effect.fn("repoService.readRegistry")(function* () {
-        const raw = yield* Effect.tryPromise(() => readFile(registryPath, "utf8")).pipe(
-          Effect.catch(() => Effect.succeed(null)),
-        );
+        const raw = yield* fs
+          .readFileString(registryPath)
+          .pipe(Effect.catch(() => Effect.succeed(null)));
         if (raw === null) {
           return { repos: [] } satisfies RegistryFile;
         }
@@ -87,25 +101,60 @@ export const RepoServiceLive = (appDataDir: string) =>
       const writeRegistry = Effect.fn("repoService.writeRegistry")(function* (
         registry: RegistryFile,
       ) {
-        yield* Effect.tryPromise({
-          try: () => mkdir(dirname(registryPath), { recursive: true }),
-          catch: (cause) =>
-            new InvalidRepoPathError({
-              message: "Unable to create repo registry directory",
-              path: registryPath,
-              cause,
-            }),
-        });
-        yield* Effect.tryPromise({
-          try: () => writeFile(registryPath, `${JSON.stringify(registry, null, 2)}\n`, "utf8"),
-          catch: (cause) =>
-            new InvalidRepoPathError({
-              message: "Unable to write repo registry",
-              path: registryPath,
-              cause,
-            }),
-        });
+        yield* fs.makeDirectory(path.dirname(registryPath), { recursive: true }).pipe(
+          Effect.mapError(
+            (cause) =>
+              new InvalidRepoPathError({
+                message: "Unable to create repo registry directory",
+                path: registryPath,
+                cause,
+              }),
+          ),
+        );
+        yield* fs.writeFileString(registryPath, `${JSON.stringify(registry, null, 2)}\n`).pipe(
+          Effect.mapError(
+            (cause) =>
+              new InvalidRepoPathError({
+                message: "Unable to write repo registry",
+                path: registryPath,
+                cause,
+              }),
+          ),
+        );
       });
+
+      const normalizeExistingDirectory = Effect.fn("repoService.normalizeExistingDirectory")(
+        function* (inputPath: string) {
+          if (typeof inputPath !== "string" || inputPath.trim() === "") {
+            return yield* new InvalidRepoPathError({ message: "Repo path is required" });
+          }
+          if (inputPath.includes("\0") || inputPath.includes("\r") || inputPath.includes("\n")) {
+            return yield* new InvalidRepoPathError({
+              message: "Repo path contains invalid characters",
+              path: inputPath,
+            });
+          }
+
+          const normalized = path.resolve(expandHomePath(inputPath.trim(), path));
+          const stats = yield* fs.stat(normalized).pipe(
+            Effect.mapError(
+              (cause) =>
+                new InvalidRepoPathError({
+                  message: "Repo path does not exist",
+                  path: normalized,
+                  cause,
+                }),
+            ),
+          );
+          if (stats.type !== "Directory") {
+            return yield* new InvalidRepoPathError({
+              message: "Repo path must be a directory",
+              path: normalized,
+            });
+          }
+          return normalized;
+        },
+      );
 
       const requireRepo = Effect.fn("repoService.requireRepo")(function* (repoIdValue: string) {
         const registry = yield* readRegistry();
@@ -154,7 +203,7 @@ export const RepoServiceLive = (appDataDir: string) =>
 
         return {
           id,
-          name: basename(repoPath),
+          name: path.basename(repoPath),
           path: repoPath,
           hasClawpatch,
           isValid,
@@ -185,7 +234,7 @@ export const RepoServiceLive = (appDataDir: string) =>
 
               const repo = {
                 id: repoId(normalized),
-                name: basename(normalized),
+                name: path.basename(normalized),
                 path: normalized,
                 updatedAt: new Date().toISOString(),
               };
@@ -256,43 +305,12 @@ export const RepoServiceLive = (appDataDir: string) =>
     }),
   );
 
-const normalizeExistingDirectory = (inputPath: string) =>
-  Effect.gen(function* () {
-    if (typeof inputPath !== "string" || inputPath.trim() === "") {
-      return yield* new InvalidRepoPathError({ message: "Repo path is required" });
-    }
-    if (inputPath.includes("\0") || inputPath.includes("\r") || inputPath.includes("\n")) {
-      return yield* new InvalidRepoPathError({
-        message: "Repo path contains invalid characters",
-        path: inputPath,
-      });
-    }
-
-    const normalized = resolve(expandHomePath(inputPath.trim()));
-    const stats = yield* Effect.tryPromise({
-      try: () => stat(normalized),
-      catch: (cause) =>
-        new InvalidRepoPathError({
-          message: "Repo path does not exist",
-          path: normalized,
-          cause,
-        }),
-    });
-    if (!stats.isDirectory()) {
-      return yield* new InvalidRepoPathError({
-        message: "Repo path must be a directory",
-        path: normalized,
-      });
-    }
-    return normalized;
-  });
-
-function expandHomePath(inputPath: string): string {
+function expandHomePath(inputPath: string, path: Path.Path): string {
   if (inputPath === "~") {
     return homedir();
   }
   if (inputPath.startsWith("~/")) {
-    return resolve(homedir(), inputPath.slice(2));
+    return path.resolve(homedir(), inputPath.slice(2));
   }
   return inputPath;
 }

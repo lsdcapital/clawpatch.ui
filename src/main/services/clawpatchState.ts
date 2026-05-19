@@ -1,8 +1,8 @@
-import { readdir, readFile, stat } from "node:fs/promises";
-import { basename, join } from "node:path";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
+import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import { ClawpatchStatusSchema } from "../../shared/schemas";
 import type {
@@ -13,7 +13,7 @@ import type {
   FindingListItem,
   ReviewRunSummary,
 } from "../../shared/types";
-import { JsonDecodeError } from "../errors";
+import { FindingNotFoundError, JsonDecodeError } from "../errors";
 
 const RawFindingSchema = Schema.Struct({
   findingId: Schema.String,
@@ -39,14 +39,20 @@ const RawFindingSchema = Schema.Struct({
 
 type RawFinding = typeof RawFindingSchema.Type;
 
+export type ClawpatchStateError = FindingNotFoundError | JsonDecodeError;
+
 export interface ClawpatchStateServiceShape {
-  readonly detect: (repoPath: string) => Effect.Effect<boolean, unknown>;
-  readonly readFeatureMap: (repoPath: string) => Effect.Effect<FeatureMapSnapshot, unknown>;
-  readonly readFindingList: (repoPath: string) => Effect.Effect<FindingListItem[], unknown>;
+  readonly detect: (repoPath: string) => Effect.Effect<boolean, ClawpatchStateError>;
+  readonly readFeatureMap: (
+    repoPath: string,
+  ) => Effect.Effect<FeatureMapSnapshot, ClawpatchStateError>;
+  readonly readFindingList: (
+    repoPath: string,
+  ) => Effect.Effect<FindingListItem[], ClawpatchStateError>;
   readonly readFindingDetail: (
     repoPath: string,
     findingId: string,
-  ) => Effect.Effect<FindingDetail, unknown>;
+  ) => Effect.Effect<FindingDetail, ClawpatchStateError>;
 }
 
 export class ClawpatchStateService extends Context.Service<
@@ -54,124 +60,135 @@ export class ClawpatchStateService extends Context.Service<
   ClawpatchStateServiceShape
 >()("clawpatch/State") {}
 
-const liveService: ClawpatchStateServiceShape = {
-  detect: Effect.fn("clawpatchState.detect")(function* (repoPath) {
-    const stateDir = join(repoPath, ".clawpatch");
-    const candidates = [join(stateDir, "config.json"), join(stateDir, "findings")];
-    for (const candidate of candidates) {
-      const exists = yield* Effect.tryPromise(() => stat(candidate).then(() => true)).pipe(
-        Effect.catch(() => Effect.succeed(false)),
-      );
-      if (exists) {
-        return true;
-      }
-    }
-    return false;
-  }),
-  readFindingList: Effect.fn("clawpatchState.readFindingList")(function* (repoPath) {
-    const rawFindings = yield* readRawFindings(repoPath);
-    return rawFindings.map(toFindingListItem);
-  }),
-  readFeatureMap: Effect.fn("clawpatchState.readFeatureMap")(function* (repoPath) {
-    const [featureRecords, runRecords] = yield* Effect.all([
-      readRecords(repoPath, "features"),
-      readRecords(repoPath, "runs"),
-    ]);
-    const features = featureRecords
-      .map(toFeatureMapItem)
-      .filter((feature): feature is FeatureMapItem => feature !== null)
-      .toSorted(rankFeatureMapItem);
-    const pendingReviewFeatureIds = features
-      .filter((feature) => isPendingReviewStatus(feature.status))
-      .map((feature) => feature.featureId);
-    const reviewRuns = runRecords
-      .map(toReviewRunSummary)
-      .filter((run): run is ReviewRunSummary => run !== null)
-      .toSorted(compareReviewRunNewestFirst);
-    const latestReviewRun = reviewRuns[0] ?? null;
-    const latestLimitedReviewRun = reviewRuns.find((run) => run.limit !== null) ?? null;
-
-    return {
-      features,
-      coverage: {
-        totalFeatures: features.length,
-        pendingReviewCount: pendingReviewFeatureIds.length,
-        pendingReviewFeatureIds,
-        latestReviewRun,
-        latestLimitedReviewRun,
-        hasLimitedReviewRemainder:
-          latestLimitedReviewRun !== null && pendingReviewFeatureIds.length > 0,
-      },
-    };
-  }),
-  readFindingDetail: Effect.fn("clawpatchState.readFindingDetail")(function* (repoPath, findingId) {
-    const finding = (yield* readRawFindings(repoPath)).find((item) => item.findingId === findingId);
-    if (finding === undefined) {
-      return yield* Effect.fail(new Error(`Finding not found: ${findingId}`));
-    }
-
-    const [features, patches] = yield* Effect.all([
-      readRecords(repoPath, "features"),
-      readRecords(repoPath, "patches"),
-    ]);
-    const feature =
-      features.find((item) => objectId(item, "featureId") === finding.featureId) ?? null;
-    const patchIds = new Set(finding.linkedPatchAttemptIds ?? []);
-    const linkedPatches = patches.filter((item) => patchIds.has(objectId(item, "patchAttemptId")));
-
-    return {
-      ...toFindingListItem(finding),
-      reasoning: finding.reasoning,
-      reproduction: finding.reproduction ?? null,
-      recommendation: finding.recommendation,
-      whyTestsDoNotAlreadyCoverThis: finding.whyTestsDoNotAlreadyCoverThis ?? null,
-      suggestedRegressionTest: finding.suggestedRegressionTest ?? null,
-      minimumFixScope: finding.minimumFixScope ?? null,
-      feature,
-      patchAttempts: linkedPatches,
-      history: (finding.history ?? []).map(toFindingHistoryEntry),
-    };
-  }),
-};
-
-export const ClawpatchStateServiceLive = Layer.succeed(
+export const ClawpatchStateServiceLive = Layer.effect(
   ClawpatchStateService,
-  ClawpatchStateService.of(liveService),
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+
+    const readRecords = Effect.fn("clawpatchState.readRecords")(function* (
+      repoPath: string,
+      directory: string,
+    ) {
+      const dir = path.join(repoPath, ".clawpatch", directory);
+      const names = yield* fs.readDirectory(dir).pipe(Effect.catch(() => Effect.succeed([])));
+
+      const records: unknown[] = [];
+      for (const name of names.toSorted()) {
+        if (!name.endsWith(".json")) {
+          continue;
+        }
+        const filePath = path.join(dir, path.basename(name));
+        const parsed = yield* fs.readFileString(filePath).pipe(
+          Effect.map((raw) => JSON.parse(raw) as unknown),
+          Effect.catch(() => Effect.succeed(null)),
+        );
+        if (parsed !== null) {
+          records.push(parsed);
+        }
+      }
+      return records;
+    });
+
+    const readRawFindings = Effect.fn("clawpatchState.readRawFindings")(function* (
+      repoPath: string,
+    ) {
+      const records = yield* readRecords(repoPath, "findings");
+      return records
+        .map(decodeRawFinding)
+        .filter((finding): finding is RawFinding => finding !== null)
+        .toSorted(
+          (a, b) => rankFinding(a) - rankFinding(b) || a.findingId.localeCompare(b.findingId),
+        );
+    });
+
+    return ClawpatchStateService.of({
+      detect: Effect.fn("clawpatchState.detect")(function* (repoPath) {
+        const stateDir = path.join(repoPath, ".clawpatch");
+        const candidates = [path.join(stateDir, "config.json"), path.join(stateDir, "findings")];
+        for (const candidate of candidates) {
+          const exists = yield* fs
+            .exists(candidate)
+            .pipe(Effect.catch(() => Effect.succeed(false)));
+          if (exists) {
+            return true;
+          }
+        }
+        return false;
+      }),
+      readFindingList: Effect.fn("clawpatchState.readFindingList")(function* (repoPath) {
+        const rawFindings = yield* readRawFindings(repoPath);
+        return rawFindings.map(toFindingListItem);
+      }),
+      readFeatureMap: Effect.fn("clawpatchState.readFeatureMap")(function* (repoPath) {
+        const [featureRecords, runRecords] = yield* Effect.all([
+          readRecords(repoPath, "features"),
+          readRecords(repoPath, "runs"),
+        ]);
+        const features = featureRecords
+          .map(toFeatureMapItem)
+          .filter((feature): feature is FeatureMapItem => feature !== null)
+          .toSorted(rankFeatureMapItem);
+        const pendingReviewFeatureIds = features
+          .filter((feature) => isPendingReviewStatus(feature.status))
+          .map((feature) => feature.featureId);
+        const reviewRuns = runRecords
+          .map(toReviewRunSummary)
+          .filter((run): run is ReviewRunSummary => run !== null)
+          .toSorted(compareReviewRunNewestFirst);
+        const latestReviewRun = reviewRuns[0] ?? null;
+        const latestLimitedReviewRun = reviewRuns.find((run) => run.limit !== null) ?? null;
+
+        return {
+          features,
+          coverage: {
+            totalFeatures: features.length,
+            pendingReviewCount: pendingReviewFeatureIds.length,
+            pendingReviewFeatureIds,
+            latestReviewRun,
+            latestLimitedReviewRun,
+            hasLimitedReviewRemainder:
+              latestLimitedReviewRun !== null && pendingReviewFeatureIds.length > 0,
+          },
+        };
+      }),
+      readFindingDetail: Effect.fn("clawpatchState.readFindingDetail")(
+        function* (repoPath, findingId) {
+          const finding = (yield* readRawFindings(repoPath)).find(
+            (item) => item.findingId === findingId,
+          );
+          if (finding === undefined) {
+            return yield* new FindingNotFoundError({ findingId });
+          }
+
+          const [features, patches] = yield* Effect.all([
+            readRecords(repoPath, "features"),
+            readRecords(repoPath, "patches"),
+          ]);
+          const feature =
+            features.find((item) => objectId(item, "featureId") === finding.featureId) ?? null;
+          const patchIds = new Set(finding.linkedPatchAttemptIds ?? []);
+          const linkedPatches = patches.filter((item) =>
+            patchIds.has(objectId(item, "patchAttemptId")),
+          );
+
+          return {
+            ...toFindingListItem(finding),
+            reasoning: finding.reasoning,
+            reproduction: finding.reproduction ?? null,
+            recommendation: finding.recommendation,
+            whyTestsDoNotAlreadyCoverThis: finding.whyTestsDoNotAlreadyCoverThis ?? null,
+            suggestedRegressionTest: finding.suggestedRegressionTest ?? null,
+            minimumFixScope: finding.minimumFixScope ?? null,
+            feature,
+            patchAttempts: linkedPatches,
+            history: (finding.history ?? []).map(toFindingHistoryEntry),
+          };
+        },
+      ),
+    });
+  }),
 );
-
-const readRawFindings = Effect.fn("clawpatchState.readRawFindings")(function* (repoPath: string) {
-  const records = yield* readRecords(repoPath, "findings");
-  return records
-    .map(decodeRawFinding)
-    .filter((finding): finding is RawFinding => finding !== null)
-    .toSorted((a, b) => rankFinding(a) - rankFinding(b) || a.findingId.localeCompare(b.findingId));
-});
-
-const readRecords = Effect.fn("clawpatchState.readRecords")(function* (
-  repoPath: string,
-  directory: string,
-) {
-  const dir = join(repoPath, ".clawpatch", directory);
-  const names = yield* Effect.tryPromise(() => readdir(dir)).pipe(
-    Effect.catch(() => Effect.succeed([] as string[])),
-  );
-
-  const records: unknown[] = [];
-  for (const name of names.toSorted()) {
-    if (!name.endsWith(".json")) {
-      continue;
-    }
-    const path = join(dir, basename(name));
-    const parsed = yield* Effect.tryPromise({
-      try: async () => JSON.parse(await readFile(path, "utf8")) as unknown,
-      catch: (cause) => new JsonDecodeError({ path, cause }),
-    }).pipe(Effect.catch(() => Effect.succeed(null)));
-    if (parsed !== null) {
-      records.push(parsed);
-    }
-  }
-  return records;
-});
 
 function decodeRawFinding(value: unknown): RawFinding | null {
   try {

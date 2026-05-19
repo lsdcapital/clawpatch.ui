@@ -1,6 +1,8 @@
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import * as NodeServices from "@effect/platform-node/NodeServices";
+import * as Effect from "effect/Effect";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   DEFAULT_WINDOW_BOUNDS,
@@ -23,7 +25,7 @@ describe("window state", () => {
 
   it("falls back to first-launch maximized defaults when state is missing or malformed", async () => {
     const missingDir = await makeTempDir();
-    await expect(readWindowState(missingDir, [primaryDisplay])).resolves.toEqual({
+    await expect(runEffect(readWindowState(missingDir, [primaryDisplay]))).resolves.toEqual({
       bounds: DEFAULT_WINDOW_BOUNDS,
       isMaximized: true,
       isFullScreen: false,
@@ -32,7 +34,7 @@ describe("window state", () => {
 
     const malformedDir = await makeTempDir();
     await writeFile(join(malformedDir, WINDOW_STATE_FILE), "{not-json", "utf8");
-    await expect(readWindowState(malformedDir, [primaryDisplay])).resolves.toEqual({
+    await expect(runEffect(readWindowState(malformedDir, [primaryDisplay]))).resolves.toEqual({
       bounds: DEFAULT_WINDOW_BOUNDS,
       isMaximized: true,
       isFullScreen: false,
@@ -104,4 +106,8 @@ async function makeTempDir(): Promise<string> {
   const dir = await mkdtemp(join(tmpdir(), "clawpatch-window-state-"));
   tempDirs.push(dir);
   return dir;
+}
+
+function runEffect<A, E>(effect: Effect.Effect<A, E, NodeServices.NodeServices>): Promise<A> {
+  return Effect.runPromise(effect.pipe(Effect.provide(NodeServices.layer)));
 }

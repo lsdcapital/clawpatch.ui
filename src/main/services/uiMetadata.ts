@@ -1,8 +1,8 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
+import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import { UiMetadataSchema } from "../../shared/schemas";
 import type { UiMetadata } from "../../shared/types";
@@ -14,21 +14,84 @@ type MetadataReadResult =
   | { readonly status: "valid"; readonly metadata: UiMetadata };
 
 export interface UiMetadataServiceShape {
-  readonly read: (repoId: string, repoPath: string) => Effect.Effect<UiMetadata, unknown>;
-  readonly write: (repoId: string, metadata: UiMetadata) => Effect.Effect<UiMetadata, unknown>;
+  readonly read: (repoId: string, repoPath: string) => Effect.Effect<UiMetadata, UiMetadataError>;
+  readonly write: (
+    repoId: string,
+    metadata: UiMetadata,
+  ) => Effect.Effect<UiMetadata, UiMetadataError>;
 }
+
+export type UiMetadataError = JsonDecodeError;
 
 export class UiMetadataService extends Context.Service<UiMetadataService, UiMetadataServiceShape>()(
   "clawpatch/UiMetadata",
 ) {}
 
 export const UiMetadataServiceLive = (appDataDir: string) =>
-  Layer.succeed(UiMetadataService, UiMetadataService.of(makeLiveService(appDataDir)));
+  Layer.effect(
+    UiMetadataService,
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      return UiMetadataService.of(makeLiveService(appDataDir, fs, path));
+    }),
+  );
 
-function makeLiveService(appDataDir: string): UiMetadataServiceShape {
+function makeLiveService(
+  appDataDir: string,
+  fs: FileSystem.FileSystem,
+  path: Path.Path,
+): UiMetadataServiceShape {
+  const metadataPath = (repoId: string): string =>
+    path.join(appDataDir, "ui-metadata", `${repoId}.json`);
+  const legacyMetadataPath = (repoPath: string): string =>
+    path.join(repoPath, ".clawpatch", "ui", "state.json");
+
+  const readMetadataFile = Effect.fn("uiMetadata.readMetadataFile")(function* (filePath: string) {
+    const exists = yield* fs.exists(filePath).pipe(Effect.catch(() => Effect.succeed(false)));
+    if (!exists) {
+      return missingMetadata();
+    }
+
+    const raw = yield* fs.readFileString(filePath).pipe(Effect.catch(() => Effect.succeed(null)));
+    if (raw === null) {
+      return invalidMetadata();
+    }
+
+    const parsed = yield* Effect.try({
+      try: () => JSON.parse(raw) as unknown,
+      catch: (cause) => cause,
+    }).pipe(Effect.catch(() => Effect.succeed(undefined)));
+    if (parsed === undefined) {
+      return invalidMetadata();
+    }
+
+    return yield* Schema.decodeUnknownEffect(UiMetadataSchema)(parsed).pipe(
+      Effect.map(
+        (metadata): MetadataReadResult => ({
+          status: "valid",
+          metadata: normalizeMetadata(metadata),
+        }),
+      ),
+      Effect.catch(() => Effect.succeed(invalidMetadata())),
+    );
+  });
+
+  const writeMetadataFile = Effect.fn("uiMetadata.writeMetadataFile")(function* (
+    filePath: string,
+    metadata: UiMetadata,
+  ) {
+    yield* fs
+      .makeDirectory(path.dirname(filePath), { recursive: true })
+      .pipe(Effect.mapError((cause) => new JsonDecodeError({ path: filePath, cause })));
+    yield* fs
+      .writeFileString(filePath, `${JSON.stringify(metadata, null, 2)}\n`)
+      .pipe(Effect.mapError((cause) => new JsonDecodeError({ path: filePath, cause })));
+  });
+
   return {
     read: Effect.fn("uiMetadata.read")(function* (repoId, repoPath) {
-      const activePath = metadataPath(appDataDir, repoId);
+      const activePath = metadataPath(repoId);
       const active = yield* readMetadataFile(activePath);
       if (active.status === "valid") {
         return active.metadata;
@@ -47,65 +110,10 @@ function makeLiveService(appDataDir: string): UiMetadataServiceShape {
     }),
     write: Effect.fn("uiMetadata.write")(function* (repoId, metadata) {
       const next = { ...metadata, schemaVersion: 1 as const, updatedAt: new Date().toISOString() };
-      yield* writeMetadataFile(metadataPath(appDataDir, repoId), next);
+      yield* writeMetadataFile(metadataPath(repoId), next);
       return next;
     }),
   };
-}
-
-const readMetadataFile = Effect.fn("uiMetadata.readMetadataFile")(function* (path: string) {
-  const rawResult = yield* Effect.tryPromise({
-    try: () => readFile(path, "utf8"),
-    catch: (cause) => cause,
-  }).pipe(
-    Effect.map((raw) => ({ status: "read" as const, raw })),
-    Effect.catch((cause) =>
-      Effect.succeed(isNotFoundError(cause) ? missingMetadata() : invalidMetadata()),
-    ),
-  );
-  if (rawResult.status !== "read") {
-    return rawResult;
-  }
-
-  const parsed = yield* Effect.try({
-    try: () => JSON.parse(rawResult.raw) as unknown,
-    catch: (cause) => cause,
-  }).pipe(Effect.catch(() => Effect.succeed(undefined)));
-  if (parsed === undefined) {
-    return invalidMetadata();
-  }
-
-  return yield* Schema.decodeUnknownEffect(UiMetadataSchema)(parsed).pipe(
-    Effect.map(
-      (metadata): MetadataReadResult => ({
-        status: "valid",
-        metadata: normalizeMetadata(metadata),
-      }),
-    ),
-    Effect.catch(() => Effect.succeed(invalidMetadata())),
-  );
-});
-
-const writeMetadataFile = Effect.fn("uiMetadata.writeMetadataFile")(function* (
-  path: string,
-  metadata: UiMetadata,
-) {
-  yield* Effect.tryPromise({
-    try: () => mkdir(dirname(path), { recursive: true }),
-    catch: (cause) => new JsonDecodeError({ path, cause }),
-  });
-  yield* Effect.tryPromise({
-    try: () => writeFile(path, `${JSON.stringify(metadata, null, 2)}\n`, "utf8"),
-    catch: (cause) => new JsonDecodeError({ path, cause }),
-  });
-});
-
-function metadataPath(appDataDir: string, repoId: string): string {
-  return join(appDataDir, "ui-metadata", `${repoId}.json`);
-}
-
-function legacyMetadataPath(repoPath: string): string {
-  return join(repoPath, ".clawpatch", "ui", "state.json");
 }
 
 function missingMetadata(): MetadataReadResult {
@@ -114,12 +122,6 @@ function missingMetadata(): MetadataReadResult {
 
 function invalidMetadata(): MetadataReadResult {
   return { status: "invalid" };
-}
-
-function isNotFoundError(cause: unknown): boolean {
-  return (
-    cause !== null && typeof cause === "object" && "code" in cause && cause["code"] === "ENOENT"
-  );
 }
 
 function normalizeMetadata(metadata: UiMetadata): UiMetadata {

@@ -14,6 +14,7 @@ import {
   RepoSummarySchema,
 } from "../../shared/schemas";
 import type { CommandStreamEvent } from "../../shared/types";
+import { DialogOpenError } from "../errors";
 import { RepoService } from "../services/repoService";
 import {
   COMMANDS_INTERRUPT_CHANNEL,
@@ -144,9 +145,11 @@ export const installIpcHandlers = (publishCommandStream: (event: CommandStreamEv
 const pickRepoFolder = Effect.fn("repo.pickFolder")(function* () {
   const owner = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0] ?? null;
   const options: OpenDialogOptions = { properties: ["openDirectory"] };
-  const result = yield* Effect.promise(() =>
-    owner === null ? dialog.showOpenDialog(options) : dialog.showOpenDialog(owner, options),
-  );
+  const result = yield* Effect.tryPromise({
+    try: () =>
+      owner === null ? dialog.showOpenDialog(options) : dialog.showOpenDialog(owner, options),
+    catch: (cause) => new DialogOpenError({ cause }),
+  });
 
   if (result.canceled) {
     return null;

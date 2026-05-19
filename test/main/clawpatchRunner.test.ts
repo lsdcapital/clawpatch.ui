@@ -1,12 +1,17 @@
 import { describe, expect, it } from "vitest";
 import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
 import * as ManagedRuntime from "effect/ManagedRuntime";
-import type { CommandResult } from "../../src/shared/types";
+import * as Sink from "effect/Sink";
+import * as Stream from "effect/Stream";
+import * as ChildProcessSpawner from "effect/unstable/process/ChildProcessSpawner";
 import {
   ClawpatchRunner,
   buildClawpatchArgs,
   makeClawpatchRunnerLayer,
 } from "../../src/main/services/clawpatchRunner";
+
+const encoder = new TextEncoder();
 
 describe("buildClawpatchArgs", () => {
   it("builds allowed command args without shell input", () => {
@@ -126,13 +131,19 @@ describe("buildClawpatchArgs", () => {
 
   it("rejects overlapping command runs for the same repo", async () => {
     let finishFirstRun: ((result: CommandResult) => void) | undefined;
-    const runtime = ManagedRuntime.make(
-      makeClawpatchRunnerLayer(
-        (input) =>
-          new Promise<CommandResult>((resolve) => {
-            finishFirstRun = resolve;
-            input.onStream?.({ runId: input.runId, stream: "stdout", chunk: "started" });
-          }),
+    const runtime = makeRunnerRuntime(() =>
+      Effect.succeed(
+        mockHandle({
+          stdout: "started",
+          exitCode: Effect.promise(
+            () =>
+              new Promise((resolve) => {
+                finishFirstRun = (result) =>
+                  resolve(ChildProcessSpawner.ExitCode(result.exitCode ?? 0));
+              }),
+          ),
+          isRunning: Effect.succeed(true),
+        }),
       ),
     );
     const run = (repoPath: string) =>
@@ -158,11 +169,10 @@ describe("buildClawpatchArgs", () => {
       "A Clawpatch command is already running for this repo",
     );
 
-    const finish = finishFirstRun;
-    if (finish === undefined) {
+    if (finishFirstRun === undefined) {
       throw new Error("first run did not start");
     }
-    finish({
+    finishFirstRun({
       runId: "run-test",
       command: "clawpatch",
       args: ["status"],
@@ -180,17 +190,22 @@ describe("buildClawpatchArgs", () => {
 
   it("interrupts an active command and clears it after close", async () => {
     let finishRun: ((result: CommandResult) => void) | undefined;
-    let interruptCount = 0;
-    const runtime = ManagedRuntime.make(
-      makeClawpatchRunnerLayer(
-        (input) =>
-          new Promise<CommandResult>((resolve) => {
-            finishRun = resolve;
-            input.registerInterrupt(() => {
-              interruptCount += 1;
-              return true;
-            });
-          }),
+    let killCount = 0;
+    const runtime = makeRunnerRuntime(() =>
+      Effect.succeed(
+        mockHandle({
+          exitCode: Effect.promise(
+            () =>
+              new Promise((resolve) => {
+                finishRun = (result) => resolve(ChildProcessSpawner.ExitCode(result.exitCode ?? 0));
+              }),
+          ),
+          isRunning: Effect.succeed(true),
+          kill: () =>
+            Effect.sync(() => {
+              killCount += 1;
+            }),
+        }),
       ),
     );
 
@@ -218,13 +233,12 @@ describe("buildClawpatchArgs", () => {
         }),
       ),
     ).resolves.toEqual({ interrupted: true });
-    expect(interruptCount).toBe(1);
+    expect(killCount).toBe(1);
 
-    const finish = finishRun;
-    if (finish === undefined) {
+    if (finishRun === undefined) {
       throw new Error("run did not start");
     }
-    finish({
+    finishRun({
       runId: "run-test",
       command: "clawpatch",
       args: ["status"],
@@ -258,9 +272,7 @@ describe("buildClawpatchArgs", () => {
   });
 
   it("returns not interrupted for an idle repo", async () => {
-    const runtime = ManagedRuntime.make(
-      makeClawpatchRunnerLayer(() => Promise.reject(new Error("should not run"))),
-    );
+    const runtime = makeRunnerRuntime(() => Effect.die("should not run"));
 
     await expect(
       runtime.runPromise(
@@ -272,4 +284,91 @@ describe("buildClawpatchArgs", () => {
     ).resolves.toEqual({ interrupted: false });
     await runtime.dispose();
   });
+
+  it("kills the active process and clears active state when the effect is interrupted", async () => {
+    let killCount = 0;
+    const runtime = makeRunnerRuntime(() =>
+      Effect.succeed(
+        mockHandle({
+          exitCode: Effect.never,
+          isRunning: Effect.succeed(true),
+          kill: () =>
+            Effect.sync(() => {
+              killCount += 1;
+            }),
+        }),
+      ),
+    );
+    const abortController = new AbortController();
+
+    const run = runtime
+      .runPromise(
+        Effect.gen(function* () {
+          const runner = yield* ClawpatchRunner;
+          return yield* runner.run("/tmp/repo-a", { command: "status" });
+        }),
+        { signal: abortController.signal },
+      )
+      .catch(() => undefined);
+
+    await expect(
+      runtime.runPromise(
+        Effect.gen(function* () {
+          const runner = yield* ClawpatchRunner;
+          return yield* runner.isRunning("/tmp/repo-a");
+        }),
+      ),
+    ).resolves.toBe(true);
+
+    abortController.abort();
+    await run;
+
+    expect(killCount).toBe(1);
+    await expect(
+      runtime.runPromise(
+        Effect.gen(function* () {
+          const runner = yield* ClawpatchRunner;
+          return yield* runner.isRunning("/tmp/repo-a");
+        }),
+      ),
+    ).resolves.toBe(false);
+
+    await runtime.dispose();
+  });
 });
+
+type CommandResult = import("../../src/shared/types").CommandResult;
+
+function makeRunnerRuntime(
+  spawn: ChildProcessSpawner.ChildProcessSpawner["Service"]["spawn"],
+): ManagedRuntime.ManagedRuntime<ClawpatchRunner, never> {
+  return ManagedRuntime.make(
+    makeClawpatchRunnerLayer().pipe(
+      Layer.provide(
+        Layer.succeed(ChildProcessSpawner.ChildProcessSpawner, ChildProcessSpawner.make(spawn)),
+      ),
+    ),
+  );
+}
+
+function mockHandle(options: {
+  readonly stdout?: string;
+  readonly stderr?: string;
+  readonly exitCode?: Effect.Effect<ChildProcessSpawner.ExitCode>;
+  readonly isRunning?: Effect.Effect<boolean>;
+  readonly kill?: ChildProcessSpawner.ChildProcessHandle["kill"];
+}): ChildProcessSpawner.ChildProcessHandle {
+  return ChildProcessSpawner.makeHandle({
+    pid: ChildProcessSpawner.ProcessId(1),
+    exitCode: options.exitCode ?? Effect.succeed(ChildProcessSpawner.ExitCode(0)),
+    isRunning: options.isRunning ?? Effect.succeed(false),
+    kill: options.kill ?? (() => Effect.void),
+    unref: Effect.succeed(Effect.void),
+    stdin: Sink.drain,
+    stdout: Stream.make(encoder.encode(options.stdout ?? "")),
+    stderr: Stream.make(encoder.encode(options.stderr ?? "")),
+    all: Stream.empty,
+    getInputFd: () => Sink.drain,
+    getOutputFd: () => Stream.empty,
+  });
+}
