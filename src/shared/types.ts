@@ -27,6 +27,7 @@ export interface Api {
   repo: {
     list: () => Promise<readonly RepoSummary[]>;
     add: (repoPath: string) => Promise<RepoSummary>;
+    pickFolder: () => Promise<string | null>;
     refresh: (repoId: string) => Promise<RepoSnapshot>;
   };
   findings: {
