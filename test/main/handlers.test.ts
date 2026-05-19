@@ -9,6 +9,7 @@ import {
 import type {
   ClawpatchCommandRequest,
   CommandResult,
+  FeatureMapSnapshot,
   RepoSummary
 } from "../../src/shared/types";
 import { RepoService } from "../../src/main/services/repoService";
@@ -129,6 +130,7 @@ function makeRepoServiceLayer() {
           }
         }),
       listFindings: () => Effect.succeed([]),
+      readFeatureMap: () => Effect.succeed(makeFeatureMapSnapshot()),
       getFinding: () => Effect.die("not implemented"),
       runCommand: () => Effect.succeed(makeCommandResult()),
       setTriage: () => Effect.succeed(makeCommandResult()),
@@ -148,6 +150,20 @@ function makeRepoSummary(): RepoSummary {
     openFindingCount: 0,
     lastError: null,
     updatedAt: "2026-05-19T00:00:00.000Z"
+  };
+}
+
+function makeFeatureMapSnapshot(): FeatureMapSnapshot {
+  return {
+    features: [],
+    coverage: {
+      totalFeatures: 0,
+      pendingReviewCount: 0,
+      pendingReviewFeatureIds: [],
+      latestReviewRun: null,
+      latestLimitedReviewRun: null,
+      hasLimitedReviewRemainder: false
+    }
   };
 }
 

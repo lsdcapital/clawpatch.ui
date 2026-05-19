@@ -1,5 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  ActivityIcon,
+  DiffIcon,
+  FileTextIcon,
+  MoreHorizontalIcon,
+  StethoscopeIcon,
+  TerminalSquareIcon
+} from "lucide-react";
 import type {
   ClawpatchCommandRequest,
   ClawpatchStatus,
@@ -37,6 +45,7 @@ export function ClawpatchApp() {
   const [activeDrawer, setActiveDrawer] = useState<ActiveDrawer>(null);
   const [findingFilters, setFindingFilters] = useState(defaultFindingFilters);
   const [isMapExpanded, setIsMapExpanded] = useState(false);
+  const [isCommandMenuOpen, setIsCommandMenuOpen] = useState(false);
 
   const reposQuery = useQuery({
     queryKey: ["repos"],
@@ -188,33 +197,75 @@ export function ClawpatchApp() {
             <p>{selectedRepo?.path ?? "Add a repository with .clawpatch state to begin."}</p>
           </div>
           <div className="header-actions">
-            <button disabled={selectedRepo === null || commandMutation.isPending} onClick={() => runCommand({ command: "status" })}>
-              Status
-            </button>
-            <button disabled={selectedRepo === null || commandMutation.isPending} onClick={() => runCommand({ command: "report" })}>
-              Report
-            </button>
-            <button disabled={selectedRepo === null || commandMutation.isPending} onClick={() => runCommand({ command: "review" })}>
-              Review next
-            </button>
-            <button disabled={selectedRepo === null || commandMutation.isPending} onClick={() => runCommand({ command: "doctor" })}>
-              Doctor
-            </button>
             <button
-              className={activeDrawer === "diff" ? "drawer-toggle active" : "drawer-toggle"}
+              className={activeDrawer === "diff" ? "icon-button drawer-toggle active" : "icon-button drawer-toggle"}
               disabled={selectedRepo === null}
               onClick={() => toggleDrawer("diff")}
               aria-pressed={activeDrawer === "diff"}
+              aria-label="Toggle diff panel"
+              title="Toggle diff panel"
             >
-              Diff
+              <DiffIcon aria-hidden="true" />
             </button>
             <button
-              className={activeDrawer === "output" ? "drawer-toggle active" : "drawer-toggle"}
+              className={activeDrawer === "output" ? "icon-button drawer-toggle active" : "icon-button drawer-toggle"}
               onClick={() => toggleDrawer("output")}
               aria-pressed={activeDrawer === "output"}
+              aria-label="Toggle command output"
+              title="Toggle command output"
             >
-              Output
+              <TerminalSquareIcon aria-hidden="true" />
             </button>
+            <div className="command-menu">
+              <button
+                className="icon-button"
+                disabled={selectedRepo === null || commandMutation.isPending}
+                onClick={() => setIsCommandMenuOpen((current) => !current)}
+                aria-expanded={isCommandMenuOpen}
+                aria-haspopup="menu"
+                aria-label="More commands"
+                title="More commands"
+              >
+                <MoreHorizontalIcon aria-hidden="true" />
+              </button>
+              {isCommandMenuOpen ? (
+                <div className="command-menu-popover" role="menu" aria-label="Repository commands">
+                  <button
+                    role="menuitem"
+                    disabled={selectedRepo === null || commandMutation.isPending}
+                    onClick={() => {
+                      setIsCommandMenuOpen(false);
+                      runCommand({ command: "status" });
+                    }}
+                  >
+                    <ActivityIcon aria-hidden="true" />
+                    Status
+                  </button>
+                  <button
+                    role="menuitem"
+                    disabled={selectedRepo === null || commandMutation.isPending}
+                    onClick={() => {
+                      setIsCommandMenuOpen(false);
+                      runCommand({ command: "report" });
+                    }}
+                  >
+                    <FileTextIcon aria-hidden="true" />
+                    Report
+                  </button>
+                  <button
+                    role="menuitem"
+                    disabled={selectedRepo === null || commandMutation.isPending}
+                    onClick={() => {
+                      setIsCommandMenuOpen(false);
+                      runCommand({ command: "doctor" });
+                    }}
+                  >
+                    <StethoscopeIcon aria-hidden="true" />
+                    Doctor
+                  </button>
+                </div>
+              ) : null}
+            </div>
           </div>
         </header>
 
