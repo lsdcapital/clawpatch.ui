@@ -37,11 +37,18 @@
   box-sizing: border-box;
 }
 
+html,
+body,
+#root {
+  height: 100%;
+}
+
 body {
   background: var(--bg);
   margin: 0;
   min-width: 980px;
   min-height: 680px;
+  overflow: hidden;
 }
 
 button,
@@ -99,7 +106,8 @@ button:disabled {
 .app-shell {
   display: grid;
   grid-template-columns: 248px minmax(0, 1fr);
-  min-height: 100vh;
+  height: 100%;
+  min-height: 0;
   min-width: 0;
 }
 
@@ -289,7 +297,7 @@ button:disabled {
   background: var(--bg);
   display: grid;
   grid-template-rows: auto auto minmax(0, 1fr);
-  height: 100vh;
+  height: 100%;
   min-height: 0;
   min-width: 0;
 }
@@ -378,6 +386,7 @@ button:disabled {
 .workspace-body {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
+  height: 100%;
   min-height: 0;
   min-width: 0;
   overflow: hidden;
@@ -393,6 +402,7 @@ button:disabled {
   gap: 10px;
   grid-template-columns: minmax(0, 1fr);
   grid-template-rows: auto minmax(0, 1fr);
+  height: 100%;
   min-height: 0;
   min-width: 0;
   overflow: hidden;
@@ -572,6 +582,7 @@ button:disabled {
 .findings-workspace {
   display: grid;
   grid-template-columns: minmax(300px, var(--findings-list-width)) 8px minmax(0, 1fr);
+  height: 100%;
 }
 
 .findings-list-pane,
