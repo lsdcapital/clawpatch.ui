@@ -14,6 +14,13 @@ import { FindingDetailPanel } from "../components/FindingDetailPanel";
 import { FindingsTable } from "../components/FindingsTable";
 import { RepoSidebar } from "../components/RepoSidebar";
 import { ReviewCoveragePanel } from "../components/ReviewCoveragePanel";
+import {
+  defaultFindingFilters,
+  filterFindings,
+  getFindingFilterOptions,
+  resolveSelectedFindingId
+} from "../findingsFilters";
+import { clawpatchStatuses } from "../../../shared/constants";
 
 type LogEntry =
   | { kind: "stream"; event: CommandStreamEvent }
@@ -28,6 +35,7 @@ export function ClawpatchApp() {
   const [selectedFindingId, setSelectedFindingId] = useState<string | null>(null);
   const [commandLog, setCommandLog] = useState<LogEntry[]>([]);
   const [activeDrawer, setActiveDrawer] = useState<ActiveDrawer>(null);
+  const [findingFilters, setFindingFilters] = useState(defaultFindingFilters);
   const [isMapExpanded, setIsMapExpanded] = useState(false);
 
   const reposQuery = useQuery({
@@ -52,6 +60,16 @@ export function ClawpatchApp() {
     enabled: selectedRepo !== null
   });
 
+  const allFindings = findingsQuery.data ?? [];
+  const filteredFindings = useMemo(
+    () => filterFindings(allFindings, findingFilters),
+    [allFindings, findingFilters]
+  );
+  const findingFilterOptions = useMemo(
+    () => getFindingFilterOptions(allFindings, clawpatchStatuses),
+    [allFindings]
+  );
+
   const featureMapQuery = useQuery({
     queryKey: ["features", selectedRepo?.id],
     queryFn: () => window.clawpatch.features.map(selectedRepo!.id),
@@ -59,15 +77,19 @@ export function ClawpatchApp() {
   });
 
   const selectedFinding = useMemo(
-    () => findingsQuery.data?.find((finding) => finding.findingId === selectedFindingId) ?? findingsQuery.data?.[0] ?? null,
-    [findingsQuery.data, selectedFindingId]
+    () => filteredFindings.find((finding) => finding.findingId === selectedFindingId) ?? filteredFindings[0] ?? null,
+    [filteredFindings, selectedFindingId]
   );
 
   useEffect(() => {
-    if (selectedFindingId === null && selectedFinding !== null) {
-      setSelectedFindingId(selectedFinding.findingId);
+    if (findingsQuery.data === undefined) {
+      return;
     }
-  }, [selectedFinding, selectedFindingId]);
+    const nextSelectedFindingId = resolveSelectedFindingId(selectedFindingId, filteredFindings);
+    if (nextSelectedFindingId !== selectedFindingId) {
+      setSelectedFindingId(nextSelectedFindingId);
+    }
+  }, [filteredFindings, findingsQuery.data, selectedFindingId]);
 
   const detailQuery = useQuery({
     queryKey: ["finding", selectedRepo?.id, selectedFinding?.findingId],
@@ -212,9 +234,13 @@ export function ClawpatchApp() {
               onReviewFeature={(featureId) => runCommand({ command: "review", featureId })}
             />
             <FindingsTable
-              findings={findingsQuery.data ?? []}
+              findings={filteredFindings}
+              totalFindingCount={allFindings.length}
               selectedFindingId={selectedFinding?.findingId ?? null}
               isLoading={findingsQuery.isLoading}
+              filters={findingFilters}
+              filterOptions={findingFilterOptions}
+              onFiltersChange={setFindingFilters}
               onSelectFinding={setSelectedFindingId}
             />
             <FindingDetailPanel
