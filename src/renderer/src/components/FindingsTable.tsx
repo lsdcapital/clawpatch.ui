@@ -1,7 +1,7 @@
 import type { FindingListItem } from "../../../shared/types";
 
 interface Props {
-  findings: FindingListItem[];
+  findings: readonly FindingListItem[];
   selectedFindingId: string | null;
   isLoading: boolean;
   onSelectFinding: (findingId: string) => void;

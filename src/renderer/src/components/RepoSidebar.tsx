@@ -2,7 +2,7 @@ import { FormEvent, useState } from "react";
 import type { RepoSummary } from "../../../shared/types";
 
 interface Props {
-  repos: RepoSummary[];
+  repos: readonly RepoSummary[];
   selectedRepoId: string | null;
   isAdding: boolean;
   addError: unknown;

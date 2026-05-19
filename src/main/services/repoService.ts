@@ -2,6 +2,9 @@ import { createHash } from "node:crypto";
 import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, dirname, resolve } from "node:path";
+import * as Context from "effect/Context";
+import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
 import type {
   ClawpatchCommandRequest,
   ClawpatchStatus,
@@ -12,180 +15,247 @@ import type {
   RepoSnapshot,
   RepoSummary
 } from "../../shared/types";
+import { InvalidRepoPathError, RepoNotFoundError } from "../errors";
 import { ClawpatchRunner } from "./clawpatchRunner";
-import { detectClawpatch, readFindingDetail, readFindingList } from "./clawpatchState";
-import { readGitDiff } from "./gitService";
-import { readGuiMetadata } from "./guiMetadata";
+import { ClawpatchStateService } from "./clawpatchState";
+import { GitService } from "./gitService";
+import { GuiMetadataService } from "./guiMetadata";
 
 interface RegistryFile {
   repos: Array<Pick<RepoSummary, "id" | "name" | "path" | "updatedAt">>;
 }
 
-export interface CommandRunner {
-  run(
-    repoPath: string,
+export interface RepoServiceShape {
+  readonly listRepos: () => Effect.Effect<RepoSummary[], unknown>;
+  readonly addRepo: (repoPath: string) => Effect.Effect<RepoSummary, unknown>;
+  readonly refreshRepo: (repoId: string) => Effect.Effect<RepoSnapshot, unknown>;
+  readonly listFindings: (repoId: string) => Effect.Effect<FindingListItem[], unknown>;
+  readonly getFinding: (repoId: string, findingId: string) => Effect.Effect<FindingDetail, unknown>;
+  readonly runCommand: (
+    repoId: string,
     request: ClawpatchCommandRequest,
     onStream?: (event: CommandStreamEvent) => void
-  ): Promise<CommandResult>;
-}
-
-export class RepoService {
-  private readonly registryPath: string;
-
-  constructor(
-    appDataDir: string,
-    private readonly runner: CommandRunner = new ClawpatchRunner()
-  ) {
-    this.registryPath = resolve(appDataDir, "repos.json");
-  }
-
-  async listRepos(): Promise<RepoSummary[]> {
-    const registry = await this.readRegistry();
-    return Promise.all(registry.repos.map((repo) => this.summarizeRepo(repo.path, repo.id)));
-  }
-
-  async addRepo(repoPath: string): Promise<RepoSummary> {
-    const normalized = await normalizeExistingDirectory(repoPath);
-    const registry = await this.readRegistry();
-    const existing = registry.repos.find((repo) => repo.path === normalized);
-    if (existing !== undefined) {
-      return this.summarizeRepo(existing.path, existing.id);
-    }
-
-    const repo = {
-      id: repoId(normalized),
-      name: basename(normalized),
-      path: normalized,
-      updatedAt: new Date().toISOString()
-    };
-    registry.repos.push(repo);
-    await this.writeRegistry(registry);
-    return this.summarizeRepo(normalized, repo.id);
-  }
-
-  async refreshRepo(repoIdValue: string): Promise<RepoSnapshot> {
-    const repo = await this.requireRepo(repoIdValue);
-    const [summary, metadata, diff] = await Promise.all([
-      this.summarizeRepo(repo.path, repo.id),
-      readGuiMetadata(repo.path),
-      readGitDiff(repo.path)
-    ]);
-    const findings = await readFindingList(repo.path, metadata);
-    return {
-      repo: { ...summary, findingCount: findings.length, openFindingCount: findings.filter((item) => item.status === "open").length },
-      status: summary.lastError === null ? (await this.runner.run(repo.path, { command: "status" })).parsedJson : null,
-      findings,
-      diff,
-      metadata
-    };
-  }
-
-  async listFindings(repoIdValue: string): Promise<FindingListItem[]> {
-    const repo = await this.requireRepo(repoIdValue);
-    return readFindingList(repo.path, await readGuiMetadata(repo.path));
-  }
-
-  async getFinding(repoIdValue: string, findingId: string): Promise<FindingDetail> {
-    const repo = await this.requireRepo(repoIdValue);
-    return readFindingDetail(repo.path, findingId, await readGuiMetadata(repo.path));
-  }
-
-  async runCommand(
-    repoIdValue: string,
-    request: ClawpatchCommandRequest,
-    onStream?: (event: CommandStreamEvent) => void
-  ): Promise<CommandResult> {
-    const repo = await this.requireRepo(repoIdValue);
-    return this.runner.run(repo.path, request, onStream);
-  }
-
-  async setTriage(
-    repoIdValue: string,
+  ) => Effect.Effect<CommandResult, unknown>;
+  readonly setTriage: (
+    repoId: string,
     findingId: string,
     status: ClawpatchStatus,
-    note = ""
-  ): Promise<CommandResult> {
-    const repo = await this.requireRepo(repoIdValue);
-    return this.runner.run(repo.path, { command: "triage", findingId, status, note });
-  }
-
-  async readDiff(repoIdValue: string): Promise<string> {
-    const repo = await this.requireRepo(repoIdValue);
-    return readGitDiff(repo.path);
-  }
-
-  private async summarizeRepo(repoPath: string, id: string): Promise<RepoSummary> {
-    const hasClawpatch = await detectClawpatch(repoPath);
-    let isValid = false;
-    let lastError: string | null = null;
-    let findings: FindingListItem[] = [];
-
-    if (!hasClawpatch) {
-      lastError = "No .clawpatch state found";
-    } else {
-      const status = await this.runner.run(repoPath, { command: "status" }).catch((error: unknown) => ({
-        exitCode: 1,
-        stderr: error instanceof Error ? error.message : String(error),
-        stdout: ""
-      }));
-      isValid = status.exitCode === 0;
-      lastError = isValid ? null : status.stderr || status.stdout || "clawpatch status failed";
-      findings = await readFindingList(repoPath, await readGuiMetadata(repoPath)).catch(() => []);
-    }
-
-    return {
-      id,
-      name: basename(repoPath),
-      path: repoPath,
-      hasClawpatch,
-      isValid,
-      lastError,
-      findingCount: findings.length,
-      openFindingCount: findings.filter((item) => item.status === "open").length,
-      updatedAt: new Date().toISOString()
-    };
-  }
-
-  private async requireRepo(repoIdValue: string): Promise<RegistryFile["repos"][number]> {
-    const registry = await this.readRegistry();
-    const repo = registry.repos.find((item) => item.id === repoIdValue);
-    if (repo === undefined) {
-      throw new Error(`Repo not found: ${repoIdValue}`);
-    }
-    await normalizeExistingDirectory(repo.path);
-    return repo;
-  }
-
-  private async readRegistry(): Promise<RegistryFile> {
-    try {
-      const parsed = JSON.parse(await readFile(this.registryPath, "utf8")) as Partial<RegistryFile>;
-      return { repos: Array.isArray(parsed.repos) ? parsed.repos : [] };
-    } catch {
-      return { repos: [] };
-    }
-  }
-
-  private async writeRegistry(registry: RegistryFile): Promise<void> {
-    await mkdir(dirname(this.registryPath), { recursive: true });
-    await writeFile(this.registryPath, `${JSON.stringify(registry, null, 2)}\n`, "utf8");
-  }
+    note?: string
+  ) => Effect.Effect<CommandResult, unknown>;
+  readonly readDiff: (repoId: string) => Effect.Effect<string, unknown>;
 }
 
-export async function normalizeExistingDirectory(inputPath: string): Promise<string> {
-  if (typeof inputPath !== "string" || inputPath.trim() === "") {
-    throw new Error("Repo path is required");
-  }
-  if (/[\0\r\n]/u.test(inputPath)) {
-    throw new Error("Repo path contains invalid characters");
-  }
+export class RepoService extends Context.Service<RepoService, RepoServiceShape>()(
+  "clawpatch/RepoService"
+) {}
 
-  const normalized = resolve(expandHomePath(inputPath.trim()));
-  const stats = await stat(normalized);
-  if (!stats.isDirectory()) {
-    throw new Error("Repo path must be a directory");
-  }
-  return normalized;
-}
+export const RepoServiceLive = (appDataDir: string) =>
+  Layer.effect(
+    RepoService,
+    Effect.gen(function* () {
+      const runner = yield* ClawpatchRunner;
+      const state = yield* ClawpatchStateService;
+      const metadata = yield* GuiMetadataService;
+      const git = yield* GitService;
+      const registryPath = resolve(appDataDir, "repos.json");
+
+      const readRegistry = Effect.fn("repoService.readRegistry")(function* () {
+        const raw = yield* Effect.tryPromise(() => readFile(registryPath, "utf8")).pipe(
+          Effect.catch(() => Effect.succeed(null))
+        );
+        if (raw === null) {
+          return { repos: [] } satisfies RegistryFile;
+        }
+
+        return yield* Effect.try({
+          try: () => {
+            const parsed = JSON.parse(raw) as Partial<RegistryFile>;
+            return { repos: Array.isArray(parsed.repos) ? parsed.repos : [] } satisfies RegistryFile;
+          },
+          catch: (cause) => cause
+        }).pipe(Effect.catch(() => Effect.succeed({ repos: [] } satisfies RegistryFile)));
+      });
+
+      const writeRegistry = Effect.fn("repoService.writeRegistry")(function* (registry: RegistryFile) {
+        yield* Effect.tryPromise({
+          try: () => mkdir(dirname(registryPath), { recursive: true }),
+          catch: (cause) =>
+            new InvalidRepoPathError({
+              message: "Unable to create repo registry directory",
+              path: registryPath,
+              cause
+            })
+        });
+        yield* Effect.tryPromise({
+          try: () => writeFile(registryPath, `${JSON.stringify(registry, null, 2)}\n`, "utf8"),
+          catch: (cause) =>
+            new InvalidRepoPathError({
+              message: "Unable to write repo registry",
+              path: registryPath,
+              cause
+            })
+        });
+      });
+
+      const requireRepo = Effect.fn("repoService.requireRepo")(function* (repoIdValue: string) {
+        const registry = yield* readRegistry();
+        const repo = registry.repos.find((item) => item.id === repoIdValue);
+        if (repo === undefined) {
+          return yield* new RepoNotFoundError({ repoId: repoIdValue });
+        }
+        yield* normalizeExistingDirectory(repo.path);
+        return repo;
+      });
+
+      const summarizeRepo = Effect.fn("repoService.summarizeRepo")(function* (
+        repoPath: string,
+        id: string
+      ) {
+        const hasClawpatch = yield* state.detect(repoPath);
+        let isValid = false;
+        let lastError: string | null = null;
+        let findings: FindingListItem[] = [];
+
+        if (!hasClawpatch) {
+          lastError = "No .clawpatch state found";
+        } else {
+          const status = yield* runner.run(repoPath, { command: "status" }).pipe(
+            Effect.catch((error: unknown) =>
+              Effect.succeed({
+                exitCode: 1,
+                stderr: error instanceof Error ? error.message : String(error),
+                stdout: ""
+              })
+            )
+          );
+          isValid = status.exitCode === 0;
+          lastError = isValid ? null : status.stderr || status.stdout || "clawpatch status failed";
+          findings = yield* state
+            .readFindingList(repoPath, yield* metadata.read(repoPath))
+            .pipe(Effect.catch(() => Effect.succeed([])));
+        }
+
+        return {
+          id,
+          name: basename(repoPath),
+          path: repoPath,
+          hasClawpatch,
+          isValid,
+          lastError,
+          findingCount: findings.length,
+          openFindingCount: findings.filter((item) => item.status === "open").length,
+          updatedAt: new Date().toISOString()
+        } satisfies RepoSummary;
+      });
+
+      return RepoService.of({
+        listRepos: Effect.fn("repoService.listRepos")(function* () {
+          const registry = yield* readRegistry();
+          return yield* Effect.all(
+            registry.repos.map((repo) => summarizeRepo(repo.path, repo.id)),
+            { concurrency: "unbounded" }
+          );
+        }),
+        addRepo: Effect.fn("repoService.addRepo")(function* (repoPath) {
+          const normalized = yield* normalizeExistingDirectory(repoPath);
+          const registry = yield* readRegistry();
+          const existing = registry.repos.find((repo) => repo.path === normalized);
+          if (existing !== undefined) {
+            return yield* summarizeRepo(existing.path, existing.id);
+          }
+
+          const repo = {
+            id: repoId(normalized),
+            name: basename(normalized),
+            path: normalized,
+            updatedAt: new Date().toISOString()
+          };
+          registry.repos.push(repo);
+          yield* writeRegistry(registry);
+          return yield* summarizeRepo(normalized, repo.id);
+        }),
+        refreshRepo: Effect.fn("repoService.refreshRepo")(function* (repoIdValue) {
+          const repo = yield* requireRepo(repoIdValue);
+          const repoMetadata = yield* metadata.read(repo.path);
+          const [summary, diff] = yield* Effect.all([
+            summarizeRepo(repo.path, repo.id),
+            git.readDiff(repo.path)
+          ]);
+          const findings = yield* state.readFindingList(repo.path, repoMetadata);
+          return {
+            repo: {
+              ...summary,
+              findingCount: findings.length,
+              openFindingCount: findings.filter((item) => item.status === "open").length
+            },
+            status:
+              summary.lastError === null
+                ? (yield* runner.run(repo.path, { command: "status" })).parsedJson
+                : null,
+            findings,
+            diff,
+            metadata: repoMetadata
+          };
+        }),
+        listFindings: Effect.fn("repoService.listFindings")(function* (repoIdValue) {
+          const repo = yield* requireRepo(repoIdValue);
+          return yield* state.readFindingList(repo.path, yield* metadata.read(repo.path));
+        }),
+        getFinding: Effect.fn("repoService.getFinding")(function* (repoIdValue, findingId) {
+          const repo = yield* requireRepo(repoIdValue);
+          return yield* state.readFindingDetail(repo.path, findingId, yield* metadata.read(repo.path));
+        }),
+        runCommand: Effect.fn("repoService.runCommand")(function* (repoIdValue, request, onStream) {
+          const repo = yield* requireRepo(repoIdValue);
+          return yield* runner.run(repo.path, request, onStream);
+        }),
+        setTriage: Effect.fn("repoService.setTriage")(function* (
+          repoIdValue,
+          findingId,
+          status,
+          note = ""
+        ) {
+          const repo = yield* requireRepo(repoIdValue);
+          return yield* runner.run(repo.path, { command: "triage", findingId, status, note });
+        }),
+        readDiff: Effect.fn("repoService.readDiff")(function* (repoIdValue) {
+          const repo = yield* requireRepo(repoIdValue);
+          return yield* git.readDiff(repo.path);
+        })
+      });
+    })
+  );
+
+const normalizeExistingDirectory = (inputPath: string) =>
+  Effect.gen(function* () {
+    if (typeof inputPath !== "string" || inputPath.trim() === "") {
+      return yield* new InvalidRepoPathError({ message: "Repo path is required" });
+    }
+    if (/[\0\r\n]/u.test(inputPath)) {
+      return yield* new InvalidRepoPathError({
+        message: "Repo path contains invalid characters",
+        path: inputPath
+      });
+    }
+
+    const normalized = resolve(expandHomePath(inputPath.trim()));
+    const stats = yield* Effect.tryPromise({
+      try: () => stat(normalized),
+      catch: (cause) =>
+        new InvalidRepoPathError({
+          message: "Repo path does not exist",
+          path: normalized,
+          cause
+        })
+    });
+    if (!stats.isDirectory()) {
+      return yield* new InvalidRepoPathError({
+        message: "Repo path must be a directory",
+        path: normalized
+      });
+    }
+    return normalized;
+  });
 
 function expandHomePath(inputPath: string): string {
   if (inputPath === "~") {
