@@ -274,7 +274,9 @@ button:disabled {
 .workspace {
   background: var(--bg);
   display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  height: 100vh;
+  min-height: 0;
   min-width: 0;
 }
 
@@ -315,21 +317,42 @@ button:disabled {
   justify-content: flex-end;
 }
 
-.content-grid {
+.drawer-toggle.active {
+  background: var(--accent-soft);
+  border-color: #c8d9ff;
+  color: #19386c;
+}
+
+.workspace-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+  padding: 0 14px 14px;
+}
+
+.workspace-body.drawer-open {
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) clamp(360px, 34vw, 560px);
+}
+
+.primary-workspace {
   display: grid;
   gap: 10px;
   grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
   min-height: 0;
   min-width: 0;
-  padding: 0 14px 10px;
+  overflow: hidden;
 }
 
-.bottom-grid {
-  display: grid;
-  gap: 10px;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+.workspace-drawer {
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+  display: flex;
+  min-height: 0;
   min-width: 0;
-  padding: 0 14px 14px;
+  overflow: hidden;
 }
 
 .panel {
@@ -337,8 +360,18 @@ button:disabled {
   border: 1px solid var(--border);
   border-radius: 7px;
   box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
   min-width: 0;
   overflow: hidden;
+}
+
+.workspace-drawer .panel {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  flex: 1;
 }
 
 .panel-header {
@@ -372,7 +405,8 @@ button:disabled {
 
 .findings-table {
   display: grid;
-  max-height: 456px;
+  flex: 1;
+  min-height: 0;
   overflow: auto;
 }
 
@@ -445,8 +479,9 @@ button.table-row:hover:not(:disabled) {
 
 .detail-body {
   display: grid;
+  flex: 1;
   gap: 11px;
-  max-height: 456px;
+  min-height: 0;
   min-width: 0;
   overflow: auto;
   padding: 10px;
@@ -543,12 +578,13 @@ button.table-row:hover:not(:disabled) {
 }
 
 .command-panel pre {
+  flex: 1;
   color: #29313b;
   font-family: "SF Mono", SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
   font-size: 11px;
-  height: 220px;
   line-height: 1.45;
   margin: 0;
+  min-height: 0;
   min-width: 0;
   overflow: auto;
   overflow-wrap: anywhere;
@@ -556,8 +592,16 @@ button.table-row:hover:not(:disabled) {
   white-space: pre-wrap;
 }
 
+.diff-panel .cm-theme {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
 .diff-panel .cm-editor {
+  flex: 1;
   font-size: 11px;
+  min-height: 0;
 }
 
 .diff-panel .cm-scroller {
@@ -571,8 +615,11 @@ button.table-row:hover:not(:disabled) {
 }
 
 @media (max-width: 1160px) {
-  .content-grid,
-  .bottom-grid {
+  .primary-workspace {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .workspace-body.drawer-open {
+    grid-template-columns: minmax(0, 1fr) clamp(340px, 38vw, 440px);
   }
 }
