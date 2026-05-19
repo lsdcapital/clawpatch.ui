@@ -39,9 +39,24 @@ export function FindingDetailPanel({
 
   return (
     <div className="detail-pane">
-      <div className="panel-header">
+      <div className="panel-header detail-header">
         <h2>{finding.title}</h2>
-        <span>{finding.findingId}</span>
+        <div className="detail-header-meta">
+          <span>{finding.findingId}</span>
+          <select
+            aria-label="Finding status"
+            className="detail-status-select"
+            id="triage-status"
+            value={status}
+            onChange={(event) => setStatus(event.currentTarget.value as ClawpatchStatus)}
+          >
+            {clawpatchStatuses.map((item) => (
+              <option key={item} value={item}>
+                {item}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
       <div className="detail-body">
         <div className="meta-grid">
@@ -76,18 +91,6 @@ export function FindingDetailPanel({
         <TextSection title="Suggested Test" value={finding.suggestedRegressionTest} />
 
         <div className="triage-controls">
-          <label htmlFor="triage-status">Status</label>
-          <select
-            id="triage-status"
-            value={status}
-            onChange={(event) => setStatus(event.currentTarget.value as ClawpatchStatus)}
-          >
-            {clawpatchStatuses.map((item) => (
-              <option key={item} value={item}>
-                {item}
-              </option>
-            ))}
-          </select>
           <label htmlFor="triage-note">Note</label>
           <textarea
             id="triage-note"

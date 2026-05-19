@@ -1,6 +1,6 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { FindingDetail, FindingListItem } from "../../src/shared/types";
+import type { ClawpatchStatus, FindingDetail, FindingListItem } from "../../src/shared/types";
 import { clawpatchStatuses } from "../../src/shared/constants";
 import { FindingsSplitPanel } from "../../src/renderer/src/components/FindingsSplitPanel";
 import {
@@ -37,6 +37,7 @@ describe("FindingsSplitPanel", () => {
     expect(screen.getByText("Token is logged in debug output")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Selected detail title" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Revalidate" })).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Finding status" })).toHaveValue("open");
     expect(
       screen.getByRole("separator", { name: "Resize findings and detail panes" }),
     ).toBeInTheDocument();
@@ -49,6 +50,29 @@ describe("FindingsSplitPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: "Revalidate" }));
 
     expect(onRevalidate).toHaveBeenCalledOnce();
+  });
+
+  it("keeps status in the detail header and saves it with the current note", () => {
+    const onTriage = vi.fn();
+    renderSplitPanel({
+      finding: makeFindingDetail({ localNote: "needs product call" }),
+      onTriage,
+    });
+
+    const detailHeader = screen
+      .getByRole("heading", { name: "Selected detail title" })
+      .closest(".detail-header");
+
+    expect(detailHeader).not.toBeNull();
+
+    const statusSelect = within(detailHeader as HTMLElement).getByRole("combobox", {
+      name: "Finding status",
+    });
+    fireEvent.change(statusSelect, { target: { value: "false-positive" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save triage" }));
+
+    expect(statusSelect).toHaveValue("false-positive");
+    expect(onTriage).toHaveBeenCalledWith("false-positive", "needs product call");
   });
 
   it("supports keyboard resizing within configured limits", () => {
@@ -110,7 +134,15 @@ function installLocalStorage(): void {
   });
 }
 
-function renderSplitPanel(overrides: { onRevalidate?: () => void } = {}) {
+function renderSplitPanel({
+  finding = makeFindingDetail(),
+  onTriage = vi.fn(),
+  onRevalidate = vi.fn(),
+}: {
+  finding?: FindingDetail;
+  onTriage?: (status: ClawpatchStatus, note: string) => void;
+  onRevalidate?: () => void;
+} = {}) {
   return render(
     <FindingsSplitPanel
       findings={findings}
@@ -119,14 +151,14 @@ function renderSplitPanel(overrides: { onRevalidate?: () => void } = {}) {
       isFindingsLoading={false}
       filters={defaultFindingFilters}
       filterOptions={getFindingFilterOptions(findings, clawpatchStatuses)}
-      finding={makeFindingDetail()}
+      finding={finding}
       isDetailLoading={false}
       isBusy={false}
       onFiltersChange={vi.fn()}
       onSelectFinding={vi.fn()}
-      onTriage={vi.fn()}
+      onTriage={onTriage}
       onFix={vi.fn()}
-      onRevalidate={overrides.onRevalidate ?? vi.fn()}
+      onRevalidate={onRevalidate}
     />,
   );
 }
@@ -150,7 +182,7 @@ function makeFindingListItem(overrides: Partial<FindingListItem>): FindingListIt
   };
 }
 
-function makeFindingDetail(): FindingDetail {
+function makeFindingDetail(overrides: Partial<FindingDetail> = {}): FindingDetail {
   return {
     ...makeFindingListItem({
       findingId: "fnd-security",
@@ -176,5 +208,6 @@ function makeFindingDetail(): FindingDetail {
     feature: null,
     patchAttempts: [],
     history: [],
+    ...overrides,
   };
 }
