@@ -17,6 +17,27 @@ describe("ClawpatchApp header actions", () => {
     expect(screen.getByText(`v${packageJson.version}`)).toBeInTheDocument();
   });
 
+  it("adds repositories from the header plus button", async () => {
+    const pickFolder = vi.fn<Api["repo"]["pickFolder"]>(async () => null);
+    const api = makeApi(vi.fn<Api["commands"]["run"]>(async () => makeCommandResult("map")));
+    api.repo.pickFolder = pickFolder;
+    window.clawpatch = api;
+
+    renderApp();
+
+    await screen.findByRole("heading", { name: "auth" });
+
+    expect(screen.getByText("Repositories (1)")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Add repo" })).not.toBeInTheDocument();
+
+    const addButton = screen.getByRole("button", { name: "Add repository" });
+    expect(addButton).toHaveAttribute("title", "Add repository");
+
+    fireEvent.click(addButton);
+
+    await waitFor(() => expect(pickFolder).toHaveBeenCalledTimes(1));
+  });
+
   it("keeps secondary commands reachable from the overflow menu", async () => {
     const run = vi.fn<Api["commands"]["run"]>(async (_repoId, request) =>
       makeCommandResult(request.command),
