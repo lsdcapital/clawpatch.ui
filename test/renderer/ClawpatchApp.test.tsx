@@ -193,12 +193,15 @@ describe("ClawpatchApp header actions", () => {
     expect(screen.getByRole("complementary", { name: "Command output" })).toBeInTheDocument();
   });
 
-  it("refreshes the review queue when review stream reports a completed feature", async () => {
+  it("refreshes the review queue during command output", async () => {
     let streamListener: ((event: CommandStreamEvent) => void) | null = null;
     const featureMap = vi
       .fn<Api["features"]["map"]>()
       .mockResolvedValueOnce(makeFeatureMapSnapshot())
       .mockResolvedValue(makeFeatureMapSnapshotAfterOneReview());
+    const repoList = vi.fn<Api["repo"]["list"]>(async () => [makeRepo()]);
+    const findingsList = vi.fn<Api["findings"]["list"]>(async () => []);
+    const gitDiff = vi.fn<Api["git"]["diff"]>(async () => "");
     const onStream = vi.fn<Api["commands"]["onStream"]>((listener) => {
       streamListener = listener;
       return () => {
@@ -209,7 +212,10 @@ describe("ClawpatchApp header actions", () => {
       vi.fn<Api["commands"]["run"]>(async () => makeCommandResult("review")),
       {
         featureMap,
+        findingsList,
+        gitDiff,
         onStream,
+        repoList,
       },
     );
 
@@ -218,7 +224,10 @@ describe("ClawpatchApp header actions", () => {
     await screen.findByRole("heading", { name: "auth" });
     fireEvent.click(screen.getByRole("tab", { name: "Review Queue" }));
     expect(screen.getByText("2 pending/error of 3 map items")).toBeInTheDocument();
+    await waitFor(() => expect(repoList).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(findingsList).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(featureMap).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(gitDiff).toHaveBeenCalledTimes(1));
 
     if (streamListener === null) {
       throw new Error("stream listener was not registered");
@@ -231,18 +240,11 @@ describe("ClawpatchApp header actions", () => {
         chunk: "[stderr] clawpatch review claimed index=1 total=2 feature=feat-auth\n",
       });
     });
-    expect(featureMap).toHaveBeenCalledTimes(1);
 
-    act(() => {
-      streamListener?.({
-        runId: "run-review",
-        stream: "stderr",
-        chunk:
-          "[stderr] clawpatch review feature-done index=1 total=2 feature=feat-auth findings=1 elapsed=26s\n",
-      });
-    });
-
+    await waitFor(() => expect(repoList).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(findingsList).toHaveBeenCalledTimes(2));
     await waitFor(() => expect(featureMap).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(gitDiff).toHaveBeenCalledTimes(2));
     await screen.findByText("1 pending/error of 3 map items");
     expect(screen.queryByText("Authentication")).not.toBeInTheDocument();
     expect(screen.getByText("Billing")).toBeInTheDocument();
@@ -380,15 +382,18 @@ function makeApi(
   run: Api["commands"]["run"],
   options: {
     findings?: readonly FindingListItem[];
+    findingsList?: Api["findings"]["list"];
     featureMap?: Api["features"]["map"];
     findingDetail?: FindingDetail;
+    gitDiff?: Api["git"]["diff"];
     onStream?: Api["commands"]["onStream"];
+    repoList?: Api["repo"]["list"];
     triageSet?: Api["triage"]["set"];
   } = {},
 ): Api {
   return {
     repo: {
-      list: async () => [makeRepo()],
+      list: options.repoList ?? (async () => [makeRepo()]),
       add: async () => makeRepo(),
       pickFolder: async () => null,
       refresh: async () => ({
@@ -405,7 +410,7 @@ function makeApi(
       }),
     },
     findings: {
-      list: async () => options.findings ?? [],
+      list: options.findingsList ?? (async () => options.findings ?? []),
       get: async () => {
         if (options.findingDetail === undefined) {
           throw new Error("No finding expected");
@@ -424,7 +429,7 @@ function makeApi(
       onStream: options.onStream ?? (() => () => undefined),
     },
     git: {
-      diff: async () => "",
+      diff: options.gitDiff ?? (async () => ""),
     },
   };
 }
