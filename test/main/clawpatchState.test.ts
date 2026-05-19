@@ -46,6 +46,119 @@ describe("clawpatch state reader", () => {
     }).pipe(Effect.provide(stateLayer))
   );
 
+  it.effect("reads feature map coverage when run records are missing", () =>
+    Effect.gen(function* () {
+      const state = yield* ClawpatchStateService;
+
+      const snapshot = yield* state.readFeatureMap(fixtureRepo);
+
+      expect(snapshot.features).toHaveLength(1);
+      expect(snapshot.features[0]).toMatchObject({
+        featureId: "feat-1",
+        title: "Example module",
+        status: "reviewed",
+        source: "fixture"
+      });
+      expect(snapshot.coverage).toMatchObject({
+        totalFeatures: 1,
+        pendingReviewCount: 0,
+        latestReviewRun: null,
+        latestLimitedReviewRun: null,
+        hasLimitedReviewRemainder: false
+      });
+    }).pipe(Effect.provide(stateLayer))
+  );
+
+  it.effect("detects limited review runs with pending map items", () =>
+    Effect.gen(function* () {
+      const tempRepo = yield* Effect.promise(() => mkdtemp(join(tmpdir(), "clawpatch-fixture-")));
+      yield* Effect.promise(() => cp(fixtureRepo, tempRepo, { recursive: true }));
+      try {
+        yield* Effect.promise(() => mkdir(join(tempRepo, ".clawpatch", "features"), { recursive: true }));
+        yield* Effect.promise(() => mkdir(join(tempRepo, ".clawpatch", "runs"), { recursive: true }));
+        yield* Effect.promise(() =>
+          writeFile(
+            join(tempRepo, ".clawpatch", "features", "feat-pending.json"),
+            JSON.stringify(
+              {
+                featureId: "feat-pending",
+                title: "Pending checkout flow",
+                kind: "ui-flow",
+                source: "agent",
+                status: "pending",
+                ownedFiles: [{ path: "src/checkout.tsx" }],
+                contextFiles: [{ path: "src/api.ts" }],
+                tests: [{ path: "src/checkout.test.tsx" }],
+                findingIds: [],
+                updatedAt: "2026-01-02T00:00:00.000Z"
+              },
+              null,
+              2
+            ),
+            "utf8"
+          )
+        );
+        yield* Effect.promise(() =>
+          writeFile(
+            join(tempRepo, ".clawpatch", "features", "feat-error.json"),
+            JSON.stringify(
+              {
+                featureId: "feat-error",
+                summary: "Errored billing worker",
+                kind: "job",
+                source: "heuristic",
+                status: "error",
+                ownedFiles: [],
+                contextFiles: [],
+                tests: [],
+                findingIds: ["fnd-2"],
+                updatedAt: "2026-01-03T00:00:00.000Z"
+              },
+              null,
+              2
+            ),
+            "utf8"
+          )
+        );
+        yield* Effect.promise(() =>
+          writeFile(
+            join(tempRepo, ".clawpatch", "runs", "run-limited.json"),
+            JSON.stringify(
+              {
+                runId: "run-limited",
+                command: "review",
+                args: ["--json", "--no-color", "--no-input", "review", "--limit", "3"],
+                status: "completed",
+                startedAt: "2026-01-04T00:00:00.000Z",
+                finishedAt: "2026-01-04T00:05:00.000Z",
+                claimedFeatureIds: ["feat-1"],
+                findingIds: [],
+                patchAttemptIds: [],
+                errors: []
+              },
+              null,
+              2
+            ),
+            "utf8"
+          )
+        );
+
+        const state = yield* ClawpatchStateService;
+        const snapshot = yield* state.readFeatureMap(tempRepo);
+
+        expect(snapshot.coverage.pendingReviewFeatureIds).toEqual(["feat-error", "feat-pending"]);
+        expect(snapshot.coverage.latestLimitedReviewRun).toMatchObject({
+          runId: "run-limited",
+          limit: 3,
+          reviewedFeatureCount: 1
+        });
+        expect(snapshot.coverage.hasLimitedReviewRemainder).toBe(true);
+      } finally {
+        yield* Effect.promise(() => rm(tempRepo, { recursive: true, force: true }));
+      }
+    }).pipe(Effect.provide(stateLayer))
+  );
+
   it.effect("skips malformed finding records at the schema boundary", () =>
     Effect.gen(function* () {
       const tempRepo = yield* Effect.promise(() => mkdtemp(join(tmpdir(), "clawpatch-fixture-")));

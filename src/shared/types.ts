@@ -4,11 +4,15 @@ import type {
   CommandResultSchema,
   CommandStreamEventSchema,
   EvidenceRefSchema,
+  FeatureMapItemSchema,
+  FeatureMapSnapshotSchema,
   FindingDetailSchema,
   FindingListItemSchema,
   GuiMetadataSchema,
   RepoSnapshotSchema,
-  RepoSummarySchema
+  RepoSummarySchema,
+  ReviewCoverageSchema,
+  ReviewRunSummarySchema
 } from "./schemas";
 export { clawpatchStatuses } from "./constants";
 
@@ -22,6 +26,10 @@ export type GuiMetadata = typeof GuiMetadataSchema.Type;
 export type EvidenceRef = typeof EvidenceRefSchema.Type;
 export type FindingListItem = typeof FindingListItemSchema.Type;
 export type FindingDetail = typeof FindingDetailSchema.Type;
+export type FeatureMapItem = typeof FeatureMapItemSchema.Type;
+export type ReviewRunSummary = typeof ReviewRunSummarySchema.Type;
+export type ReviewCoverage = typeof ReviewCoverageSchema.Type;
+export type FeatureMapSnapshot = typeof FeatureMapSnapshotSchema.Type;
 
 export interface Api {
   repo: {
@@ -32,6 +40,9 @@ export interface Api {
   findings: {
     list: (repoId: string) => Promise<readonly FindingListItem[]>;
     get: (repoId: string, findingId: string) => Promise<FindingDetail>;
+  };
+  features: {
+    map: (repoId: string) => Promise<FeatureMapSnapshot>;
   };
   triage: {
     set: (

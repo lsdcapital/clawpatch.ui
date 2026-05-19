@@ -11,6 +11,24 @@ import {
 describe("buildClawpatchArgs", () => {
   it("builds allowed command args without shell input", () => {
     expect(buildClawpatchArgs({ command: "status" })).toEqual(["--json", "--no-color", "--no-input", "status"]);
+    expect(buildClawpatchArgs({ command: "map" })).toEqual(["--json", "--no-color", "--no-input", "map"]);
+    expect(buildClawpatchArgs({ command: "review" })).toEqual(["--json", "--no-color", "--no-input", "review"]);
+    expect(buildClawpatchArgs({ command: "review", featureId: "feat-123" })).toEqual([
+      "--json",
+      "--no-color",
+      "--no-input",
+      "review",
+      "--feature",
+      "feat-123"
+    ]);
+    expect(buildClawpatchArgs({ command: "review", limit: 3 })).toEqual([
+      "--json",
+      "--no-color",
+      "--no-input",
+      "review",
+      "--limit",
+      "3"
+    ]);
     expect(buildClawpatchArgs({ command: "fix", findingId: "abc123" })).toEqual([
       "--json",
       "--no-color",
@@ -39,6 +57,13 @@ describe("buildClawpatchArgs", () => {
   it("rejects missing or suspicious finding ids", () => {
     expect(() => buildClawpatchArgs({ command: "fix", findingId: "" })).toThrow("Missing findingId");
     expect(() => buildClawpatchArgs({ command: "fix", findingId: "abc\nreport" })).toThrow("Invalid findingId");
+  });
+
+  it("rejects suspicious review feature ids and limits", () => {
+    expect(() => buildClawpatchArgs({ command: "review", featureId: "" })).toThrow("Missing featureId");
+    expect(() => buildClawpatchArgs({ command: "review", featureId: "feat\nreport" })).toThrow("Invalid featureId");
+    expect(() => buildClawpatchArgs({ command: "review", limit: 0 })).toThrow("Invalid review limit");
+    expect(() => buildClawpatchArgs({ command: "review", limit: 1.5 })).toThrow("Invalid review limit");
   });
 
   it("rejects unsupported triage statuses", () => {
