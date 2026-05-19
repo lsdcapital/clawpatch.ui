@@ -142,9 +142,7 @@ export function ClawpatchApp() {
   useEffect(() => {
     return window.clawpatch.commands.onStream((event) => {
       setCommandLog((current) => [...current, { kind: "stream", event }]);
-      if (isReviewFeatureDoneEvent(event)) {
-        void invalidateReviewProgress(queryClient);
-      }
+      void invalidateCommandProgress(queryClient);
     });
   }, [queryClient]);
 
@@ -194,6 +192,20 @@ export function ClawpatchApp() {
       ]);
     },
   });
+
+  const isCommandBusy = commandMutation.isPending || triageMutation.isPending;
+
+  useEffect(() => {
+    if (!isCommandBusy) {
+      return;
+    }
+
+    const intervalId = window.setInterval(() => {
+      void invalidateCommandProgress(queryClient);
+    }, 1000);
+
+    return () => window.clearInterval(intervalId);
+  }, [isCommandBusy, queryClient]);
 
   const runCommand = (request: ClawpatchCommandRequest): void => {
     if (selectedRepo === null) {
@@ -583,20 +595,14 @@ async function invalidateRepo(
   ]);
 }
 
-async function invalidateReviewProgress(
+async function invalidateCommandProgress(
   queryClient: ReturnType<typeof useQueryClient>,
 ): Promise<void> {
   await Promise.all([
     queryClient.invalidateQueries({ queryKey: ["repos"] }),
     queryClient.invalidateQueries({ queryKey: ["features"] }),
     queryClient.invalidateQueries({ queryKey: ["findings"] }),
+    queryClient.invalidateQueries({ queryKey: ["finding"] }),
+    queryClient.invalidateQueries({ queryKey: ["diff"] }),
   ]);
-}
-
-function isReviewFeatureDoneEvent(event: CommandStreamEvent): boolean {
-  if (event.stream !== "stderr") {
-    return false;
-  }
-
-  return event.chunk.split(/\r?\n/).some((line) => line.includes("clawpatch review feature-done"));
 }
