@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { RepoSummary } from "../../../shared/types";
+import { appName, appVersion } from "../appInfo";
 
 interface Props {
   repos: readonly RepoSummary[];
@@ -42,7 +43,10 @@ export function RepoSidebar({
   return (
     <aside className="repo-sidebar">
       <div className="sidebar-header">
-        <div className="brand">Clawpatch</div>
+        <div className="brand">
+          <span className="brand-name">{appName}</span>
+          <span className="brand-version">v{appVersion}</span>
+        </div>
       </div>
       <div className="repo-form">
         <button disabled={isAdding || isPicking} onClick={() => void pickRepo()}>

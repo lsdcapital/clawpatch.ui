@@ -1,10 +1,22 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import packageJson from "../../package.json";
 import { ClawpatchApp } from "../../src/renderer/src/routes/ClawpatchApp";
 import type { Api, CommandResult, FeatureMapSnapshot, RepoSummary } from "../../src/shared/types";
 
 describe("ClawpatchApp header actions", () => {
+  it("shows the app brand and package version in the sidebar", async () => {
+    window.clawpatch = makeApi(vi.fn<Api["commands"]["run"]>(async () => makeCommandResult("map")));
+
+    renderApp();
+
+    await screen.findByRole("heading", { name: "auth" });
+
+    expect(screen.getByText("Clawpatch UI")).toBeInTheDocument();
+    expect(screen.getByText(`v${packageJson.version}`)).toBeInTheDocument();
+  });
+
   it("keeps secondary commands reachable from the overflow menu", async () => {
     const run = vi.fn<Api["commands"]["run"]>(async (_repoId, request) =>
       makeCommandResult(request.command),
