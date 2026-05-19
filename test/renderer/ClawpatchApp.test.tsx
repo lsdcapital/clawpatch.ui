@@ -1,11 +1,12 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import packageJson from "../../package.json";
 import { ClawpatchApp } from "../../src/renderer/src/routes/ClawpatchApp";
 import type {
   Api,
   CommandResult,
+  CommandStreamEvent,
   FeatureMapSnapshot,
   FindingDetail,
   FindingListItem,
@@ -192,6 +193,61 @@ describe("ClawpatchApp header actions", () => {
     expect(screen.getByRole("complementary", { name: "Command output" })).toBeInTheDocument();
   });
 
+  it("refreshes the review queue when review stream reports a completed feature", async () => {
+    let streamListener: ((event: CommandStreamEvent) => void) | null = null;
+    const featureMap = vi
+      .fn<Api["features"]["map"]>()
+      .mockResolvedValueOnce(makeFeatureMapSnapshot())
+      .mockResolvedValue(makeFeatureMapSnapshotAfterOneReview());
+    const onStream = vi.fn<Api["commands"]["onStream"]>((listener) => {
+      streamListener = listener;
+      return () => {
+        streamListener = null;
+      };
+    });
+    window.clawpatch = makeApi(
+      vi.fn<Api["commands"]["run"]>(async () => makeCommandResult("review")),
+      {
+        featureMap,
+        onStream,
+      },
+    );
+
+    renderApp();
+
+    await screen.findByRole("heading", { name: "auth" });
+    fireEvent.click(screen.getByRole("tab", { name: "Review Queue" }));
+    expect(screen.getByText("2 pending/error of 3 map items")).toBeInTheDocument();
+    await waitFor(() => expect(featureMap).toHaveBeenCalledTimes(1));
+
+    if (streamListener === null) {
+      throw new Error("stream listener was not registered");
+    }
+
+    act(() => {
+      streamListener?.({
+        runId: "run-review",
+        stream: "stderr",
+        chunk: "[stderr] clawpatch review claimed index=1 total=2 feature=feat-auth\n",
+      });
+    });
+    expect(featureMap).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      streamListener?.({
+        runId: "run-review",
+        stream: "stderr",
+        chunk:
+          "[stderr] clawpatch review feature-done index=1 total=2 feature=feat-auth findings=1 elapsed=26s\n",
+      });
+    });
+
+    await waitFor(() => expect(featureMap).toHaveBeenCalledTimes(2));
+    await screen.findByText("1 pending/error of 3 map items");
+    expect(screen.queryByText("Authentication")).not.toBeInTheDocument();
+    expect(screen.getByText("Billing")).toBeInTheDocument();
+  });
+
   it("revalidates the selected finding and opens command output", async () => {
     const run = vi.fn<Api["commands"]["run"]>(async (_repoId, request) =>
       makeCommandResult(request.command),
@@ -324,7 +380,9 @@ function makeApi(
   run: Api["commands"]["run"],
   options: {
     findings?: readonly FindingListItem[];
+    featureMap?: Api["features"]["map"];
     findingDetail?: FindingDetail;
+    onStream?: Api["commands"]["onStream"];
     triageSet?: Api["triage"]["set"];
   } = {},
 ): Api {
@@ -356,14 +414,14 @@ function makeApi(
       },
     },
     features: {
-      map: async () => makeFeatureMapSnapshot(),
+      map: options.featureMap ?? (async () => makeFeatureMapSnapshot()),
     },
     triage: {
       set: options.triageSet ?? (async () => makeCommandResult("triage")),
     },
     commands: {
       run,
-      onStream: () => () => undefined,
+      onStream: options.onStream ?? (() => () => undefined),
     },
     git: {
       diff: async () => "",
@@ -455,6 +513,57 @@ function makeFeatureMapSnapshot(): FeatureMapSnapshot {
       totalFeatures: 3,
       pendingReviewCount: 2,
       pendingReviewFeatureIds: ["feat-auth", "feat-billing"],
+      latestReviewRun: null,
+      latestLimitedReviewRun: null,
+      hasLimitedReviewRemainder: false,
+    },
+  };
+}
+
+function makeFeatureMapSnapshotAfterOneReview(): FeatureMapSnapshot {
+  return {
+    features: [
+      {
+        featureId: "feat-auth",
+        title: "Authentication",
+        status: "reviewed",
+        kind: "feature",
+        source: "map",
+        ownedFileCount: 1,
+        contextFileCount: 1,
+        testCount: 1,
+        findingCount: 1,
+        updatedAt: "2026-05-19T00:01:00.000Z",
+      },
+      {
+        featureId: "feat-profile",
+        title: "Profile settings",
+        status: "reviewed",
+        kind: "feature",
+        source: "map",
+        ownedFileCount: 2,
+        contextFileCount: 0,
+        testCount: 1,
+        findingCount: 1,
+        updatedAt: "2026-05-18T00:00:00.000Z",
+      },
+      {
+        featureId: "feat-billing",
+        title: "Billing",
+        status: "error",
+        kind: "integration",
+        source: "manual",
+        ownedFileCount: 1,
+        contextFileCount: 1,
+        testCount: 0,
+        findingCount: 0,
+        updatedAt: "2026-05-17T00:00:00.000Z",
+      },
+    ],
+    coverage: {
+      totalFeatures: 3,
+      pendingReviewCount: 1,
+      pendingReviewFeatureIds: ["feat-billing"],
       latestReviewRun: null,
       latestLimitedReviewRun: null,
       hasLimitedReviewRemainder: false,
