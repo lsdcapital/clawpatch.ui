@@ -526,6 +526,7 @@ button:disabled {
 }
 
 .feature-map-table {
+  align-content: start;
   display: grid;
   flex: 1;
   min-height: 0;

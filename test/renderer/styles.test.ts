@@ -23,6 +23,7 @@ describe("renderer layout styles", () => {
     expect(edgeToEdgePanelRule).toContain("border: 0;");
     expect(edgeToEdgePanelRule).toContain("border-radius: 0;");
     expect(edgeToEdgePanelRule).toContain("box-shadow: none;");
+    expect(ruleFor("\\.feature-map-table")).toContain("align-content: start;");
   });
 });
 
