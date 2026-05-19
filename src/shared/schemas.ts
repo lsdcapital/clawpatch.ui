@@ -45,7 +45,7 @@ export const CommandStreamEventSchema = Schema.Struct({
   chunk: Schema.String,
 });
 
-export const GuiMetadataSchema = Schema.Struct({
+export const UiMetadataSchema = Schema.Struct({
   schemaVersion: Schema.Literal(1),
   filters: Schema.Struct({
     severity: Schema.NullOr(Schema.String),
@@ -156,7 +156,7 @@ export const RepoSnapshotSchema = Schema.Struct({
   status: Schema.NullOr(Schema.Unknown),
   findings: Schema.Array(FindingListItemSchema),
   diff: Schema.String,
-  metadata: GuiMetadataSchema,
+  metadata: UiMetadataSchema,
 });
 
 export const RepoListSchema = Schema.Array(RepoSummarySchema);

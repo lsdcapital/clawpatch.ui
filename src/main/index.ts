@@ -9,7 +9,7 @@ import { installIpcHandlers } from "./ipc/handlers";
 import { ClawpatchRunnerLive } from "./services/clawpatchRunner";
 import { ClawpatchStateServiceLive } from "./services/clawpatchState";
 import { GitServiceLive } from "./services/gitService";
-import { GuiMetadataServiceLive } from "./services/guiMetadata";
+import { UiMetadataServiceLive } from "./services/uiMetadata";
 import { RepoServiceLive } from "./services/repoService";
 import {
   MIN_WINDOW_HEIGHT,
@@ -137,7 +137,7 @@ function makeAppRuntime(userDataPath: string): ManagedRuntime.ManagedRuntime<any
   const coreLayer = Layer.mergeAll(
     ClawpatchRunnerLive,
     ClawpatchStateServiceLive,
-    GuiMetadataServiceLive,
+    UiMetadataServiceLive,
     GitServiceLive,
   );
   const repoLayer = RepoServiceLive(userDataPath).pipe(Layer.provideMerge(coreLayer));
