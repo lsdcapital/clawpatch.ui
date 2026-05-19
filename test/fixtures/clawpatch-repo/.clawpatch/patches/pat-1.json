@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "patchAttemptId": "pat-1",
+  "findingIds": ["fnd-1"],
+  "featureIds": ["feat-1"],
+  "status": "applied",
+  "plan": "Fix null branch",
+  "commands": [],
+  "result": null,
+  "createdAt": "2026-01-01T00:00:00.000Z",
+  "updatedAt": "2026-01-01T00:00:00.000Z"
+}

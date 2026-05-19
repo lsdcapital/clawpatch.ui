@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "featureId": "feat-1",
+  "project": "fixture",
+  "kind": "module",
+  "path": "src/example.ts",
+  "summary": "Example module",
+  "ownedFiles": ["src/example.ts"],
+  "entrypoints": [],
+  "trustBoundaries": [],
+  "status": "reviewed",
+  "lock": null,
+  "findingIds": ["fnd-1"],
+  "patchAttemptIds": ["pat-1"],
+  "analysisHistory": [],
+  "createdAt": "2026-01-01T00:00:00.000Z",
+  "updatedAt": "2026-01-01T00:00:00.000Z"
+}

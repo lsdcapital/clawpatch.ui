@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "findingId": "fnd-1",
+  "featureId": "feat-1",
+  "title": "Null branch can throw",
+  "category": "bug",
+  "severity": "high",
+  "confidence": "high",
+  "triage": "confirmed-bug",
+  "evidence": [
+    {
+      "path": "src/example.ts",
+      "startLine": 12,
+      "endLine": 14,
+      "symbol": "readValue",
+      "quote": "value.name"
+    }
+  ],
+  "reasoning": "The value can be null before the name access.",
+  "reproduction": "Call readValue(null).",
+  "recommendation": "Guard the null branch before reading name.",
+  "whyTestsDoNotAlreadyCoverThis": "No null input case exists.",
+  "suggestedRegressionTest": "Add a null input test.",
+  "minimumFixScope": "Guard in readValue.",
+  "status": "open",
+  "history": [],
+  "signature": "sig-1",
+  "linkedPatchAttemptIds": ["pat-1"],
+  "createdByRunId": "run-1",
+  "createdAt": "2026-01-01T00:00:00.000Z",
+  "updatedAt": "2026-01-01T00:00:00.000Z"
+}
