@@ -14,6 +14,7 @@
     "lint": "oxlint --report-unused-disable-directives",
     "fmt": "oxfmt",
     "fmt:check": "oxfmt --check",
+    "update": "pnpm up -i -L",
     "check": "turbo run typecheck lint fmt:check test",
     "check:ci": "turbo run typecheck lint fmt:check test build",
     "clean": "rm -rf out .turbo"
