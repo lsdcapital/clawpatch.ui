@@ -77,7 +77,8 @@ pnpm clean       # Remove generated build/cache output
 
 - Clawpatch state remains valid without this UI.
 - The UI reads `.clawpatch` state for display.
-- The UI stores UI-only metadata under `.clawpatch/ui/state.json`.
+- The UI stores UI-only metadata in the app user data directory.
+- Legacy `.clawpatch/ui/state.json` files are read only for migration.
 - Clawpatch commands are run through `clawpatch --json --no-color --no-input`.
 - Diffs are read with `git diff --no-color`.
 - The UI does not directly edit `.clawpatch/findings`, `.clawpatch/features`,

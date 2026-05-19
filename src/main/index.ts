@@ -137,7 +137,7 @@ function makeAppRuntime(userDataPath: string): ManagedRuntime.ManagedRuntime<any
   const coreLayer = Layer.mergeAll(
     ClawpatchRunnerLive,
     ClawpatchStateServiceLive,
-    UiMetadataServiceLive,
+    UiMetadataServiceLive(userDataPath),
     GitServiceLive,
   );
   const repoLayer = RepoServiceLive(userDataPath).pipe(Layer.provideMerge(coreLayer));

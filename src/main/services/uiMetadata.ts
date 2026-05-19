@@ -1,5 +1,5 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -8,58 +8,118 @@ import { UiMetadataSchema } from "../../shared/schemas";
 import type { UiMetadata } from "../../shared/types";
 import { JsonDecodeError } from "../errors";
 
+type MetadataReadResult =
+  | { readonly status: "missing" }
+  | { readonly status: "invalid" }
+  | { readonly status: "valid"; readonly metadata: UiMetadata };
+
 export interface UiMetadataServiceShape {
-  readonly read: (repoPath: string) => Effect.Effect<UiMetadata, unknown>;
-  readonly write: (repoPath: string, metadata: UiMetadata) => Effect.Effect<UiMetadata, unknown>;
+  readonly read: (repoId: string, repoPath: string) => Effect.Effect<UiMetadata, unknown>;
+  readonly write: (repoId: string, metadata: UiMetadata) => Effect.Effect<UiMetadata, unknown>;
 }
 
 export class UiMetadataService extends Context.Service<UiMetadataService, UiMetadataServiceShape>()(
   "clawpatch/UiMetadata",
 ) {}
 
-const liveService: UiMetadataServiceShape = {
-  read: Effect.fn("uiMetadata.read")(function* (repoPath) {
-    const raw = yield* Effect.tryPromise(() => readFile(metadataPath(repoPath), "utf8")).pipe(
-      Effect.catch(() => Effect.succeed(null)),
-    );
-    if (raw === null) {
-      return defaultMetadata();
-    }
+export const UiMetadataServiceLive = (appDataDir: string) =>
+  Layer.succeed(UiMetadataService, UiMetadataService.of(makeLiveService(appDataDir)));
 
-    const parsed = yield* Effect.try({
-      try: () => JSON.parse(raw) as unknown,
-      catch: (cause) => cause,
-    }).pipe(Effect.catch(() => Effect.succeed(null)));
-    if (parsed === null) {
-      return defaultMetadata();
-    }
+function makeLiveService(appDataDir: string): UiMetadataServiceShape {
+  return {
+    read: Effect.fn("uiMetadata.read")(function* (repoId, repoPath) {
+      const activePath = metadataPath(appDataDir, repoId);
+      const active = yield* readMetadataFile(activePath);
+      if (active.status === "valid") {
+        return active.metadata;
+      }
+      if (active.status === "invalid") {
+        return defaultMetadata();
+      }
 
-    const decoded = yield* Schema.decodeUnknownEffect(UiMetadataSchema)(parsed).pipe(
-      Effect.catch(() => Effect.succeed(defaultMetadata())),
-    );
-    return normalizeMetadata(decoded);
-  }),
-  write: Effect.fn("uiMetadata.write")(function* (repoPath, metadata) {
-    const next = { ...metadata, schemaVersion: 1 as const, updatedAt: new Date().toISOString() };
-    yield* Effect.tryPromise({
-      try: () => mkdir(join(repoPath, ".clawpatch", "ui"), { recursive: true }),
-      catch: (cause) => new JsonDecodeError({ path: metadataPath(repoPath), cause }),
-    });
-    yield* Effect.tryPromise({
-      try: () => writeFile(metadataPath(repoPath), `${JSON.stringify(next, null, 2)}\n`, "utf8"),
-      catch: (cause) => new JsonDecodeError({ path: metadataPath(repoPath), cause }),
-    });
-    return next;
-  }),
-};
+      const legacy = yield* readMetadataFile(legacyMetadataPath(repoPath));
+      if (legacy.status !== "valid") {
+        return defaultMetadata();
+      }
 
-export const UiMetadataServiceLive = Layer.succeed(
-  UiMetadataService,
-  UiMetadataService.of(liveService),
-);
+      yield* writeMetadataFile(activePath, legacy.metadata);
+      return legacy.metadata;
+    }),
+    write: Effect.fn("uiMetadata.write")(function* (repoId, metadata) {
+      const next = { ...metadata, schemaVersion: 1 as const, updatedAt: new Date().toISOString() };
+      yield* writeMetadataFile(metadataPath(appDataDir, repoId), next);
+      return next;
+    }),
+  };
+}
 
-function metadataPath(repoPath: string): string {
+const readMetadataFile = Effect.fn("uiMetadata.readMetadataFile")(function* (path: string) {
+  const rawResult = yield* Effect.tryPromise({
+    try: () => readFile(path, "utf8"),
+    catch: (cause) => cause,
+  }).pipe(
+    Effect.map((raw) => ({ status: "read" as const, raw })),
+    Effect.catch((cause) =>
+      Effect.succeed(isNotFoundError(cause) ? missingMetadata() : invalidMetadata()),
+    ),
+  );
+  if (rawResult.status !== "read") {
+    return rawResult;
+  }
+
+  const parsed = yield* Effect.try({
+    try: () => JSON.parse(rawResult.raw) as unknown,
+    catch: (cause) => cause,
+  }).pipe(Effect.catch(() => Effect.succeed(undefined)));
+  if (parsed === undefined) {
+    return invalidMetadata();
+  }
+
+  return yield* Schema.decodeUnknownEffect(UiMetadataSchema)(parsed).pipe(
+    Effect.map(
+      (metadata): MetadataReadResult => ({
+        status: "valid",
+        metadata: normalizeMetadata(metadata),
+      }),
+    ),
+    Effect.catch(() => Effect.succeed(invalidMetadata())),
+  );
+});
+
+const writeMetadataFile = Effect.fn("uiMetadata.writeMetadataFile")(function* (
+  path: string,
+  metadata: UiMetadata,
+) {
+  yield* Effect.tryPromise({
+    try: () => mkdir(dirname(path), { recursive: true }),
+    catch: (cause) => new JsonDecodeError({ path, cause }),
+  });
+  yield* Effect.tryPromise({
+    try: () => writeFile(path, `${JSON.stringify(metadata, null, 2)}\n`, "utf8"),
+    catch: (cause) => new JsonDecodeError({ path, cause }),
+  });
+});
+
+function metadataPath(appDataDir: string, repoId: string): string {
+  return join(appDataDir, "ui-metadata", `${repoId}.json`);
+}
+
+function legacyMetadataPath(repoPath: string): string {
   return join(repoPath, ".clawpatch", "ui", "state.json");
+}
+
+function missingMetadata(): MetadataReadResult {
+  return { status: "missing" };
+}
+
+function invalidMetadata(): MetadataReadResult {
+  return { status: "invalid" };
+}
+
+function isNotFoundError(cause: unknown): boolean {
+  return (
+    cause !== null && typeof cause === "object" && "code" in cause && cause["code"] === "ENOENT"
+  );
 }
 
 function normalizeMetadata(metadata: UiMetadata): UiMetadata {
