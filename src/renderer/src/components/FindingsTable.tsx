@@ -3,6 +3,9 @@ import type { ClawpatchStatus, FindingListItem } from "../../../shared/types";
 import {
   defaultFindingFilters,
   isFindingFiltersActive,
+  type FindingSort,
+  type FindingSortDirection,
+  type FindingSortField,
   type FindingFilterOptions,
   type FindingFilters,
 } from "../findingsFilters";
@@ -14,7 +17,9 @@ interface Props {
   isLoading: boolean;
   filters: FindingFilters;
   filterOptions: FindingFilterOptions;
+  sort: FindingSort;
   onFiltersChange: (filters: FindingFilters) => void;
+  onSortChange: (sort: FindingSort) => void;
   onSelectFinding: (findingId: string) => void;
 }
 
@@ -25,7 +30,9 @@ export function FindingsTable({
   isLoading,
   filters,
   filterOptions,
+  sort,
   onFiltersChange,
+  onSortChange,
   onSelectFinding,
 }: Props) {
   const filterMenuRef = useRef<HTMLDetailsElement>(null);
@@ -39,6 +46,12 @@ export function FindingsTable({
 
   const updateFilters = (nextFilters: Partial<FindingFilters>): void => {
     onFiltersChange({ ...filters, ...nextFilters });
+  };
+  const updateSort = (field: FindingSortField): void => {
+    onSortChange({
+      field,
+      direction: sort.field === field ? toggleDirection(sort.direction) : "asc",
+    });
   };
 
   useEffect(() => {
@@ -144,10 +157,10 @@ export function FindingsTable({
       </div>
       <div className="findings-table" role="table">
         <div className="table-row table-head" role="row">
-          <span>Severity</span>
-          <span>Status</span>
-          <span>Category</span>
-          <span>Title</span>
+          <SortableHeader field="severity" label="Severity" sort={sort} onSort={updateSort} />
+          <SortableHeader field="status" label="Status" sort={sort} onSort={updateSort} />
+          <SortableHeader field="category" label="Category" sort={sort} onSort={updateSort} />
+          <SortableHeader field="title" label="Title" sort={sort} onSort={updateSort} />
         </div>
         {findings.map((finding) => (
           <button
@@ -169,6 +182,36 @@ export function FindingsTable({
         ) : null}
       </div>
     </div>
+  );
+}
+
+function SortableHeader({
+  field,
+  label,
+  sort,
+  onSort,
+}: {
+  field: FindingSortField;
+  label: string;
+  sort: FindingSort;
+  onSort: (field: FindingSortField) => void;
+}) {
+  const isActive = sort.field === field;
+  const ariaSort = isActive ? (sort.direction === "asc" ? "ascending" : "descending") : "none";
+  const nextDirection = isActive ? toggleDirection(sort.direction) : "asc";
+
+  return (
+    <span aria-sort={ariaSort} role="columnheader">
+      <button
+        className={isActive ? "sort-header active" : "sort-header"}
+        onClick={() => onSort(field)}
+        type="button"
+        aria-label={`Sort by ${label} ${nextDirection === "asc" ? "ascending" : "descending"}`}
+      >
+        <span>{label}</span>
+        <span aria-hidden="true">{isActive ? (sort.direction === "asc" ? "↑" : "↓") : ""}</span>
+      </button>
+    </span>
   );
 }
 
@@ -219,4 +262,8 @@ function labelFor(value: ClawpatchStatus | string): string {
     .split("-")
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(" ");
+}
+
+function toggleDirection(direction: FindingSortDirection): FindingSortDirection {
+  return direction === "asc" ? "desc" : "asc";
 }

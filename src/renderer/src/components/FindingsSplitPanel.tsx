@@ -1,6 +1,6 @@
 import { useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent } from "react";
 import type { ClawpatchStatus, FindingDetail, FindingListItem } from "../../../shared/types";
-import type { FindingFilterOptions, FindingFilters } from "../findingsFilters";
+import type { FindingFilterOptions, FindingFilters, FindingSort } from "../findingsFilters";
 import { FindingDetailPanel } from "./FindingDetailPanel";
 import { FindingsTable } from "./FindingsTable";
 
@@ -17,10 +17,12 @@ interface Props {
   isFindingsLoading: boolean;
   filters: FindingFilters;
   filterOptions: FindingFilterOptions;
+  sort: FindingSort;
   finding: FindingDetail | null;
   isDetailLoading: boolean;
   isBusy: boolean;
   onFiltersChange: (filters: FindingFilters) => void;
+  onSortChange: (sort: FindingSort) => void;
   onSelectFinding: (findingId: string) => void;
   onTriage: (status: ClawpatchStatus, note: string) => void;
   onFix: (status: ClawpatchStatus, note: string) => void;
@@ -34,10 +36,12 @@ export function FindingsSplitPanel({
   isFindingsLoading,
   filters,
   filterOptions,
+  sort,
   finding,
   isDetailLoading,
   isBusy,
   onFiltersChange,
+  onSortChange,
   onSelectFinding,
   onTriage,
   onFix,
@@ -115,7 +119,9 @@ export function FindingsSplitPanel({
         isLoading={isFindingsLoading}
         filters={filters}
         filterOptions={filterOptions}
+        sort={sort}
         onFiltersChange={onFiltersChange}
+        onSortChange={onSortChange}
         onSelectFinding={onSelectFinding}
       />
       <div

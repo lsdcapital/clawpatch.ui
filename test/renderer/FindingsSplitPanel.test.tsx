@@ -5,6 +5,7 @@ import { clawpatchStatuses } from "../../src/shared/constants";
 import { FindingsSplitPanel } from "../../src/renderer/src/components/FindingsSplitPanel";
 import {
   defaultFindingFilters,
+  defaultFindingSort,
   getFindingFilterOptions,
 } from "../../src/renderer/src/findingsFilters";
 
@@ -195,10 +196,12 @@ function renderSplitPanel({
       isFindingsLoading={false}
       filters={defaultFindingFilters}
       filterOptions={getFindingFilterOptions(findings, clawpatchStatuses)}
+      sort={defaultFindingSort}
       finding={finding}
       isDetailLoading={false}
       isBusy={false}
       onFiltersChange={vi.fn()}
+      onSortChange={vi.fn()}
       onSelectFinding={vi.fn()}
       onTriage={onTriage}
       onFix={vi.fn()}

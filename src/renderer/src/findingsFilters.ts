@@ -13,11 +13,24 @@ export interface FindingFilterOptions {
   categories: readonly string[];
 }
 
+export type FindingSortField = "severity" | "status" | "category" | "title";
+export type FindingSortDirection = "asc" | "desc";
+
+export interface FindingSort {
+  field: FindingSortField;
+  direction: FindingSortDirection;
+}
+
 export const defaultFindingFilters: FindingFilters = {
   search: "",
   status: null,
   severity: null,
   category: null,
+};
+
+export const defaultFindingSort: FindingSort = {
+  field: "severity",
+  direction: "desc",
 };
 
 export function filterFindings(
@@ -45,6 +58,19 @@ export function filterFindings(
     const searchText = findingSearchText(finding);
     return queryTokens.every((token) => searchText.includes(token));
   });
+}
+
+export function sortFindings(
+  findings: readonly FindingListItem[],
+  sort: FindingSort = defaultFindingSort,
+): FindingListItem[] {
+  return findings.toSorted(
+    (left, right) =>
+      compareByActiveSort(left, right, sort) ||
+      compareByDefaultRisk(left, right) ||
+      compareText(left.title, right.title) ||
+      compareText(left.findingId, right.findingId),
+  );
 }
 
 export function getFindingFilterOptions(
@@ -99,6 +125,77 @@ function findingSearchText(finding: FindingListItem): string {
 
 function normalize(value: string): string {
   return value.trim().toLowerCase().replace(/\s+/gu, " ");
+}
+
+function compareByActiveSort(
+  left: FindingListItem,
+  right: FindingListItem,
+  sort: FindingSort,
+): number {
+  const comparison = compareField(left, right, sort.field);
+  return sort.direction === "asc" ? comparison : -comparison;
+}
+
+function compareField(
+  left: FindingListItem,
+  right: FindingListItem,
+  field: FindingSortField,
+): number {
+  if (field === "severity") {
+    return severitySortValue(left.severity) - severitySortValue(right.severity);
+  }
+  if (field === "category") {
+    return (
+      categorySortValue(left.category) - categorySortValue(right.category) ||
+      compareText(left.category, right.category)
+    );
+  }
+  if (field === "status") {
+    return statusSortValue(left.status) - statusSortValue(right.status);
+  }
+  return compareText(left.title, right.title);
+}
+
+function compareByDefaultRisk(left: FindingListItem, right: FindingListItem): number {
+  return (
+    severitySortValue(right.severity) - severitySortValue(left.severity) ||
+    categorySortValue(left.category) - categorySortValue(right.category) ||
+    compareText(left.category, right.category)
+  );
+}
+
+function severitySortValue(severity: string): number {
+  return { critical: 4, high: 3, medium: 2, low: 1 }[normalize(severity)] ?? 0;
+}
+
+function categorySortValue(category: string): number {
+  return (
+    {
+      security: 0,
+      "data-loss": 1,
+      correctness: 2,
+      bug: 3,
+      reliability: 4,
+      concurrency: 5,
+      performance: 6,
+      "test-gap": 7,
+      maintainability: 8,
+    }[normalize(category)] ?? 9
+  );
+}
+
+function statusSortValue(status: ClawpatchStatus): number {
+  return {
+    open: 0,
+    uncertain: 1,
+    fixed: 2,
+    "false-positive": 3,
+    "wont-fix": 4,
+  }[status];
+}
+
+function compareText(left: string, right: string): number {
+  return left.localeCompare(right, undefined, { sensitivity: "base" });
 }
 
 function uniqueSorted(values: readonly string[]): string[] {

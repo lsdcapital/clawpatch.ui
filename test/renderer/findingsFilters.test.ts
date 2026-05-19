@@ -2,10 +2,12 @@ import { describe, expect, it } from "vitest";
 import type { FindingListItem } from "../../src/shared/types";
 import {
   defaultFindingFilters,
+  defaultFindingSort,
   filterFindings,
   getFindingFilterOptions,
   isFindingFiltersActive,
   resolveSelectedFindingId,
+  sortFindings,
 } from "../../src/renderer/src/findingsFilters";
 import { clawpatchStatuses } from "../../src/shared/constants";
 
@@ -99,6 +101,72 @@ describe("finding filters", () => {
     expect(resolveSelectedFindingId("fnd-bug", [findings[0]!, findings[2]!])).toBe("fnd-security");
     expect(resolveSelectedFindingId("fnd-bug", [findings[1]!])).toBe("fnd-bug");
     expect(resolveSelectedFindingId("fnd-bug", [])).toBeNull();
+  });
+
+  it("sorts by default risk with severity, category priority, and deterministic ties", () => {
+    const unsortedFindings = [
+      makeFinding({
+        findingId: "fnd-unknown-category",
+        title: "Alpha unknown category",
+        category: "api",
+        severity: "high",
+      }),
+      makeFinding({
+        findingId: "fnd-security-b",
+        title: "Beta security finding",
+        category: "security",
+        severity: "high",
+      }),
+      makeFinding({
+        findingId: "fnd-low-security",
+        title: "Low security finding",
+        category: "security",
+        severity: "low",
+      }),
+      makeFinding({
+        findingId: "fnd-security-a",
+        title: "Alpha security finding",
+        category: "security",
+        severity: "high",
+      }),
+      makeFinding({
+        findingId: "fnd-critical",
+        title: "Critical finding",
+        category: "maintainability",
+        severity: "critical",
+      }),
+      makeFinding({
+        findingId: "fnd-data-loss",
+        title: "Data loss finding",
+        category: "data-loss",
+        severity: "high",
+      }),
+    ];
+
+    expect(
+      sortFindings(unsortedFindings, defaultFindingSort).map((item) => item.findingId),
+    ).toEqual([
+      "fnd-critical",
+      "fnd-security-a",
+      "fnd-security-b",
+      "fnd-data-loss",
+      "fnd-unknown-category",
+      "fnd-low-security",
+    ]);
+  });
+
+  it("sorts unknown categories alphabetically after known risk categories", () => {
+    const unsortedFindings = [
+      makeFinding({ findingId: "fnd-zeta", category: "zeta", severity: "high" }),
+      makeFinding({ findingId: "fnd-security", category: "security", severity: "high" }),
+      makeFinding({ findingId: "fnd-api", category: "api", severity: "high" }),
+    ];
+
+    expect(
+      sortFindings(unsortedFindings, { field: "category", direction: "asc" }).map(
+        (item) => item.findingId,
+      ),
+    ).toEqual(["fnd-security", "fnd-api", "fnd-zeta"]);
   });
 });
 
