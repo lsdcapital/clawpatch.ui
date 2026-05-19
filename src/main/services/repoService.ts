@@ -198,7 +198,7 @@ export const RepoServiceLive = (appDataDir: string) =>
         }),
         refreshRepo: Effect.fn("repoService.refreshRepo")(function* (repoIdValue) {
           const repo = yield* requireRepo(repoIdValue);
-          const repoMetadata = yield* metadata.read(repo.path);
+          const repoMetadata = yield* metadata.read(repo.id, repo.path);
           const [summary, diff] = yield* Effect.all([
             summarizeRepo(repo.path, repo.id),
             git.readDiff(repo.path),

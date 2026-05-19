@@ -102,9 +102,12 @@ describe("RepoService", () => {
       await runtime.runPromise(
         Effect.gen(function* () {
           const service = yield* RepoService;
-          yield* Effect.all(repoDirs.map((repoDir) => service.addRepo(repoDir)), {
-            concurrency: "unbounded",
-          });
+          yield* Effect.all(
+            repoDirs.map((repoDir) => service.addRepo(repoDir)),
+            {
+              concurrency: "unbounded",
+            },
+          );
         }),
       );
 
@@ -224,6 +227,56 @@ describe("RepoService", () => {
       await runtime.dispose();
     }
   });
+
+  it("reads UI metadata from app data by repo id when refreshing", async () => {
+    const calls: RunnerCall[] = [];
+    const appData = await makeTempDir();
+    await mkdir(join(appData, "ui-metadata"), { recursive: true });
+    await writeFile(
+      join(appData, "repos.json"),
+      JSON.stringify({
+        repos: [
+          {
+            id: "repo-fixture",
+            name: "clawpatch-repo",
+            path: fixtureRepo,
+            updatedAt: "2026-05-19T00:00:00.000Z",
+          },
+        ],
+      }),
+      "utf8",
+    );
+    await writeFile(
+      join(appData, "ui-metadata", "repo-fixture.json"),
+      JSON.stringify({
+        schemaVersion: 1,
+        filters: {
+          severity: "high",
+          status: "open",
+          search: "auth",
+        },
+        lastSelectedFindingId: "fnd-1",
+        updatedAt: "2026-05-19T00:00:00.000Z",
+      }),
+      "utf8",
+    );
+    const runtime = ManagedRuntime.make(makeRepoServiceTestLayer(fixtureRepo, calls, appData));
+    try {
+      const snapshot = await runtime.runPromise(
+        Effect.gen(function* () {
+          const service = yield* RepoService;
+          return yield* service.refreshRepo("repo-fixture");
+        }),
+      );
+
+      expect(snapshot.metadata).toMatchObject({
+        filters: { severity: "high", status: "open", search: "auth" },
+        lastSelectedFindingId: "fnd-1",
+      });
+    } finally {
+      await runtime.dispose();
+    }
+  });
 });
 
 interface RunnerCall {
@@ -269,7 +322,7 @@ function makeRepoServiceTestLayer(
           Layer.mergeAll(
             runnerLayer,
             ClawpatchStateServiceLive,
-            UiMetadataServiceLive,
+            UiMetadataServiceLive(appData),
             GitServiceLive,
           ),
         ),
