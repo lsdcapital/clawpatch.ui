@@ -19,11 +19,14 @@ type LogEntry =
   | { kind: "result"; result: CommandResult }
   | { kind: "error"; message: string };
 
+type ActiveDrawer = "diff" | "output" | null;
+
 export function ClawpatchApp() {
   const queryClient = useQueryClient();
   const [selectedRepoId, setSelectedRepoId] = useState<string | null>(null);
   const [selectedFindingId, setSelectedFindingId] = useState<string | null>(null);
   const [commandLog, setCommandLog] = useState<LogEntry[]>([]);
+  const [activeDrawer, setActiveDrawer] = useState<ActiveDrawer>(null);
 
   const reposQuery = useQuery({
     queryKey: ["repos"],
@@ -127,7 +130,12 @@ export function ClawpatchApp() {
     if (selectedRepo === null) {
       return;
     }
+    setActiveDrawer("output");
     commandMutation.mutate({ repo: selectedRepo, request });
+  };
+
+  const toggleDrawer = (drawer: Exclude<ActiveDrawer, null>): void => {
+    setActiveDrawer((current) => (current === drawer ? null : drawer));
   };
 
   return (
@@ -162,38 +170,60 @@ export function ClawpatchApp() {
             <button disabled={selectedRepo === null || commandMutation.isPending} onClick={() => runCommand({ command: "doctor" })}>
               Doctor
             </button>
+            <button
+              className={activeDrawer === "diff" ? "drawer-toggle active" : "drawer-toggle"}
+              disabled={selectedRepo === null}
+              onClick={() => toggleDrawer("diff")}
+              aria-pressed={activeDrawer === "diff"}
+            >
+              Diff
+            </button>
+            <button
+              className={activeDrawer === "output" ? "drawer-toggle active" : "drawer-toggle"}
+              onClick={() => toggleDrawer("output")}
+              aria-pressed={activeDrawer === "output"}
+            >
+              Output
+            </button>
           </div>
         </header>
 
         {selectedRepo?.lastError ? <div className="repo-error">{selectedRepo.lastError}</div> : null}
 
-        <div className="content-grid">
-          <FindingsTable
-            findings={findingsQuery.data ?? []}
-            selectedFindingId={selectedFinding?.findingId ?? null}
-            isLoading={findingsQuery.isLoading}
-            onSelectFinding={setSelectedFindingId}
-          />
-          <FindingDetailPanel
-            finding={detailQuery.data ?? null}
-            isLoading={detailQuery.isLoading}
-            isBusy={triageMutation.isPending || commandMutation.isPending}
-            onTriage={(status, note) => {
-              if (selectedRepo !== null && selectedFinding !== null) {
-                triageMutation.mutate({ repo: selectedRepo, finding: selectedFinding, status, note });
-              }
-            }}
-            onFix={() => {
-              if (selectedFinding !== null) {
-                runCommand({ command: "fix", findingId: selectedFinding.findingId });
-              }
-            }}
-          />
-        </div>
-
-        <div className="bottom-grid">
-          <CommandPanel entries={commandLog} isRunning={commandMutation.isPending || triageMutation.isPending} />
-          <DiffViewer diff={diffQuery.data ?? ""} isLoading={diffQuery.isLoading} />
+        <div className={activeDrawer === null ? "workspace-body" : "workspace-body drawer-open"}>
+          <div className="primary-workspace">
+            <FindingsTable
+              findings={findingsQuery.data ?? []}
+              selectedFindingId={selectedFinding?.findingId ?? null}
+              isLoading={findingsQuery.isLoading}
+              onSelectFinding={setSelectedFindingId}
+            />
+            <FindingDetailPanel
+              finding={detailQuery.data ?? null}
+              isLoading={detailQuery.isLoading}
+              isBusy={triageMutation.isPending || commandMutation.isPending}
+              onTriage={(status, note) => {
+                if (selectedRepo !== null && selectedFinding !== null) {
+                  setActiveDrawer("output");
+                  triageMutation.mutate({ repo: selectedRepo, finding: selectedFinding, status, note });
+                }
+              }}
+              onFix={() => {
+                if (selectedFinding !== null) {
+                  runCommand({ command: "fix", findingId: selectedFinding.findingId });
+                }
+              }}
+            />
+          </div>
+          {activeDrawer !== null ? (
+            <aside className="workspace-drawer" aria-label={activeDrawer === "diff" ? "Git diff" : "Command output"}>
+              {activeDrawer === "diff" ? (
+                <DiffViewer diff={diffQuery.data ?? ""} isLoading={diffQuery.isLoading} />
+              ) : (
+                <CommandPanel entries={commandLog} isRunning={commandMutation.isPending || triageMutation.isPending} />
+              )}
+            </aside>
+          ) : null}
         </div>
       </section>
     </main>

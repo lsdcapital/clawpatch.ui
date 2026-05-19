@@ -10,7 +10,7 @@ export function DiffViewer({ diff, isLoading }: { diff: string; isLoading: boole
       </div>
       <CodeMirror
         value={diff || "No git diff."}
-        height="240px"
+        height="100%"
         basicSetup={{
           lineNumbers: true,
           foldGutter: false,
