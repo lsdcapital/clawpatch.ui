@@ -61,6 +61,7 @@ generated `.clawpatch` state and runs supported commands through the CLI.
 ```bash
 pnpm dev         # Start the Electron/Vite dev app
 pnpm build       # Build the app into out/
+pnpm dist        # Build packaged app artifacts into release/
 pnpm preview     # Preview the built Electron app
 pnpm test        # Run Vitest once
 pnpm test:watch  # Run Vitest in watch mode

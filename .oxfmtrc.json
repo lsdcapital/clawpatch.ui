@@ -3,6 +3,7 @@
   "ignorePatterns": [
     "out",
     "dist",
+    "release",
     "node_modules",
     ".context",
     ".clawpatch",

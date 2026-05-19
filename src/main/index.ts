@@ -1,9 +1,10 @@
-import { app, BrowserWindow, ipcMain, screen, type Rectangle } from "electron";
+import { app, BrowserWindow, ipcMain, Menu, screen, type Rectangle } from "electron";
 import { join } from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import type * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as ManagedRuntime from "effect/ManagedRuntime";
+import { APP_DISPLAY_NAME, APP_ID } from "../shared/appMetadata";
 import { COMMANDS_STREAM_CHANNEL } from "../shared/ipcChannels";
 import type { CommandStreamEvent } from "../shared/types";
 import { EffectIpcLive } from "./ipc/effectIpc";
@@ -29,6 +30,12 @@ let mainWindow: BrowserWindow | null = null;
 let appRuntime: AppRuntime | null = null;
 const WINDOW_STATE_SAVE_DEBOUNCE_MS = 250;
 
+app.setName(APP_DISPLAY_NAME);
+app.setAppUserModelId(APP_ID);
+app.setAboutPanelOptions({
+  applicationName: APP_DISPLAY_NAME,
+});
+
 async function createWindow(): Promise<void> {
   const runtime = appRuntime;
   if (runtime === null) {
@@ -46,7 +53,8 @@ async function createWindow(): Promise<void> {
     ...windowState.bounds,
     minWidth: MIN_WINDOW_WIDTH,
     minHeight: MIN_WINDOW_HEIGHT,
-    title: "Clawpatch",
+    title: APP_DISPLAY_NAME,
+    icon: getAppIconPath(),
     webPreferences: {
       preload: join(import.meta.dirname, "../preload/index.mjs"),
       contextIsolation: true,
@@ -71,6 +79,7 @@ async function createWindow(): Promise<void> {
 }
 
 app.whenReady().then(async () => {
+  installApplicationMenu();
   appRuntime = makeAppRuntime(app.getPath("userData"));
   await appRuntime.runPromise(installIpcHandlers((event) => publishCommandStream(event)));
   await createWindow();
@@ -102,6 +111,64 @@ app.on("window-all-closed", () => {
 
 function publishCommandStream(event: CommandStreamEvent): void {
   mainWindow?.webContents.send(COMMANDS_STREAM_CHANNEL, event);
+}
+
+function getAppIconPath(): string {
+  if (app.isPackaged) {
+    return join(process.resourcesPath, "icon.png");
+  }
+  return join(app.getAppPath(), "resources/build-assets/icons/icon-512.png");
+}
+
+function installApplicationMenu(): void {
+  Menu.setApplicationMenu(
+    Menu.buildFromTemplate([
+      {
+        label: APP_DISPLAY_NAME,
+        submenu: [
+          { role: "about", label: `About ${APP_DISPLAY_NAME}` },
+          { type: "separator" },
+          { role: "services" },
+          { type: "separator" },
+          { role: "hide", label: `Hide ${APP_DISPLAY_NAME}` },
+          { role: "hideOthers" },
+          { role: "unhide" },
+          { type: "separator" },
+          { role: "quit", label: `Quit ${APP_DISPLAY_NAME}` },
+        ],
+      },
+      {
+        label: "Edit",
+        submenu: [
+          { role: "undo" },
+          { role: "redo" },
+          { type: "separator" },
+          { role: "cut" },
+          { role: "copy" },
+          { role: "paste" },
+          { role: "selectAll" },
+        ],
+      },
+      {
+        label: "View",
+        submenu: [
+          { role: "reload" },
+          { role: "forceReload" },
+          { role: "toggleDevTools" },
+          { type: "separator" },
+          { role: "resetZoom" },
+          { role: "zoomIn" },
+          { role: "zoomOut" },
+          { type: "separator" },
+          { role: "togglefullscreen" },
+        ],
+      },
+      {
+        label: "Window",
+        submenu: [{ role: "minimize" }, { role: "zoom" }, { role: "front" }],
+      },
+    ]),
+  );
 }
 
 function installWindowStatePersistence(window: BrowserWindow, userDataPath: string): void {
