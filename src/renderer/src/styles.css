@@ -213,6 +213,7 @@ button:disabled {
   background: var(--danger-soft);
   border: 1px solid #ffd2cc;
   border-radius: 6px;
+  grid-row: 2;
   margin: 0 14px 10px;
   min-width: 0;
   padding: 8px 10px;
@@ -322,6 +323,7 @@ button:disabled {
 .workspace-header {
   align-items: center;
   display: flex;
+  grid-row: 1;
   justify-content: space-between;
   gap: 14px;
   min-width: 0;
@@ -402,6 +404,7 @@ button:disabled {
 
 .workspace-body {
   display: grid;
+  grid-row: 3;
   grid-template-columns: minmax(0, 1fr);
   height: 100%;
   min-height: 0;
