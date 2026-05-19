@@ -142,8 +142,9 @@ export function ClawpatchApp() {
   useEffect(() => {
     return window.clawpatch.commands.onStream((event) => {
       setCommandLog((current) => [...current, { kind: "stream", event }]);
+      void invalidateCommandProgress(queryClient);
     });
-  }, []);
+  }, [queryClient]);
 
   const addRepoMutation = useMutation({
     mutationFn: (repoPath: string) => window.clawpatch.repo.add(repoPath),
@@ -201,6 +202,20 @@ export function ClawpatchApp() {
       ]);
     },
   });
+
+  const isCommandBusy = commandMutation.isPending || triageMutation.isPending;
+
+  useEffect(() => {
+    if (!isCommandBusy) {
+      return;
+    }
+
+    const intervalId = window.setInterval(() => {
+      void invalidateCommandProgress(queryClient);
+    }, 1000);
+
+    return () => window.clearInterval(intervalId);
+  }, [isCommandBusy, queryClient]);
 
   const runCommand = (request: ClawpatchCommandRequest): void => {
     if (selectedRepo === null) {
@@ -595,5 +610,17 @@ async function invalidateRepo(
     queryClient.invalidateQueries({ queryKey: ["findings", repoId] }),
     queryClient.invalidateQueries({ queryKey: ["finding"] }),
     queryClient.invalidateQueries({ queryKey: ["diff", repoId] }),
+  ]);
+}
+
+async function invalidateCommandProgress(
+  queryClient: ReturnType<typeof useQueryClient>,
+): Promise<void> {
+  await Promise.all([
+    queryClient.invalidateQueries({ queryKey: ["repos"] }),
+    queryClient.invalidateQueries({ queryKey: ["features"] }),
+    queryClient.invalidateQueries({ queryKey: ["findings"] }),
+    queryClient.invalidateQueries({ queryKey: ["finding"] }),
+    queryClient.invalidateQueries({ queryKey: ["diff"] }),
   ]);
 }

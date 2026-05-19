@@ -1,11 +1,12 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import packageJson from "../../package.json";
 import { ClawpatchApp } from "../../src/renderer/src/routes/ClawpatchApp";
 import type {
   Api,
   CommandResult,
+  CommandStreamEvent,
   FeatureMapSnapshot,
   FindingDetail,
   FindingListItem,
@@ -192,6 +193,63 @@ describe("ClawpatchApp header actions", () => {
     expect(screen.getByRole("complementary", { name: "Command output" })).toBeInTheDocument();
   });
 
+  it("refreshes the review queue during command output", async () => {
+    let streamListener: ((event: CommandStreamEvent) => void) | null = null;
+    const featureMap = vi
+      .fn<Api["features"]["map"]>()
+      .mockResolvedValueOnce(makeFeatureMapSnapshot())
+      .mockResolvedValue(makeFeatureMapSnapshotAfterOneReview());
+    const repoList = vi.fn<Api["repo"]["list"]>(async () => [makeRepo()]);
+    const findingsList = vi.fn<Api["findings"]["list"]>(async () => []);
+    const gitDiff = vi.fn<Api["git"]["diff"]>(async () => "");
+    const onStream = vi.fn<Api["commands"]["onStream"]>((listener) => {
+      streamListener = listener;
+      return () => {
+        streamListener = null;
+      };
+    });
+    window.clawpatch = makeApi(
+      vi.fn<Api["commands"]["run"]>(async () => makeCommandResult("review")),
+      {
+        featureMap,
+        findingsList,
+        gitDiff,
+        onStream,
+        repoList,
+      },
+    );
+
+    renderApp();
+
+    await screen.findByRole("heading", { name: "auth" });
+    fireEvent.click(screen.getByRole("tab", { name: "Review Queue" }));
+    expect(screen.getByText("2 pending/error of 3 map items")).toBeInTheDocument();
+    await waitFor(() => expect(repoList).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(findingsList).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(featureMap).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(gitDiff).toHaveBeenCalledTimes(1));
+
+    if (streamListener === null) {
+      throw new Error("stream listener was not registered");
+    }
+
+    act(() => {
+      streamListener?.({
+        runId: "run-review",
+        stream: "stderr",
+        chunk: "[stderr] clawpatch review claimed index=1 total=2 feature=feat-auth\n",
+      });
+    });
+
+    await waitFor(() => expect(repoList).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(findingsList).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(featureMap).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(gitDiff).toHaveBeenCalledTimes(2));
+    await screen.findByText("1 pending/error of 3 map items");
+    expect(screen.queryByText("Authentication")).not.toBeInTheDocument();
+    expect(screen.getByText("Billing")).toBeInTheDocument();
+  });
+
   it("revalidates the selected finding and opens command output", async () => {
     const run = vi.fn<Api["commands"]["run"]>(async (_repoId, request) =>
       makeCommandResult(request.command),
@@ -356,14 +414,19 @@ function makeApi(
   run: Api["commands"]["run"],
   options: {
     findings?: readonly FindingListItem[];
+    findingsList?: Api["findings"]["list"];
+    featureMap?: Api["features"]["map"];
     findingDetail?: FindingDetail;
     interrupt?: Api["commands"]["interrupt"];
+    gitDiff?: Api["git"]["diff"];
+    onStream?: Api["commands"]["onStream"];
+    repoList?: Api["repo"]["list"];
     triageSet?: Api["triage"]["set"];
   } = {},
 ): Api {
   return {
     repo: {
-      list: async () => [makeRepo()],
+      list: options.repoList ?? (async () => [makeRepo()]),
       add: async () => makeRepo(),
       pickFolder: async () => null,
       refresh: async () => ({
@@ -380,7 +443,7 @@ function makeApi(
       }),
     },
     findings: {
-      list: async () => options.findings ?? [],
+      list: options.findingsList ?? (async () => options.findings ?? []),
       get: async () => {
         if (options.findingDetail === undefined) {
           throw new Error("No finding expected");
@@ -389,7 +452,7 @@ function makeApi(
       },
     },
     features: {
-      map: async () => makeFeatureMapSnapshot(),
+      map: options.featureMap ?? (async () => makeFeatureMapSnapshot()),
     },
     triage: {
       set: options.triageSet ?? (async () => makeCommandResult("triage")),
@@ -397,10 +460,10 @@ function makeApi(
     commands: {
       run,
       interrupt: options.interrupt ?? (async () => ({ interrupted: false })),
-      onStream: () => () => undefined,
+      onStream: options.onStream ?? (() => () => undefined),
     },
     git: {
-      diff: async () => "",
+      diff: options.gitDiff ?? (async () => ""),
     },
   };
 }
@@ -489,6 +552,57 @@ function makeFeatureMapSnapshot(): FeatureMapSnapshot {
       totalFeatures: 3,
       pendingReviewCount: 2,
       pendingReviewFeatureIds: ["feat-auth", "feat-billing"],
+      latestReviewRun: null,
+      latestLimitedReviewRun: null,
+      hasLimitedReviewRemainder: false,
+    },
+  };
+}
+
+function makeFeatureMapSnapshotAfterOneReview(): FeatureMapSnapshot {
+  return {
+    features: [
+      {
+        featureId: "feat-auth",
+        title: "Authentication",
+        status: "reviewed",
+        kind: "feature",
+        source: "map",
+        ownedFileCount: 1,
+        contextFileCount: 1,
+        testCount: 1,
+        findingCount: 1,
+        updatedAt: "2026-05-19T00:01:00.000Z",
+      },
+      {
+        featureId: "feat-profile",
+        title: "Profile settings",
+        status: "reviewed",
+        kind: "feature",
+        source: "map",
+        ownedFileCount: 2,
+        contextFileCount: 0,
+        testCount: 1,
+        findingCount: 1,
+        updatedAt: "2026-05-18T00:00:00.000Z",
+      },
+      {
+        featureId: "feat-billing",
+        title: "Billing",
+        status: "error",
+        kind: "integration",
+        source: "manual",
+        ownedFileCount: 1,
+        contextFileCount: 1,
+        testCount: 0,
+        findingCount: 0,
+        updatedAt: "2026-05-17T00:00:00.000Z",
+      },
+    ],
+    coverage: {
+      totalFeatures: 3,
+      pendingReviewCount: 1,
+      pendingReviewFeatureIds: ["feat-billing"],
       latestReviewRun: null,
       latestLimitedReviewRun: null,
       hasLimitedReviewRemainder: false,

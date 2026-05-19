@@ -1,7 +1,10 @@
 import CodeMirror from "@uiw/react-codemirror";
 import { javascript } from "@codemirror/lang-javascript";
+import { useEffect, useState } from "react";
 
 export function DiffViewer({ diff, isLoading }: { diff: string; isLoading: boolean }) {
+  const prefersDarkMode = usePrefersDarkMode();
+
   return (
     <section className="panel diff-panel">
       <div className="panel-header">
@@ -19,8 +22,34 @@ export function DiffViewer({ diff, isLoading }: { diff: string; isLoading: boole
         }}
         extensions={[javascript()]}
         editable={false}
-        theme="light"
+        theme={prefersDarkMode ? "dark" : "light"}
       />
     </section>
+  );
+}
+
+function usePrefersDarkMode(): boolean {
+  const [prefersDarkMode, setPrefersDarkMode] = useState(getPrefersDarkMode);
+
+  useEffect(() => {
+    if (typeof window.matchMedia !== "function") {
+      return;
+    }
+
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+    const updateTheme = (): void => setPrefersDarkMode(mediaQuery.matches);
+
+    updateTheme();
+    mediaQuery.addEventListener("change", updateTheme);
+    return () => mediaQuery.removeEventListener("change", updateTheme);
+  }, []);
+
+  return prefersDarkMode;
+}
+
+function getPrefersDarkMode(): boolean {
+  return (
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(prefers-color-scheme: dark)").matches
   );
 }
