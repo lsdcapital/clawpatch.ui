@@ -64,6 +64,13 @@ button {
     color 120ms ease;
 }
 
+button svg {
+  flex-shrink: 0;
+  height: 14px;
+  pointer-events: none;
+  width: 14px;
+}
+
 button:hover:not(:disabled) {
   background: #f7f8fa;
   border-color: #c8ced6;
@@ -311,10 +318,48 @@ button:disabled {
 }
 
 .header-actions {
+  align-items: center;
   display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+  flex-shrink: 0;
+  gap: 5px;
   justify-content: flex-end;
+  position: relative;
+}
+
+.icon-button {
+  min-height: 28px;
+  padding: 5px;
+  width: 28px;
+}
+
+.command-menu {
+  position: relative;
+}
+
+.command-menu-popover {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  box-shadow: 0 8px 24px rgba(20, 24, 31, 0.12);
+  display: grid;
+  min-width: 148px;
+  padding: 5px;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 5px);
+  z-index: 10;
+}
+
+.command-menu-popover button {
+  border-color: transparent;
+  justify-content: flex-start;
+  min-height: 30px;
+  width: 100%;
+}
+
+.command-menu-popover button:hover:not(:disabled) {
+  background: #f7f8fa;
+  border-color: transparent;
 }
 
 .drawer-toggle.active {
@@ -381,11 +426,23 @@ button:disabled {
 }
 
 .review-coverage-actions {
+  align-items: center;
   display: flex;
   flex-shrink: 0;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 5px;
   justify-content: flex-end;
+}
+
+.primary-action {
+  background: #1f7a4c;
+  border-color: #1f7a4c;
+  color: #ffffff;
+}
+
+.primary-action:hover:not(:disabled) {
+  background: #1b6e44;
+  border-color: #1b6e44;
 }
 
 .feature-map-table {

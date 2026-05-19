@@ -1,3 +1,4 @@
+import { ListChecksIcon, RefreshCwIcon, Table2Icon } from "lucide-react";
 import type { FeatureMapSnapshot } from "../../../shared/types";
 
 interface Props {
@@ -37,24 +38,27 @@ export function ReviewCoveragePanel({
         </div>
         <div className="review-coverage-actions">
           <button disabled={isBusy} onClick={onRunMap}>
-            Map
+            <RefreshCwIcon aria-hidden="true" />
+            Update map
           </button>
-          <button disabled={isBusy || totalFeatures === 0} onClick={onReviewNext}>
+          <button className="primary-action" disabled={isBusy || totalFeatures === 0} onClick={onReviewNext}>
+            <ListChecksIcon aria-hidden="true" />
             Review next
           </button>
+          {pendingCount > 0 ? (
+            <button disabled={isBusy} onClick={() => onReviewAllPending(pendingCount)}>
+              Review {pendingCount} remaining
+            </button>
+          ) : null}
           <button
-            disabled={isBusy || pendingCount === 0}
-            onClick={() => onReviewAllPending(pendingCount)}
-          >
-            Review all pending
-          </button>
-          <button
-            className={isExpanded ? "drawer-toggle active" : "drawer-toggle"}
+            className={isExpanded ? "icon-button drawer-toggle active" : "icon-button drawer-toggle"}
             disabled={snapshot === null}
             onClick={onToggleExpanded}
             aria-pressed={isExpanded}
+            aria-label={isExpanded ? "Hide map table" : "Show map table"}
+            title={isExpanded ? "Hide map table" : "Show map table"}
           >
-            Map table
+            <Table2Icon aria-hidden="true" />
           </button>
         </div>
       </div>
