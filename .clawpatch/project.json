@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "projectId": "prj_git-github-com-lsdcapital-clawpa_db48381c16",
+  "name": "clawpatch-gui",
+  "rootPath": "/Users/steflsd/src/lsdcapital/clawpatch.ui",
+  "git": {
+    "remoteUrl": "git@github.com:lsdcapital/clawpatch-ui.git",
+    "defaultBranch": "main",
+    "currentBranch": "main",
+    "headSha": "65e1c9e36701cd60e5319ecf5b20388754bf8bbe"
+  },
+  "detected": {
+    "languages": [
+      "typescript",
+      "javascript"
+    ],
+    "frameworks": [
+      "vitest"
+    ],
+    "packageManagers": [
+      "pnpm"
+    ],
+    "commands": {
+      "typecheck": null,
+      "lint": null,
+      "format": null,
+      "test": "pnpm test"
+    }
+  },
+  "createdAt": "2026-05-19T08:07:03.623Z",
+  "updatedAt": "2026-05-19T08:07:03.623Z"
+}

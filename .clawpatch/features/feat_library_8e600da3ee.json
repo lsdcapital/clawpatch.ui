@@ -1,0 +1,69 @@
+{
+  "schemaVersion": 1,
+  "featureId": "feat_library_8e600da3ee",
+  "title": "Node source src/renderer",
+  "summary": "Node/TypeScript source group src/renderer with 7 files.",
+  "kind": "library",
+  "source": "node-source-group",
+  "confidence": "medium",
+  "entrypoints": [
+    {
+      "path": "package.json",
+      "symbol": "src/renderer",
+      "route": null,
+      "command": null
+    }
+  ],
+  "ownedFiles": [
+    {
+      "path": "src/renderer/src/components/CommandPanel.tsx",
+      "reason": "source group src/renderer"
+    },
+    {
+      "path": "src/renderer/src/components/DiffViewer.tsx",
+      "reason": "source group src/renderer"
+    },
+    {
+      "path": "src/renderer/src/components/FindingDetailPanel.tsx",
+      "reason": "source group src/renderer"
+    },
+    {
+      "path": "src/renderer/src/components/FindingsTable.tsx",
+      "reason": "source group src/renderer"
+    },
+    {
+      "path": "src/renderer/src/components/RepoSidebar.tsx",
+      "reason": "source group src/renderer"
+    },
+    {
+      "path": "src/renderer/src/main.tsx",
+      "reason": "source group src/renderer"
+    },
+    {
+      "path": "src/renderer/src/routes/ClawpatchApp.tsx",
+      "reason": "source group src/renderer"
+    }
+  ],
+  "contextFiles": [
+    {
+      "path": "package.json",
+      "reason": "package manifest"
+    }
+  ],
+  "tests": [],
+  "tags": [
+    "node",
+    "typescript",
+    "source-group",
+    "project:clawpatch-gui",
+    "project-root:."
+  ],
+  "trustBoundaries": [],
+  "status": "pending",
+  "lock": null,
+  "findingIds": [],
+  "patchAttemptIds": [],
+  "analysisHistory": [],
+  "createdAt": "2026-05-19T08:07:07.260Z",
+  "updatedAt": "2026-05-19T08:07:07.260Z"
+}

@@ -1,0 +1,156 @@
+{
+  "schemaVersion": 1,
+  "featureId": "feat_library_2985086c25",
+  "title": "Node package clawpatch-gui",
+  "summary": "Node package clawpatch-gui with package metadata and review context rooted at ..",
+  "kind": "library",
+  "source": "node-package",
+  "confidence": "medium",
+  "entrypoints": [
+    {
+      "path": "package.json",
+      "symbol": "clawpatch-gui",
+      "route": null,
+      "command": null
+    }
+  ],
+  "ownedFiles": [
+    {
+      "path": "package.json",
+      "reason": "package manifest"
+    },
+    {
+      "path": "tsconfig.json",
+      "reason": "typescript configuration"
+    },
+    {
+      "path": "vitest.config.ts",
+      "reason": "test configuration"
+    }
+  ],
+  "contextFiles": [
+    {
+      "path": "README.md",
+      "reason": "package context"
+    },
+    {
+      "path": "out/main/index.js",
+      "reason": "package entrypoint"
+    },
+    {
+      "path": "src/main/errors.ts",
+      "reason": "package source overview"
+    },
+    {
+      "path": "src/main/index.ts",
+      "reason": "package source overview"
+    },
+    {
+      "path": "src/main/ipc/effectIpc.ts",
+      "reason": "package source overview"
+    },
+    {
+      "path": "src/main/ipc/handlers.ts",
+      "reason": "package source overview"
+    },
+    {
+      "path": "src/main/services/clawpatchRunner.ts",
+      "reason": "package source overview"
+    },
+    {
+      "path": "src/main/services/clawpatchState.ts",
+      "reason": "package source overview"
+    },
+    {
+      "path": "src/main/services/gitService.ts",
+      "reason": "package source overview"
+    },
+    {
+      "path": "src/main/services/guiMetadata.ts",
+      "reason": "package source overview"
+    },
+    {
+      "path": "src/main/services/repoService.ts",
+      "reason": "package source overview"
+    },
+    {
+      "path": "src/preload/index.ts",
+      "reason": "package source overview"
+    },
+    {
+      "path": "src/renderer/src/components/CommandPanel.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "src/renderer/src/components/DiffViewer.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "src/renderer/src/components/FindingDetailPanel.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "src/renderer/src/components/FindingsTable.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "src/renderer/src/components/RepoSidebar.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "src/renderer/src/main.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "src/renderer/src/routes/ClawpatchApp.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "src/shared/constants.ts",
+      "reason": "package source overview"
+    },
+    {
+      "path": "src/shared/ipcChannels.ts",
+      "reason": "package source overview"
+    },
+    {
+      "path": "src/shared/schemas.ts",
+      "reason": "package source overview"
+    },
+    {
+      "path": "src/shared/types.ts",
+      "reason": "package source overview"
+    },
+    {
+      "path": "test/main/clawpatchRunner.test.ts",
+      "reason": "package test"
+    },
+    {
+      "path": "test/main/clawpatchState.test.ts",
+      "reason": "package test"
+    },
+    {
+      "path": "test/main/effectIpc.test.ts",
+      "reason": "package test"
+    },
+    {
+      "path": "test/main/repoService.test.ts",
+      "reason": "package test"
+    }
+  ],
+  "tests": [],
+  "tags": [
+    "node",
+    "package",
+    "project:clawpatch-gui",
+    "project-root:."
+  ],
+  "trustBoundaries": [],
+  "status": "pending",
+  "lock": null,
+  "findingIds": [],
+  "patchAttemptIds": [],
+  "analysisHistory": [],
+  "createdAt": "2026-05-19T08:07:07.260Z",
+  "updatedAt": "2026-05-19T08:07:07.260Z"
+}
