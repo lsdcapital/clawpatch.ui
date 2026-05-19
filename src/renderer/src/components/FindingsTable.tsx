@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from "react";
 import type { ClawpatchStatus, FindingListItem } from "../../../shared/types";
 import {
   defaultFindingFilters,
@@ -27,6 +28,8 @@ export function FindingsTable({
   onFiltersChange,
   onSelectFinding,
 }: Props) {
+  const filterMenuRef = useRef<HTMLDetailsElement>(null);
+  const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
   const filtersActive = isFindingFiltersActive(filters);
   const countLabel = isLoading
     ? "Loading"
@@ -37,6 +40,30 @@ export function FindingsTable({
   const updateFilters = (nextFilters: Partial<FindingFilters>): void => {
     onFiltersChange({ ...filters, ...nextFilters });
   };
+
+  useEffect(() => {
+    if (!isFilterMenuOpen) {
+      return;
+    }
+
+    const closeFilterMenuOnOutsideClick = (event: MouseEvent): void => {
+      const menuElement = filterMenuRef.current;
+
+      if (menuElement === null || !(event.target instanceof Node)) {
+        return;
+      }
+
+      if (!menuElement.contains(event.target)) {
+        setIsFilterMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", closeFilterMenuOnOutsideClick);
+
+    return () => {
+      document.removeEventListener("mousedown", closeFilterMenuOnOutsideClick);
+    };
+  }, [isFilterMenuOpen]);
 
   return (
     <div className="findings-list-pane">
@@ -52,8 +79,15 @@ export function FindingsTable({
             onChange={(event) => updateFilters({ search: event.currentTarget.value })}
             placeholder="Search findings..."
           />
-          <details className="filter-menu">
-            <summary>Filter</summary>
+          <details className="filter-menu" open={isFilterMenuOpen} ref={filterMenuRef}>
+            <summary
+              onClick={(event) => {
+                event.preventDefault();
+                setIsFilterMenuOpen((isOpen) => !isOpen);
+              }}
+            >
+              Filter
+            </summary>
             <div className="filter-popover">
               <FilterGroup
                 title="Status"
