@@ -424,7 +424,7 @@ button:disabled {
   min-height: 0;
   min-width: 0;
   overflow: hidden;
-  padding: 0 14px 14px;
+  padding: 0;
 }
 
 .workspace-body.inspector-open {
@@ -682,6 +682,13 @@ button:disabled {
   display: grid;
   grid-template-columns: minmax(180px, var(--findings-list-width)) 8px minmax(0, 1fr);
   height: 100%;
+}
+
+.findings-workspace,
+.review-queue-panel {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
 }
 
 .findings-list-pane,
