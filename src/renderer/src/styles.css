@@ -967,6 +967,7 @@ button.table-row:hover:not(:disabled) {
 }
 
 .meta-grid {
+  align-items: center;
   background: #fafbfc;
   border: 1px solid #edf0f2;
   border-radius: 6px;
@@ -978,6 +979,8 @@ button.table-row:hover:not(:disabled) {
 }
 
 .meta-grid > * {
+  align-items: center;
+  min-height: 20px;
   min-width: 0;
   overflow-wrap: anywhere;
 }
@@ -993,16 +996,27 @@ button.table-row:hover:not(:disabled) {
 }
 
 .detail-status-selector {
-  justify-self: start;
   min-width: 0;
   position: relative;
 }
 
 .detail-status-trigger {
-  background: var(--surface);
-  min-height: 24px;
-  padding: 3px 22px 3px 8px;
+  background: transparent;
+  border-color: transparent;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+  justify-content: flex-start;
+  line-height: 1.4;
+  min-height: 20px;
+  padding: 0 15px 0 0;
   position: relative;
+}
+
+.detail-status-trigger:hover:not(:disabled) {
+  background: transparent;
+  border-color: transparent;
+  color: var(--accent);
 }
 
 .detail-status-trigger::after {
@@ -1010,9 +1024,13 @@ button.table-row:hover:not(:disabled) {
   content: "▾";
   font-size: 10px;
   position: absolute;
-  right: 8px;
+  right: 0;
   top: 50%;
   transform: translateY(-50%);
+}
+
+.detail-status-trigger:hover::after {
+  color: var(--accent);
 }
 
 .detail-status-menu {
