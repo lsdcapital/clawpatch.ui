@@ -1,8 +1,10 @@
-import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import * as Stream from "effect/Stream";
+import * as ChildProcess from "effect/unstable/process/ChildProcess";
+import * as ChildProcessSpawner from "effect/unstable/process/ChildProcessSpawner";
 import type {
   ClawpatchCommandRequest,
   ClawpatchStatus,
@@ -43,63 +45,57 @@ export class ClawpatchRunner extends Context.Service<ClawpatchRunner, ClawpatchR
   "clawpatch/ClawpatchRunner",
 ) {}
 
-type RunClawpatchProcess = (input: {
-  readonly repoPath: string;
-  readonly args: readonly string[];
-  readonly runId: string;
-  readonly started: number;
-  readonly onStream?: (event: CommandStreamEvent) => void;
-  readonly registerInterrupt: (interrupt: () => boolean) => void;
-}) => Promise<CommandResult>;
+export const makeClawpatchRunnerLayer = () =>
+  Layer.effect(
+    ClawpatchRunner,
+    Effect.gen(function* () {
+      const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+      const activeCommands = new Map<string, { interrupt: Effect.Effect<boolean> }>();
 
-export const makeClawpatchRunnerLayer = (runProcess: RunClawpatchProcess = runClawpatchProcess) =>
-  Layer.sync(ClawpatchRunner, () => {
-    const activeCommands = new Map<string, { interrupt: () => boolean }>();
+      return ClawpatchRunner.of({
+        run: Effect.fn("clawpatch.runner.run")(function* (repoPath, request, onStream) {
+          if (activeCommands.has(repoPath)) {
+            return yield* new CommandAlreadyRunningError({ repoPath });
+          }
 
-    return ClawpatchRunner.of({
-      run: Effect.fn("clawpatch.runner.run")(function* (repoPath, request, onStream) {
-        if (activeCommands.has(repoPath)) {
-          return yield* new CommandAlreadyRunningError({ repoPath });
-        }
+          const args = yield* Effect.try({
+            try: () => buildClawpatchArgs(request),
+            catch: (error) =>
+              new CommandValidationError({
+                message: error instanceof Error ? error.message : String(error),
+              }),
+          });
+          const runId = randomUUID();
+          const started = Date.now();
+          const activeCommand = { interrupt: Effect.succeed(false) };
+          activeCommands.set(repoPath, activeCommand);
 
-        const args = yield* Effect.try({
-          try: () => buildClawpatchArgs(request),
-          catch: (error) =>
-            new CommandValidationError({
-              message: error instanceof Error ? error.message : String(error),
-            }),
-        });
-        const runId = randomUUID();
-        const started = Date.now();
-        const activeCommand = { interrupt: () => false };
-        activeCommands.set(repoPath, activeCommand);
-
-        return yield* Effect.tryPromise({
-          try: () =>
-            runProcess({
-              repoPath,
-              args,
-              runId,
-              started,
-              onStream,
-              registerInterrupt: (interrupt) => {
-                activeCommand.interrupt = interrupt;
-              },
-            }),
-          catch: (cause) => new CommandSpawnError({ repoPath, cause }),
-        }).pipe(Effect.ensuring(Effect.sync(() => activeCommands.delete(repoPath))));
-      }),
-      interrupt: (repoPath) =>
-        Effect.sync((): CommandInterruptResult => {
+          return yield* runClawpatchProcess({
+            spawner,
+            repoPath,
+            args,
+            runId,
+            started,
+            onStream,
+            registerInterrupt: (interrupt) => {
+              activeCommand.interrupt = interrupt;
+            },
+          }).pipe(
+            Effect.mapError((cause) => new CommandSpawnError({ repoPath, cause })),
+            Effect.ensuring(Effect.sync(() => activeCommands.delete(repoPath))),
+          );
+        }),
+        interrupt: Effect.fn("clawpatch.runner.interrupt")(function* (repoPath) {
           const activeCommand = activeCommands.get(repoPath);
           if (activeCommand === undefined) {
             return { interrupted: false };
           }
-          return { interrupted: activeCommand.interrupt() };
+          return { interrupted: yield* activeCommand.interrupt };
         }),
-      isRunning: (repoPath) => Effect.sync(() => activeCommands.has(repoPath)),
-    });
-  });
+        isRunning: (repoPath) => Effect.sync(() => activeCommands.has(repoPath)),
+      });
+    }),
+  );
 
 export const ClawpatchRunnerLive = makeClawpatchRunnerLayer();
 
@@ -151,75 +147,80 @@ export function buildClawpatchArgs(request: ClawpatchCommandRequest): string[] {
 }
 
 function runClawpatchProcess(input: {
+  readonly spawner: ChildProcessSpawner.ChildProcessSpawner["Service"];
   readonly repoPath: string;
   readonly args: readonly string[];
   readonly runId: string;
   readonly started: number;
   readonly onStream?: (event: CommandStreamEvent) => void;
-  readonly registerInterrupt: (interrupt: () => boolean) => void;
-}): Promise<CommandResult> {
-  return new Promise((resolve, reject) => {
-    const child = spawn("clawpatch", input.args, {
-      cwd: input.repoPath,
-      shell: false,
-      env: { ...process.env, NO_COLOR: "1" },
-    });
-
-    let stdout = "";
-    let stderr = "";
-    let closed = false;
-    let escalationTimer: NodeJS.Timeout | null = null;
-
-    input.registerInterrupt(() => {
-      if (closed) {
-        return false;
-      }
-
-      const interrupted = child.kill("SIGINT");
-      if (interrupted && escalationTimer === null) {
-        escalationTimer = setTimeout(() => {
-          if (!closed) {
-            child.kill("SIGTERM");
-          }
-        }, 2_000);
-        escalationTimer.unref();
-      }
-      return interrupted;
-    });
-
-    child.stdout.setEncoding("utf8");
-    child.stderr.setEncoding("utf8");
-
-    child.stdout.on("data", (chunk: string) => {
-      stdout += chunk;
-      input.onStream?.({ runId: input.runId, stream: "stdout", chunk });
-    });
-
-    child.stderr.on("data", (chunk: string) => {
-      stderr += chunk;
-      input.onStream?.({ runId: input.runId, stream: "stderr", chunk });
-    });
-
-    child.on("error", reject);
-
-    child.on("close", (exitCode) => {
-      closed = true;
-      if (escalationTimer !== null) {
-        clearTimeout(escalationTimer);
-      }
-      resolve({
-        runId: input.runId,
-        command: "clawpatch",
-        args: [...input.args],
+  readonly registerInterrupt: (interrupt: Effect.Effect<boolean>) => void;
+}) {
+  return Effect.gen(function* () {
+    const child = yield* input.spawner.spawn(
+      ChildProcess.make("clawpatch", input.args, {
         cwd: input.repoPath,
-        exitCode,
-        durationMs: Date.now() - input.started,
-        stdout,
-        stderr,
-        parsedJson: parseJsonOutput(stdout),
-      });
-    });
-  });
+        shell: false,
+        env: { NO_COLOR: "1" },
+        extendEnv: true,
+        killSignal: "SIGINT",
+        forceKillAfter: "2 seconds",
+      }),
+    );
+    const interrupt = interruptChild(child);
+    input.registerInterrupt(interrupt);
+
+    const [stdout, stderr, exitCode] = yield* Effect.all(
+      [
+        collectOutput(child.stdout, input.runId, "stdout", input.onStream),
+        collectOutput(child.stderr, input.runId, "stderr", input.onStream),
+        child.exitCode,
+      ],
+      { concurrency: "unbounded" },
+    ).pipe(Effect.onInterrupt(() => interrupt.pipe(Effect.asVoid)));
+
+    return {
+      runId: input.runId,
+      command: "clawpatch",
+      args: [...input.args],
+      cwd: input.repoPath,
+      exitCode,
+      durationMs: Date.now() - input.started,
+      stdout,
+      stderr,
+      parsedJson: parseJsonOutput(stdout),
+    };
+  }).pipe(Effect.scoped);
+}
+
+function interruptChild(child: ChildProcessSpawner.ChildProcessHandle): Effect.Effect<boolean> {
+  return Effect.gen(function* () {
+    const isRunning = yield* child.isRunning;
+    if (!isRunning) {
+      return false;
+    }
+    yield* child.kill({ killSignal: "SIGINT", forceKillAfter: "2 seconds" });
+    return true;
+  }).pipe(Effect.catch(() => Effect.succeed(false)));
+}
+
+function collectOutput(
+  stream: Stream.Stream<Uint8Array, unknown>,
+  runId: string,
+  streamName: "stdout" | "stderr",
+  onStream?: (event: CommandStreamEvent) => void,
+): Effect.Effect<string, unknown> {
+  return stream.pipe(
+    Stream.decodeText(),
+    Stream.tap((chunk) =>
+      Effect.sync(() => {
+        onStream?.({ runId, stream: streamName, chunk });
+      }),
+    ),
+    Stream.runFold(
+      () => "",
+      (output, chunk) => output + chunk,
+    ),
+  );
 }
 
 function assertFindingId(findingId: string): void {

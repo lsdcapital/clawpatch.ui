@@ -7,13 +7,15 @@ import { COMMANDS_INTERRUPT_CHANNEL, REPO_PICK_FOLDER_CHANNEL } from "../../src/
 import type { CommandResult, FeatureMapSnapshot, RepoSummary } from "../../src/shared/types";
 import { RepoService, type RepoServiceShape } from "../../src/main/services/repoService";
 import { installIpcHandlers } from "../../src/main/ipc/handlers";
-import { EffectIpcLive, type IpcMainLike } from "../../src/main/ipc/effectIpc";
+import { EffectIpc, EffectIpcLive, type IpcMainLike } from "../../src/main/ipc/effectIpc";
 
 const { getAllWindowsMock, getFocusedWindowMock, showOpenDialogMock } = vi.hoisted(() => ({
   getAllWindowsMock: vi.fn(),
   getFocusedWindowMock: vi.fn(),
   showOpenDialogMock: vi.fn(),
 }));
+
+type TestRuntime = ManagedRuntime.ManagedRuntime<RepoService | EffectIpc, never>;
 
 vi.mock("electron", () => ({
   BrowserWindow: {
@@ -68,6 +70,21 @@ describe("IPC handlers", () => {
     }
   });
 
+  it("maps native picker failures into tagged Effect errors", async () => {
+    getFocusedWindowMock.mockReturnValue(null);
+    getAllWindowsMock.mockReturnValue([]);
+    showOpenDialogMock.mockRejectedValue(new Error("dialog failed"));
+    const { listener, runtime } = await installHandlersForTest();
+
+    try {
+      await expect(listener({} as IpcMainInvokeEvent, undefined)).rejects.toThrow(
+        "Unable to open folder picker",
+      );
+    } finally {
+      await runtime.dispose();
+    }
+  });
+
   it("interrupts a running command through IPC", async () => {
     const interruptCommand = vi.fn(() => Effect.succeed({ interrupted: true }));
     const { registered, runtime } = await installHandlersForTest({ interruptCommand });
@@ -92,14 +109,14 @@ type RegisteredListener = (event: IpcMainInvokeEvent, raw: unknown) => unknown |
 async function installHandlersForTest(): Promise<{
   readonly registered: Map<string, RegisteredListener>;
   readonly listener: RegisteredListener;
-  readonly runtime: ManagedRuntime.ManagedRuntime<any, any>;
+  readonly runtime: TestRuntime;
 }>;
 async function installHandlersForTest(options: {
   readonly interruptCommand?: RepoServiceShape["interruptCommand"];
 }): Promise<{
   readonly registered: Map<string, RegisteredListener>;
   readonly listener: RegisteredListener;
-  readonly runtime: ManagedRuntime.ManagedRuntime<any, any>;
+  readonly runtime: TestRuntime;
 }>;
 async function installHandlersForTest(
   options: {
@@ -108,7 +125,7 @@ async function installHandlersForTest(
 ): Promise<{
   readonly registered: Map<string, RegisteredListener>;
   readonly listener: RegisteredListener;
-  readonly runtime: ManagedRuntime.ManagedRuntime<any, any>;
+  readonly runtime: TestRuntime;
 }> {
   const registered = new Map<string, RegisteredListener>();
   const ipcMain: IpcMainLike = {
@@ -117,7 +134,7 @@ async function installHandlersForTest(
       registered.set(channel, listener);
     }),
   };
-  let runtime: ManagedRuntime.ManagedRuntime<any, any>;
+  let runtime: TestRuntime;
   runtime = ManagedRuntime.make(
     Layer.mergeAll(
       makeRepoServiceLayer(options),

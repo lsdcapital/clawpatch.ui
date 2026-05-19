@@ -1,5 +1,7 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
+import * as Path from "effect/Path";
+import type * as PlatformError from "effect/PlatformError";
 
 export const WINDOW_STATE_FILE = "window-state.json";
 export const DEFAULT_WINDOW_BOUNDS = {
@@ -38,25 +40,38 @@ export interface ResolvedWindowState {
   readonly isFirstLaunch: boolean;
 }
 
-export async function readWindowState(
+export function readWindowState(
   userDataPath: string,
   workAreas: readonly WorkArea[],
-): Promise<ResolvedWindowState> {
-  const raw = await readFile(join(userDataPath, WINDOW_STATE_FILE), "utf8").catch(() => null);
-  if (raw === null) {
-    return defaultWindowState();
-  }
+): Effect.Effect<ResolvedWindowState, never, FileSystem.FileSystem | Path.Path> {
+  return Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const raw = yield* fs
+      .readFileString(path.join(userDataPath, WINDOW_STATE_FILE))
+      .pipe(Effect.catch(() => Effect.succeed(null)));
+    if (raw === null) {
+      return defaultWindowState();
+    }
 
-  const parsed = parseJson(raw);
-  return resolveWindowState(parsed, workAreas);
+    const parsed = parseJson(raw);
+    return resolveWindowState(parsed, workAreas);
+  });
 }
 
-export async function writeWindowState(
+export function writeWindowState(
   userDataPath: string,
   state: WindowStateFile,
-): Promise<void> {
-  await mkdir(userDataPath, { recursive: true });
-  await writeFile(join(userDataPath, WINDOW_STATE_FILE), `${JSON.stringify(state, null, 2)}\n`);
+): Effect.Effect<void, PlatformError.PlatformError, FileSystem.FileSystem | Path.Path> {
+  return Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    yield* fs.makeDirectory(userDataPath, { recursive: true });
+    yield* fs.writeFileString(
+      path.join(userDataPath, WINDOW_STATE_FILE),
+      `${JSON.stringify(state, null, 2)}\n`,
+    );
+  });
 }
 
 export function makeWindowStateFile(

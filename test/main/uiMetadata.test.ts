@@ -2,7 +2,9 @@ import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { it } from "@effect/vitest";
+import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
 import { afterEach, describe, expect } from "vitest";
 import { UiMetadataService, UiMetadataServiceLive } from "../../src/main/services/uiMetadata";
 import type { UiMetadata } from "../../src/shared/types";
@@ -38,7 +40,7 @@ describe("UiMetadataService", () => {
         expect(yield* Effect.promise(() => pathExists(join(repoPath, ".clawpatch", "ui")))).toBe(
           false,
         );
-      }).pipe(Effect.provide(UiMetadataServiceLive(appData)));
+      }).pipe(Effect.provide(uiMetadataTestLayer(appData)));
     }),
   );
 
@@ -54,7 +56,7 @@ describe("UiMetadataService", () => {
           filters: { severity: null, status: null, search: "" },
           lastSelectedFindingId: null,
         });
-      }).pipe(Effect.provide(UiMetadataServiceLive(appData)));
+      }).pipe(Effect.provide(uiMetadataTestLayer(appData)));
     }),
   );
 
@@ -92,7 +94,7 @@ describe("UiMetadataService", () => {
           lastSelectedFindingId: "fnd-legacy",
         });
         expect(yield* Effect.promise(() => pathExists(legacyPath))).toBe(true);
-      }).pipe(Effect.provide(UiMetadataServiceLive(appData)));
+      }).pipe(Effect.provide(uiMetadataTestLayer(appData)));
     }),
   );
 });
@@ -101,6 +103,10 @@ async function makeTempDir(): Promise<string> {
   const dir = await mkdtemp(join(tmpdir(), "clawpatch-ui-metadata-"));
   tempDirs.push(dir);
   return dir;
+}
+
+function uiMetadataTestLayer(appData: string) {
+  return UiMetadataServiceLive(appData).pipe(Layer.provide(NodeServices.layer));
 }
 
 function defaultMetadata(): UiMetadata {

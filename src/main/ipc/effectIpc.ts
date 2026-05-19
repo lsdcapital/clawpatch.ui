@@ -13,16 +13,16 @@ export interface IpcMainLike {
   ) => void;
 }
 
-export interface IpcMethod<Payload, EncodedPayload, Result, EncodedResult, E, R> {
+export interface IpcMethod<Payload, EncodedPayload, Result, EncodedResult, E> {
   readonly channel: string;
   readonly payload: Schema.Codec<Payload, EncodedPayload>;
   readonly result: Schema.Codec<Result, EncodedResult>;
-  readonly handler: (payload: Payload) => Effect.Effect<Result, E, R>;
+  readonly handler: (payload: Payload) => Effect.Effect<Result, E>;
 }
 
 export interface EffectIpcShape {
-  readonly handle: <Payload, EncodedPayload, Result, EncodedResult, E, R>(
-    method: IpcMethod<Payload, EncodedPayload, Result, EncodedResult, E, R>,
+  readonly handle: <Payload, EncodedPayload, Result, EncodedResult, E>(
+    method: IpcMethod<Payload, EncodedPayload, Result, EncodedResult, E>,
   ) => Effect.Effect<void>;
 }
 
@@ -32,7 +32,7 @@ export class EffectIpc extends Context.Service<EffectIpc, EffectIpcShape>()(
 
 export const EffectIpcLive = (
   ipcMain: IpcMainLike,
-  runPromise: <A, E, R>(effect: Effect.Effect<A, E, R>) => Promise<A>,
+  runPromise: <A, E>(effect: Effect.Effect<A, E>) => Promise<A>,
 ) =>
   Layer.succeed(
     EffectIpc,
@@ -59,8 +59,8 @@ export const EffectIpcLive = (
     }),
   );
 
-export function makeIpcMethod<Payload, EncodedPayload, Result, EncodedResult, E, R>(
-  method: IpcMethod<Payload, EncodedPayload, Result, EncodedResult, E, R>,
-): IpcMethod<Payload, EncodedPayload, Result, EncodedResult, E, R> {
+export function makeIpcMethod<Payload, EncodedPayload, Result, EncodedResult, E>(
+  method: IpcMethod<Payload, EncodedPayload, Result, EncodedResult, E>,
+): IpcMethod<Payload, EncodedPayload, Result, EncodedResult, E> {
   return method;
 }

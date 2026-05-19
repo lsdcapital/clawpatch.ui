@@ -23,6 +23,14 @@ export class JsonDecodeError extends Data.TaggedError("JsonDecodeError")<{
   }
 }
 
+export class FindingNotFoundError extends Data.TaggedError("FindingNotFoundError")<{
+  readonly findingId: string;
+}> {
+  override get message() {
+    return `Finding not found: ${this.findingId}`;
+  }
+}
+
 export class CommandValidationError extends Data.TaggedError("CommandValidationError")<{
   readonly message: string;
 }> {}
@@ -41,6 +49,14 @@ export class CommandSpawnError extends Data.TaggedError("CommandSpawnError")<{
 }> {
   override get message() {
     return this.cause instanceof Error ? this.cause.message : String(this.cause);
+  }
+}
+
+export class DialogOpenError extends Data.TaggedError("DialogOpenError")<{
+  readonly cause: unknown;
+}> {
+  override get message() {
+    return "Unable to open folder picker";
   }
 }
 

@@ -2,7 +2,9 @@ import { cp, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { it } from "@effect/vitest";
+import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
 import { describe, expect } from "vitest";
 import {
   ClawpatchStateService,
@@ -10,7 +12,7 @@ import {
 } from "../../src/main/services/clawpatchState";
 
 const fixtureRepo = resolve("test/fixtures/clawpatch-repo");
-const stateLayer = ClawpatchStateServiceLive;
+const stateLayer = ClawpatchStateServiceLive.pipe(Layer.provide(NodeServices.layer));
 
 describe("clawpatch state reader", () => {
   it.effect("normalizes finding list items without mutating Clawpatch files", () =>
