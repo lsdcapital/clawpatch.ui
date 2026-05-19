@@ -1,4 +1,5 @@
 import {
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -24,10 +25,11 @@ import type {
   CommandResult,
   CommandStreamEvent,
   FindingListItem,
+  GitStatusSummary,
   RepoSummary,
 } from "../../../shared/types";
 import { CommandPanel } from "../components/CommandPanel";
-import { DiffViewer } from "../components/DiffViewer";
+import { DiffViewer, extractDiffFilePaths } from "../components/DiffViewer";
 import { FindingsSplitPanel } from "../components/FindingsSplitPanel";
 import { RepoSidebar } from "../components/RepoSidebar";
 import { ReviewMapPanel } from "../components/ReviewMapPanel";
@@ -72,6 +74,7 @@ export function ClawpatchApp() {
   const [findingSort, setFindingSort] = useState(defaultFindingSort);
   const [isCommandMenuOpen, setIsCommandMenuOpen] = useState(false);
   const [isRepoSidebarCollapsed, setIsRepoSidebarCollapsed] = useState(readStoredSidebarState);
+  const [diffJump, setDiffJump] = useState<{ path: string; epoch: number } | null>(null);
   const workspaceBodyRef = useRef<HTMLDivElement>(null);
 
   const reposQuery = useQuery({
@@ -157,6 +160,14 @@ export function ClawpatchApp() {
     enabled: selectedRepo !== null,
   });
 
+  const filesInDiff = useMemo(() => extractDiffFilePaths(diffQuery.data ?? ""), [diffQuery.data]);
+
+  const gitStatusQuery = useQuery({
+    queryKey: ["gitStatus", selectedRepo?.id],
+    queryFn: () => window.clawpatch.git.status(selectedRepo!.id),
+    enabled: selectedRepo !== null,
+  });
+
   useEffect(() => {
     return window.clawpatch.commands.onStream((event) => {
       setCommandLog((current) => [...current, { kind: "stream", event }]);
@@ -176,9 +187,15 @@ export function ClawpatchApp() {
   const commandMutation = useMutation({
     mutationFn: ({ repo, request }: { repo: RepoSummary; request: ClawpatchCommandRequest }) =>
       window.clawpatch.commands.run(repo.id, request),
-    onSuccess: (result) => {
+    onSuccess: (result, variables) => {
       setCommandLog((current) => [...current, { kind: "result", result }]);
-      void invalidateRepo(queryClient, selectedRepo?.id ?? null);
+      void refreshAfterCommand(
+        queryClient,
+        variables.repo.id,
+        variables.request,
+        setActiveInspector,
+        setDiffJump,
+      );
     },
     onError: (error) => {
       setCommandLog((current) => [
@@ -347,6 +364,17 @@ export function ClawpatchApp() {
     setActiveInspector((current) => (current === inspector ? null : inspector));
   };
 
+  const openDiffFile = useCallback(
+    (filePath: string): void => {
+      setActiveInspector("diff");
+      setDiffJump((prev) => ({ path: filePath, epoch: (prev?.epoch ?? 0) + 1 }));
+      if (selectedRepo !== null) {
+        void queryClient.invalidateQueries({ queryKey: ["diff", selectedRepo.id] });
+      }
+    },
+    [queryClient, selectedRepo],
+  );
+
   const toggleRepoSidebar = (): void => {
     setIsRepoSidebarCollapsed((current) => {
       const next = !current;
@@ -497,6 +525,13 @@ export function ClawpatchApp() {
           <div className="repo-error">{selectedRepo.lastError}</div>
         ) : null}
 
+        {selectedRepo !== null && gitStatusQuery.data !== undefined ? (
+          <GitStatusStrip
+            status={gitStatusQuery.data}
+            onViewDiff={() => setActiveInspector("diff")}
+          />
+        ) : null}
+
         <div
           className={
             activeInspector === null
@@ -548,6 +583,8 @@ export function ClawpatchApp() {
                     });
                   }
                 }}
+                onOpenDiffFile={openDiffFile}
+                filesInDiff={filesInDiff}
               />
             ) : (
               <ReviewMapPanel
@@ -580,7 +617,12 @@ export function ClawpatchApp() {
           {activeInspector !== null ? (
             <aside className="workspace-inspector" aria-label={inspectorLabel(activeInspector)}>
               {activeInspector === "diff" ? (
-                <DiffViewer diff={diffQuery.data ?? ""} isLoading={diffQuery.isLoading} />
+                <DiffViewer
+                  diff={diffQuery.data ?? ""}
+                  isLoading={diffQuery.isLoading}
+                  scrollToFilePath={diffJump?.path ?? null}
+                  scrollToken={diffJump?.epoch ?? 0}
+                />
               ) : (
                 <CommandPanel
                   entries={commandLog}
@@ -651,6 +693,7 @@ async function invalidateRepo(
     queryClient.invalidateQueries({ queryKey: ["findings", repoId] }),
     queryClient.invalidateQueries({ queryKey: ["finding"] }),
     queryClient.invalidateQueries({ queryKey: ["diff", repoId] }),
+    queryClient.invalidateQueries({ queryKey: ["gitStatus", repoId] }),
   ]);
 }
 
@@ -663,5 +706,104 @@ async function invalidateCommandProgress(
     queryClient.invalidateQueries({ queryKey: ["findings"] }),
     queryClient.invalidateQueries({ queryKey: ["finding"] }),
     queryClient.invalidateQueries({ queryKey: ["diff"] }),
+    queryClient.invalidateQueries({ queryKey: ["gitStatus"] }),
   ]);
+}
+
+async function refreshAfterCommand(
+  queryClient: ReturnType<typeof useQueryClient>,
+  repoId: string,
+  request: ClawpatchCommandRequest,
+  setActiveInspector: (value: ActiveInspector) => void,
+  setDiffJump: (
+    updater: (
+      prev: { path: string; epoch: number } | null,
+    ) => { path: string; epoch: number } | null,
+  ) => void,
+): Promise<void> {
+  await invalidateRepo(queryClient, repoId);
+  if (request.command === "fix") {
+    await revealFirstChangedFile(
+      queryClient,
+      repoId,
+      request.findingId,
+      setActiveInspector,
+      setDiffJump,
+    );
+  }
+}
+
+async function revealFirstChangedFile(
+  queryClient: ReturnType<typeof useQueryClient>,
+  repoId: string | null,
+  findingId: string,
+  setActiveInspector: (value: ActiveInspector) => void,
+  setDiffJump: (
+    updater: (
+      prev: { path: string; epoch: number } | null,
+    ) => { path: string; epoch: number } | null,
+  ) => void,
+): Promise<void> {
+  if (repoId === null) {
+    return;
+  }
+  try {
+    const detail = await queryClient.fetchQuery({
+      queryKey: ["finding", repoId, findingId],
+      queryFn: () => window.clawpatch.findings.get(repoId, findingId),
+    });
+    const patches = detail.patchAttempts ?? [];
+    const newest = patches[0];
+    const firstFile = newest?.filesChanged?.[0];
+    if (typeof firstFile === "string" && firstFile !== "") {
+      setActiveInspector("diff");
+      setDiffJump((prev) => ({ path: firstFile, epoch: (prev?.epoch ?? 0) + 1 }));
+    }
+  } catch {
+    // Diff auto-reveal is best-effort.
+  }
+}
+
+function GitStatusStrip({
+  status,
+  onViewDiff,
+}: {
+  status: GitStatusSummary;
+  onViewDiff: () => void;
+}) {
+  const dirty = status.staged + status.modified + status.untracked;
+  return (
+    <div className="git-status-strip" role="status">
+      <span className="git-status-branch">
+        {status.branch !== null ? `branch ${status.branch}` : "no branch"}
+      </span>
+      <span className="git-status-divider" aria-hidden="true">
+        ·
+      </span>
+      {dirty === 0 ? (
+        <span className="git-status-clean">Working tree clean</span>
+      ) : (
+        <span className="git-status-counts">{formatGitStatusCounts(status)}</span>
+      )}
+      {dirty > 0 ? (
+        <button className="git-status-action" onClick={onViewDiff} type="button">
+          View diff
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+function formatGitStatusCounts(status: GitStatusSummary): string {
+  const parts: string[] = [];
+  if (status.staged > 0) {
+    parts.push(`${status.staged} staged`);
+  }
+  if (status.modified > 0) {
+    parts.push(`${status.modified} modified`);
+  }
+  if (status.untracked > 0) {
+    parts.push(`${status.untracked} untracked`);
+  }
+  return parts.join(" · ");
 }

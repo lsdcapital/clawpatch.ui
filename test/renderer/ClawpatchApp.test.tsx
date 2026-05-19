@@ -392,6 +392,58 @@ describe("ClawpatchApp header actions", () => {
     finish(makeCommandResult("status"));
   });
 
+  it("opens the diff inspector and refreshes diff data when patch files are clicked repeatedly", async () => {
+    const finding = {
+      ...makeFixFinding(),
+      patchAttempts: [
+        {
+          patchAttemptId: "pat-1",
+          findingIds: ["fnd-bug"],
+          featureIds: ["feat-profile"],
+          status: "applied",
+          plan: "Guard nullable branch access.",
+          filesChanged: ["src/profile.ts", "test/profile.test.ts"],
+          commandsRun: [],
+          testResults: [],
+          git: {
+            baseSha: "abcdef1234567890",
+            commitSha: null,
+            branchName: "main",
+            prUrl: null,
+          },
+          createdAt: "2026-05-19T12:00:00.000Z",
+          updatedAt: "2026-05-19T12:01:00.000Z",
+        },
+      ],
+    } satisfies FindingDetail;
+    const gitDiff = vi.fn<Api["git"]["diff"]>(async () =>
+      [
+        "diff --git a/src/profile.ts b/src/profile.ts",
+        "--- a/src/profile.ts",
+        "+++ b/src/profile.ts",
+        "diff --git a/test/profile.test.ts b/test/profile.test.ts",
+        "--- a/test/profile.test.ts",
+        "+++ b/test/profile.test.ts",
+      ].join("\n"),
+    );
+    window.clawpatch = makeApi(
+      vi.fn<Api["commands"]["run"]>(async () => makeCommandResult("map")),
+      { findings: [finding], findingDetail: finding, gitDiff },
+    );
+
+    renderApp();
+
+    await screen.findByRole("heading", { name: "Null branch can throw" });
+    await waitFor(() => expect(gitDiff).toHaveBeenCalledTimes(1));
+
+    fireEvent.click(screen.getByRole("button", { name: "src/profile.ts" }));
+    expect(screen.getByRole("complementary", { name: "Git diff" })).toBeInTheDocument();
+    await waitFor(() => expect(gitDiff).toHaveBeenCalledTimes(2));
+
+    fireEvent.click(screen.getByRole("button", { name: "test/profile.test.ts" }));
+    await waitFor(() => expect(gitDiff).toHaveBeenCalledTimes(3));
+  });
+
   it("supports keyboard resizing for the shared inspector", async () => {
     window.clawpatch = makeApi(vi.fn<Api["commands"]["run"]>(async () => makeCommandResult("map")));
 
@@ -510,6 +562,7 @@ function makeApi(
     findingDetail?: FindingDetail;
     interrupt?: Api["commands"]["interrupt"];
     gitDiff?: Api["git"]["diff"];
+    gitStatus?: Api["git"]["status"];
     onStream?: Api["commands"]["onStream"];
     pickFolder?: Api["repo"]["pickFolder"];
     repoList?: Api["repo"]["list"];
@@ -556,6 +609,8 @@ function makeApi(
     },
     git: {
       diff: options.gitDiff ?? (async () => ""),
+      status:
+        options.gitStatus ?? (async () => ({ staged: 0, modified: 0, untracked: 0, branch: null })),
     },
   };
 }

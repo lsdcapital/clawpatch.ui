@@ -120,6 +120,52 @@ describe("FindingsSplitPanel", () => {
     expect(onTriage).not.toHaveBeenCalled();
   });
 
+  it("renders fix attempts with file buttons that invoke onOpenDiffFile", () => {
+    const onOpenDiffFile = vi.fn();
+    renderSplitPanel({
+      onOpenDiffFile,
+      finding: makeFindingDetail({
+        patchAttempts: [
+          {
+            patchAttemptId: "pat-1",
+            findingIds: ["fnd-security"],
+            featureIds: ["feat-1"],
+            status: "applied",
+            plan: "Strip the debug log",
+            filesChanged: ["src/auth.ts", "test/auth.test.ts"],
+            commandsRun: [],
+            testResults: [
+              {
+                command: "pnpm test",
+                cwd: null,
+                exitCode: 0,
+                durationMs: 800,
+                stdout: "ok",
+                stderr: "",
+              },
+            ],
+            git: {
+              baseSha: "abcdef1234567890",
+              commitSha: null,
+              branchName: "main",
+              prUrl: null,
+            },
+            createdAt: "2026-05-19T12:00:00.000Z",
+            updatedAt: "2026-05-19T12:01:00.000Z",
+          },
+        ],
+      }),
+    });
+
+    expect(screen.getByRole("heading", { name: "Fix attempts" })).toBeInTheDocument();
+    expect(screen.getByText("Strip the debug log")).toBeInTheDocument();
+    expect(screen.getByText("applied")).toBeInTheDocument();
+    expect(screen.getByText("tests passed")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "src/auth.ts" }));
+    expect(onOpenDiffFile).toHaveBeenCalledWith("src/auth.ts");
+  });
+
   it("supports keyboard resizing within configured limits", () => {
     renderSplitPanel();
 
@@ -183,10 +229,12 @@ function renderSplitPanel({
   finding = makeFindingDetail(),
   onTriage = vi.fn(),
   onRevalidate = vi.fn(),
+  onOpenDiffFile,
 }: {
   finding?: FindingDetail;
   onTriage?: (status: ClawpatchStatus, note: string) => void;
   onRevalidate?: () => void;
+  onOpenDiffFile?: (filePath: string) => void;
 } = {}) {
   return render(
     <FindingsSplitPanel
@@ -206,6 +254,7 @@ function renderSplitPanel({
       onTriage={onTriage}
       onFix={vi.fn()}
       onRevalidate={onRevalidate}
+      onOpenDiffFile={onOpenDiffFile}
     />,
   );
 }

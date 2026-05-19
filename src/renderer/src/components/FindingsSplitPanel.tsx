@@ -27,6 +27,8 @@ interface Props {
   onTriage: (status: ClawpatchStatus, note: string) => void;
   onFix: (status: ClawpatchStatus, note: string) => void;
   onRevalidate: () => void;
+  onOpenDiffFile?: (filePath: string) => void;
+  filesInDiff?: ReadonlySet<string>;
 }
 
 export function FindingsSplitPanel({
@@ -46,6 +48,8 @@ export function FindingsSplitPanel({
   onTriage,
   onFix,
   onRevalidate,
+  onOpenDiffFile,
+  filesInDiff,
 }: Props) {
   const [listWidth, setListWidth] = useState(readStoredListWidth);
   const [isResizing, setIsResizing] = useState(false);
@@ -146,6 +150,8 @@ export function FindingsSplitPanel({
         onTriage={onTriage}
         onFix={onFix}
         onRevalidate={onRevalidate}
+        onOpenDiffFile={onOpenDiffFile}
+        filesInDiff={filesInDiff}
       />
     </section>
   );

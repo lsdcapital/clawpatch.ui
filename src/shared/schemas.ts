@@ -89,6 +89,36 @@ export const FindingHistoryEntrySchema = Schema.Struct({
   createdAt: Schema.String,
 });
 
+export const PatchCommandRunSchema = Schema.Struct({
+  command: Schema.String,
+  cwd: Schema.NullOr(Schema.String),
+  exitCode: Schema.NullOr(Schema.Number),
+  durationMs: Schema.NullOr(Schema.Number),
+  stdout: Schema.String,
+  stderr: Schema.String,
+});
+
+export const PatchGitInfoSchema = Schema.Struct({
+  baseSha: Schema.NullOr(Schema.String),
+  commitSha: Schema.NullOr(Schema.String),
+  branchName: Schema.NullOr(Schema.String),
+  prUrl: Schema.NullOr(Schema.String),
+});
+
+export const PatchAttemptSchema = Schema.Struct({
+  patchAttemptId: Schema.String,
+  findingIds: Schema.Array(Schema.String),
+  featureIds: Schema.Array(Schema.String),
+  status: Schema.String,
+  plan: Schema.NullOr(Schema.String),
+  filesChanged: Schema.Array(Schema.String),
+  commandsRun: Schema.Array(PatchCommandRunSchema),
+  testResults: Schema.Array(PatchCommandRunSchema),
+  git: PatchGitInfoSchema,
+  createdAt: Schema.String,
+  updatedAt: Schema.String,
+});
+
 export const FindingDetailSchema = Schema.Struct({
   ...FindingListItemSchema.fields,
   reasoning: Schema.String,
@@ -98,7 +128,7 @@ export const FindingDetailSchema = Schema.Struct({
   suggestedRegressionTest: Schema.NullOr(Schema.String),
   minimumFixScope: Schema.NullOr(Schema.String),
   feature: Schema.NullOr(Schema.Unknown),
-  patchAttempts: Schema.Array(Schema.Unknown),
+  patchAttempts: Schema.Array(PatchAttemptSchema),
   history: Schema.Array(FindingHistoryEntrySchema),
 });
 
@@ -157,6 +187,13 @@ export const RepoSnapshotSchema = Schema.Struct({
   findings: Schema.Array(FindingListItemSchema),
   diff: Schema.String,
   metadata: UiMetadataSchema,
+});
+
+export const GitStatusSummarySchema = Schema.Struct({
+  staged: Schema.Number,
+  modified: Schema.Number,
+  untracked: Schema.Number,
+  branch: Schema.NullOr(Schema.String),
 });
 
 export const RepoListSchema = Schema.Array(RepoSummarySchema);

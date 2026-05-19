@@ -15,6 +15,7 @@ import type {
   FeatureMapSnapshot,
   FindingDetail,
   FindingListItem,
+  GitStatusSummary,
   RepoSnapshot,
   RepoSummary,
 } from "../../shared/types";
@@ -60,6 +61,7 @@ export interface RepoServiceShape {
     note?: string,
   ) => Effect.Effect<CommandResult, RepoServiceError>;
   readonly readDiff: (repoId: string) => Effect.Effect<string, RepoServiceError>;
+  readonly readGitStatus: (repoId: string) => Effect.Effect<GitStatusSummary, RepoServiceError>;
 }
 
 export class RepoService extends Context.Service<RepoService, RepoServiceShape>()(
@@ -300,6 +302,10 @@ export const RepoServiceLive = (appDataDir: string) =>
         readDiff: Effect.fn("repoService.readDiff")(function* (repoIdValue) {
           const repo = yield* requireRepo(repoIdValue);
           return yield* git.readDiff(repo.path);
+        }),
+        readGitStatus: Effect.fn("repoService.readGitStatus")(function* (repoIdValue) {
+          const repo = yield* requireRepo(repoIdValue);
+          return yield* git.readStatus(repo.path);
         }),
       });
     }),

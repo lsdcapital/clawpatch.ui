@@ -13,6 +13,7 @@ import {
   FINDINGS_GET_CHANNEL,
   FINDINGS_LIST_CHANNEL,
   GIT_DIFF_CHANNEL,
+  GIT_STATUS_CHANNEL,
   REPO_ADD_CHANNEL,
   REPO_LIST_CHANNEL,
   REPO_PICK_FOLDER_CHANNEL,
@@ -51,6 +52,7 @@ const api: Api = {
   },
   git: {
     diff: (repoId) => ipcRenderer.invoke(GIT_DIFF_CHANNEL, { repoId }),
+    status: (repoId) => ipcRenderer.invoke(GIT_STATUS_CHANNEL, { repoId }),
   },
 };
 

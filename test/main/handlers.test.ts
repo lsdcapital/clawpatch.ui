@@ -184,6 +184,7 @@ function makeRepoServiceLayer(
       interruptCommand: options.interruptCommand ?? (() => Effect.succeed({ interrupted: false })),
       setTriage: () => Effect.succeed(makeCommandResult()),
       readDiff: () => Effect.succeed(""),
+      readGitStatus: () => Effect.succeed({ staged: 0, modified: 0, untracked: 0, branch: null }),
     }),
   );
 }

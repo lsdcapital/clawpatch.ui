@@ -9,6 +9,7 @@ import {
   FeatureMapSnapshotSchema,
   FindingDetailSchema,
   FindingListSchema,
+  GitStatusSummarySchema,
   RepoListSchema,
   RepoSnapshotSchema,
   RepoSummarySchema,
@@ -23,6 +24,7 @@ import {
   FINDINGS_GET_CHANNEL,
   FINDINGS_LIST_CHANNEL,
   GIT_DIFF_CHANNEL,
+  GIT_STATUS_CHANNEL,
   REPO_ADD_CHANNEL,
   REPO_LIST_CHANNEL,
   REPO_PICK_FOLDER_CHANNEL,
@@ -138,6 +140,14 @@ export const installIpcHandlers = (publishCommandStream: (event: CommandStreamEv
         payload: RepoIdPayload,
         result: Schema.String,
         handler: ({ repoId }) => repos.readDiff(repoId),
+      }),
+    );
+    yield* ipc.handle(
+      makeIpcMethod({
+        channel: GIT_STATUS_CHANNEL,
+        payload: RepoIdPayload,
+        result: GitStatusSummarySchema,
+        handler: ({ repoId }) => repos.readGitStatus(repoId),
       }),
     );
   }).pipe(Effect.withSpan("ipc.installHandlers"));

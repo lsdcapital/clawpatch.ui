@@ -52,6 +52,41 @@ describe("GitService", () => {
       },
     ]);
   });
+
+  it("parses porcelain status into staged, modified, untracked counts and branch", async () => {
+    const porcelain = [
+      "## main...origin/main",
+      "M  src/staged.ts",
+      " M src/modified.ts",
+      "MM src/staged-and-modified.ts",
+      "?? src/new-file.ts",
+      "?? src/another-new.ts",
+      "",
+    ].join("\n");
+
+    const layer = GitServiceLive.pipe(
+      Layer.provide(
+        Layer.succeed(
+          ChildProcessSpawner.ChildProcessSpawner,
+          ChildProcessSpawner.make(() => Effect.succeed(mockHandle({ stdout: porcelain }))),
+        ),
+      ),
+    );
+
+    const status = await Effect.runPromise(
+      Effect.gen(function* () {
+        const git = yield* GitService;
+        return yield* git.readStatus("/tmp/repo-status");
+      }).pipe(Effect.provide(layer)),
+    );
+
+    expect(status).toEqual({
+      staged: 2,
+      modified: 2,
+      untracked: 2,
+      branch: "main",
+    });
+  });
 });
 
 function mockHandle(options: {

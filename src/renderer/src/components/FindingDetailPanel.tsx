@@ -1,6 +1,11 @@
-import { ArrowUpIcon } from "lucide-react";
+import { ArrowUpIcon, ChevronDownIcon, ChevronRightIcon } from "lucide-react";
 import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
-import type { ClawpatchStatus, FindingDetail } from "../../../shared/types";
+import type {
+  ClawpatchStatus,
+  FindingDetail,
+  PatchAttempt,
+  PatchCommandRun,
+} from "../../../shared/types";
 import { clawpatchStatuses } from "../../../shared/types";
 
 interface Props {
@@ -10,6 +15,8 @@ interface Props {
   onTriage: (status: ClawpatchStatus, note: string) => void;
   onFix: (status: ClawpatchStatus, note: string) => void;
   onRevalidate: () => void;
+  onOpenDiffFile?: (filePath: string) => void;
+  filesInDiff?: ReadonlySet<string>;
 }
 
 export function FindingDetailPanel({
@@ -19,6 +26,8 @@ export function FindingDetailPanel({
   onTriage,
   onFix,
   onRevalidate,
+  onOpenDiffFile,
+  filesInDiff,
 }: Props) {
   const [status, setStatus] = useState<ClawpatchStatus>("open");
   const [isStatusMenuOpen, setIsStatusMenuOpen] = useState(false);
@@ -178,6 +187,14 @@ export function FindingDetailPanel({
           </section>
         ) : null}
 
+        {finding.patchAttempts.length > 0 ? (
+          <PatchAttemptsSection
+            patches={finding.patchAttempts}
+            onOpenDiffFile={onOpenDiffFile}
+            filesInDiff={filesInDiff}
+          />
+        ) : null}
+
         <div className="triage-controls">
           <label htmlFor="triage-note">Note for triage and fix</label>
           <div className="note-input">
@@ -243,4 +260,171 @@ function TextSection({ title, value }: { title: string; value: string | null }) 
       <p>{value}</p>
     </section>
   );
+}
+
+function PatchAttemptsSection({
+  patches,
+  onOpenDiffFile,
+  filesInDiff,
+}: {
+  patches: readonly PatchAttempt[];
+  onOpenDiffFile?: (filePath: string) => void;
+  filesInDiff?: ReadonlySet<string>;
+}) {
+  const newestId = patches[0]?.patchAttemptId ?? null;
+  return (
+    <section>
+      <h3>Fix attempts</h3>
+      <div className="patch-list">
+        {patches.map((patch) => (
+          <PatchAttemptCard
+            key={patch.patchAttemptId}
+            patch={patch}
+            defaultExpanded={patch.patchAttemptId === newestId}
+            onOpenDiffFile={onOpenDiffFile}
+            filesInDiff={filesInDiff}
+          />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function PatchAttemptCard({
+  patch,
+  defaultExpanded,
+  onOpenDiffFile,
+  filesInDiff,
+}: {
+  patch: PatchAttempt;
+  defaultExpanded: boolean;
+  onOpenDiffFile?: (filePath: string) => void;
+  filesInDiff?: ReadonlySet<string>;
+}) {
+  const [isExpanded, setIsExpanded] = useState(defaultExpanded);
+  const testSummary = summarizeRuns(patch.testResults);
+  const commandSummary = summarizeRuns(patch.commandsRun);
+
+  return (
+    <article className={`patch-entry status-${patch.status}`}>
+      <button
+        aria-expanded={isExpanded}
+        className="patch-entry-summary"
+        onClick={() => setIsExpanded((value) => !value)}
+        type="button"
+      >
+        <span className="patch-chevron" aria-hidden="true">
+          {isExpanded ? <ChevronDownIcon /> : <ChevronRightIcon />}
+        </span>
+        <span className={`patch-status patch-status-${patch.status}`}>{patch.status}</span>
+        <span className="patch-files-count">
+          {patch.filesChanged.length} file{patch.filesChanged.length === 1 ? "" : "s"}
+        </span>
+        {testSummary !== null ? (
+          <span className={`patch-tests patch-tests-${testSummary.outcome}`}>
+            tests {testSummary.outcome}
+          </span>
+        ) : null}
+        <time className="patch-entry-time" dateTime={patch.createdAt}>
+          {formatHistoryDate(patch.createdAt)}
+        </time>
+      </button>
+      {isExpanded ? (
+        <div className="patch-entry-body">
+          {patch.plan !== null && patch.plan.trim() !== "" ? <p>{patch.plan}</p> : null}
+          {patch.filesChanged.length > 0 ? (
+            <div className="patch-files">
+              <span className="patch-section-label">Files changed</span>
+              <ul>
+                {patch.filesChanged.map((filePath) => {
+                  const isPresentInDiff = filesInDiff === undefined || filesInDiff.has(filePath);
+                  if (onOpenDiffFile === undefined) {
+                    return (
+                      <li key={filePath}>
+                        <span className="patch-file-path">{filePath}</span>
+                      </li>
+                    );
+                  }
+                  return (
+                    <li key={filePath}>
+                      <button
+                        className={
+                          isPresentInDiff
+                            ? "patch-file-button"
+                            : "patch-file-button patch-file-button-missing"
+                        }
+                        disabled={!isPresentInDiff}
+                        onClick={() => onOpenDiffFile(filePath)}
+                        title={
+                          isPresentInDiff
+                            ? `Open ${filePath} in diff`
+                            : `${filePath} is not in the current working-tree diff`
+                        }
+                        type="button"
+                      >
+                        {filePath}
+                        {isPresentInDiff ? null : (
+                          <span className="patch-file-badge" aria-hidden="true">
+                            not in diff
+                          </span>
+                        )}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ) : null}
+          <dl className="patch-meta">
+            {patch.git.branchName !== null ? (
+              <>
+                <dt>Branch</dt>
+                <dd>{patch.git.branchName}</dd>
+              </>
+            ) : null}
+            {patch.git.baseSha !== null ? (
+              <>
+                <dt>Base</dt>
+                <dd className="patch-sha">{patch.git.baseSha.slice(0, 12)}</dd>
+              </>
+            ) : null}
+            {patch.git.commitSha !== null ? (
+              <>
+                <dt>Commit</dt>
+                <dd className="patch-sha">{patch.git.commitSha.slice(0, 12)}</dd>
+              </>
+            ) : null}
+            {testSummary !== null ? (
+              <>
+                <dt>Tests</dt>
+                <dd>
+                  {testSummary.outcome} ({testSummary.total})
+                </dd>
+              </>
+            ) : null}
+            {commandSummary !== null ? (
+              <>
+                <dt>Commands</dt>
+                <dd>
+                  {commandSummary.outcome} ({commandSummary.total})
+                </dd>
+              </>
+            ) : null}
+          </dl>
+        </div>
+      ) : null}
+    </article>
+  );
+}
+
+function summarizeRuns(
+  runs: readonly PatchCommandRun[],
+): { outcome: "passed" | "failed" | "unknown"; total: number } | null {
+  if (runs.length === 0) {
+    return null;
+  }
+  const hasFailure = runs.some((run) => run.exitCode !== null && run.exitCode !== 0);
+  const hasUnknown = runs.some((run) => run.exitCode === null);
+  const outcome = hasFailure ? "failed" : hasUnknown ? "unknown" : "passed";
+  return { outcome, total: runs.length };
 }

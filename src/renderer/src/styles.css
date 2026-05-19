@@ -361,8 +361,8 @@ button:disabled {
 
 .workspace {
   background: var(--bg);
-  display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr);
+  display: flex;
+  flex-direction: column;
   height: 100%;
   min-height: 0;
   min-width: 0;
@@ -371,7 +371,6 @@ button:disabled {
 .workspace-header {
   align-items: center;
   display: flex;
-  grid-row: 1;
   justify-content: space-between;
   gap: 14px;
   min-width: 0;
@@ -495,9 +494,9 @@ button:disabled {
 
 .workspace-body {
   display: grid;
-  grid-row: 3;
+  flex: 1 1 auto;
   grid-template-columns: minmax(0, 1fr);
-  height: 100%;
+  grid-template-rows: minmax(0, 1fr);
   min-height: 0;
   min-width: 0;
   overflow: hidden;
@@ -1277,20 +1276,293 @@ button.table-row:hover:not(:disabled) {
   white-space: pre-wrap;
 }
 
-.diff-panel .cm-theme {
+.diff-panel {
+  height: 100%;
+}
+
+.diff-viewport {
   display: flex;
   flex: 1;
+  flex-direction: column;
   min-height: 0;
+  min-width: 0;
+  overflow: hidden;
 }
 
-.diff-panel .cm-editor {
+.diff-virtualizer {
   flex: 1;
-  font-size: 11px;
   min-height: 0;
+  min-width: 0;
+  overflow: auto;
+  padding: 6px;
 }
 
-.diff-panel .cm-scroller {
+.diff-render-file {
+  margin-bottom: 8px;
+}
+
+.diff-render-file:last-child {
+  margin-bottom: 0;
+}
+
+.diff-empty {
+  color: var(--muted);
+  font-size: 12px;
+  padding: 20px;
+}
+
+.patch-list {
+  display: grid;
+  gap: 6px;
+}
+
+.patch-entry {
+  background: var(--meta-bg);
+  border: 1px solid var(--row-border);
+  border-radius: 6px;
+  display: grid;
+  gap: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.patch-entry-summary {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  color: var(--text);
+  display: grid;
+  font-size: 12px;
+  font-weight: 500;
+  gap: 8px;
+  grid-template-columns: 16px auto auto auto 1fr;
+  justify-content: start;
+  min-height: 28px;
+  min-width: 0;
+  padding: 6px 9px;
+  text-align: left;
+  width: 100%;
+}
+
+.patch-entry-summary:hover:not(:disabled) {
+  background: var(--row-hover-bg);
+  border-color: transparent;
+}
+
+.patch-chevron {
+  color: var(--subtle);
+  display: inline-flex;
+}
+
+.patch-chevron svg {
+  height: 14px;
+  width: 14px;
+}
+
+.patch-status {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.patch-status-applied {
+  color: var(--success);
+}
+
+.patch-status-failed,
+.patch-status-error {
+  color: var(--danger);
+}
+
+.patch-files-count,
+.patch-tests {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.patch-tests-passed {
+  color: var(--success);
+}
+
+.patch-tests-failed {
+  color: var(--danger);
+}
+
+.patch-tests-unknown {
+  color: var(--warning);
+}
+
+.patch-entry-time {
+  color: var(--subtle);
+  font-size: 11px;
+  justify-self: end;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.patch-entry-body {
+  border-top: 1px solid var(--row-border);
+  display: grid;
+  gap: 8px;
+  padding: 8px 10px 10px;
+}
+
+.patch-entry-body > p {
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.45;
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.patch-section-label {
+  color: var(--subtle);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.patch-files {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.patch-files ul {
+  display: grid;
+  gap: 2px;
+  list-style: none;
+  margin: 0;
+  min-width: 0;
+  padding: 0;
+}
+
+.patch-file-button {
+  background: transparent;
+  border: 0;
+  border-radius: 4px;
+  color: var(--accent);
   font-family: "SF Mono", SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+  font-size: 11px;
+  justify-content: flex-start;
+  min-height: 22px;
+  overflow: hidden;
+  padding: 2px 6px;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  width: 100%;
+}
+
+.patch-file-button:hover:not(:disabled) {
+  background: var(--accent-soft);
+  border-color: transparent;
+  color: var(--accent-text);
+}
+
+.patch-file-button-missing {
+  color: var(--muted);
+}
+
+.patch-file-button-missing:disabled {
+  cursor: not-allowed;
+  opacity: 0.75;
+}
+
+.patch-file-badge {
+  background: var(--control-bg);
+  border-radius: 999px;
+  color: var(--subtle);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  margin-left: 6px;
+  padding: 1px 6px;
+  text-transform: uppercase;
+}
+
+.patch-file-path {
+  color: var(--text-code);
+  font-family: "SF Mono", SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+  font-size: 11px;
+}
+
+.patch-meta {
+  align-items: center;
+  display: grid;
+  gap: 2px 8px;
+  grid-template-columns: 64px minmax(0, 1fr);
+  margin: 0;
+}
+
+.patch-meta dt {
+  color: var(--subtle);
+  font-size: 11px;
+}
+
+.patch-meta dd {
+  color: var(--text);
+  font-size: 11px;
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.patch-sha {
+  font-family: "SF Mono", SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+}
+
+.git-status-strip {
+  align-items: center;
+  background: var(--surface-muted);
+  border-bottom: 1px solid var(--border);
+  color: var(--muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 11px;
+  gap: 8px;
+  min-width: 0;
+  padding: 5px 14px;
+}
+
+.git-status-branch {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.git-status-divider {
+  color: var(--subtle);
+}
+
+.git-status-clean {
+  color: var(--success);
+}
+
+.git-status-counts {
+  color: var(--text);
+}
+
+.git-status-action {
+  background: transparent;
+  border: 0;
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 600;
+  margin-left: auto;
+  min-height: 20px;
+  padding: 0 4px;
+}
+
+.git-status-action:hover:not(:disabled) {
+  background: var(--accent-soft);
+  border-color: transparent;
+  color: var(--accent-text);
 }
 
 .empty-state {

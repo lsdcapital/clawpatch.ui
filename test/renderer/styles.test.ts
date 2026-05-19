@@ -12,10 +12,11 @@ describe("renderer layout styles", () => {
     expect(ruleFor("\\.app-shell\\.sidebar-collapsed")).toContain(
       "grid-template-columns: minmax(0, 1fr);",
     );
-    expect(ruleFor("\\.workspace")).toContain("height: 100%;");
+    const workspaceRule = ruleFor("\\.workspace");
+    expect(workspaceRule).toContain("display: flex;");
+    expect(workspaceRule).toContain("height: 100%;");
     const workspaceBodyRule = ruleFor("\\.workspace-body");
-    expect(workspaceBodyRule).toContain("height: 100%;");
-    expect(workspaceBodyRule).toContain("grid-row: 3;");
+    expect(workspaceBodyRule).toContain("flex: 1 1 auto;");
     expect(workspaceBodyRule).toContain("padding: 0;");
     expect(ruleFor("\\.primary-workspace")).toContain("height: 100%;");
     const findingsWorkspaceRule = ruleFor("\\.findings-workspace");

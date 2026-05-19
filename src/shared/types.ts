@@ -10,6 +10,10 @@ import type {
   FindingDetailSchema,
   FindingHistoryEntrySchema,
   FindingListItemSchema,
+  GitStatusSummarySchema,
+  PatchAttemptSchema,
+  PatchCommandRunSchema,
+  PatchGitInfoSchema,
   UiMetadataSchema,
   RepoSnapshotSchema,
   RepoSummarySchema,
@@ -30,6 +34,10 @@ export type EvidenceRef = typeof EvidenceRefSchema.Type;
 export type FindingListItem = typeof FindingListItemSchema.Type;
 export type FindingHistoryEntry = typeof FindingHistoryEntrySchema.Type;
 export type FindingDetail = typeof FindingDetailSchema.Type;
+export type PatchCommandRun = typeof PatchCommandRunSchema.Type;
+export type PatchGitInfo = typeof PatchGitInfoSchema.Type;
+export type PatchAttempt = typeof PatchAttemptSchema.Type;
+export type GitStatusSummary = typeof GitStatusSummarySchema.Type;
 export type FeatureMapItem = typeof FeatureMapItemSchema.Type;
 export type ReviewRunSummary = typeof ReviewRunSummarySchema.Type;
 export type ReviewCoverage = typeof ReviewCoverageSchema.Type;
@@ -64,5 +72,6 @@ export interface Api {
   };
   git: {
     diff: (repoId: string) => Promise<string>;
+    status: (repoId: string) => Promise<GitStatusSummary>;
   };
 }

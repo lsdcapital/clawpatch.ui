@@ -5,8 +5,33 @@
   "featureIds": ["feat-1"],
   "status": "applied",
   "plan": "Fix null branch",
-  "commands": [],
-  "result": null,
+  "filesChanged": ["src/example.ts"],
+  "commandsRun": [
+    {
+      "command": "pnpm test",
+      "cwd": "/tmp/repo",
+      "exitCode": 0,
+      "durationMs": 1200,
+      "stdout": "ok",
+      "stderr": ""
+    }
+  ],
+  "testResults": [
+    {
+      "command": "pnpm test",
+      "cwd": "/tmp/repo",
+      "exitCode": 0,
+      "durationMs": 1200,
+      "stdout": "ok",
+      "stderr": ""
+    }
+  ],
+  "git": {
+    "baseSha": "abc123",
+    "commitSha": null,
+    "branchName": "main",
+    "prUrl": null
+  },
   "createdAt": "2026-01-01T00:00:00.000Z",
   "updatedAt": "2026-01-01T00:00:00.000Z"
 }

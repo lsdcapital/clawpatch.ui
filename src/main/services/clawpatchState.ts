@@ -4,13 +4,14 @@ import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
-import { ClawpatchStatusSchema } from "../../shared/schemas";
+import { ClawpatchStatusSchema, PatchAttemptSchema } from "../../shared/schemas";
 import type {
   FeatureMapItem,
   FeatureMapSnapshot,
   FindingDetail,
   FindingHistoryEntry,
   FindingListItem,
+  PatchAttempt,
   ReviewRunSummary,
 } from "../../shared/types";
 import { FindingNotFoundError, JsonDecodeError } from "../errors";
@@ -168,9 +169,11 @@ export const ClawpatchStateServiceLive = Layer.effect(
           const feature =
             features.find((item) => objectId(item, "featureId") === finding.featureId) ?? null;
           const patchIds = new Set(finding.linkedPatchAttemptIds ?? []);
-          const linkedPatches = patches.filter((item) =>
-            patchIds.has(objectId(item, "patchAttemptId")),
-          );
+          const linkedPatches = patches
+            .filter((item) => patchIds.has(objectId(item, "patchAttemptId")))
+            .map(decodePatchAttempt)
+            .filter((patch): patch is PatchAttempt => patch !== null)
+            .toSorted((a, b) => timestamp(b.createdAt) - timestamp(a.createdAt));
 
           return {
             ...toFindingListItem(finding),
@@ -193,6 +196,14 @@ export const ClawpatchStateServiceLive = Layer.effect(
 function decodeRawFinding(value: unknown): RawFinding | null {
   try {
     return Schema.decodeUnknownSync(RawFindingSchema)(value);
+  } catch {
+    return null;
+  }
+}
+
+function decodePatchAttempt(value: unknown): PatchAttempt | null {
+  try {
+    return Schema.decodeUnknownSync(PatchAttemptSchema)(value);
   } catch {
     return null;
   }
