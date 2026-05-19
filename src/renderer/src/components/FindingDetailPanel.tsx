@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { ArrowUpIcon } from "lucide-react";
+import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import type { ClawpatchStatus, FindingDetail } from "../../../shared/types";
 import { clawpatchStatuses } from "../../../shared/types";
 
@@ -74,6 +75,19 @@ export function FindingDetailPanel({
   const noteHistory = finding.history.filter(
     (entry) => entry.note !== null && entry.note.trim() !== "",
   );
+  const saveTriageNote = (): void => {
+    if (!isBusy) {
+      onTriage(status, note);
+    }
+  };
+  const handleNoteKeyDown = (event: ReactKeyboardEvent<HTMLTextAreaElement>): void => {
+    if (event.key !== "Enter" || event.shiftKey || event.nativeEvent.isComposing) {
+      return;
+    }
+
+    event.preventDefault();
+    saveTriageNote();
+  };
 
   return (
     <div className="detail-pane">
@@ -166,15 +180,25 @@ export function FindingDetailPanel({
 
         <div className="triage-controls">
           <label htmlFor="triage-note">Note for triage and fix</label>
-          <textarea
-            id="triage-note"
-            value={note}
-            onChange={(event) => setNote(event.currentTarget.value)}
-          />
-          <div className="detail-actions">
-            <button disabled={isBusy} onClick={() => onTriage(status, note)}>
-              Save triage
+          <div className="note-input">
+            <textarea
+              id="triage-note"
+              value={note}
+              onChange={(event) => setNote(event.currentTarget.value)}
+              onKeyDown={handleNoteKeyDown}
+            />
+            <button
+              aria-label="Save triage note"
+              className="icon-button note-send-button"
+              disabled={isBusy}
+              onClick={saveTriageNote}
+              title="Save triage note"
+              type="button"
+            >
+              <ArrowUpIcon aria-hidden="true" />
             </button>
+          </div>
+          <div className="detail-actions">
             <button
               disabled={isBusy || finding.status === "fixed"}
               onClick={() => onFix(status, note)}

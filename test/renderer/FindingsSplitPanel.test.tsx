@@ -70,7 +70,8 @@ describe("FindingsSplitPanel", () => {
       within(detailHeader as HTMLElement).queryByRole("button", { name: /Finding status/ }),
     ).not.toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText("Note for triage and fix"), {
+    const noteField = screen.getByLabelText("Note for triage and fix");
+    fireEvent.change(noteField, {
       target: { value: "needs product call" },
     });
     fireEvent.click(statusButton);
@@ -80,7 +81,8 @@ describe("FindingsSplitPanel", () => {
         { name: "false-positive" },
       ),
     );
-    fireEvent.click(screen.getByRole("button", { name: "Save triage" }));
+    expect(screen.queryByRole("button", { name: "Save triage" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Save triage note" }));
 
     expect(screen.queryByRole("menu", { name: "Finding status options" })).not.toBeInTheDocument();
     expect(
@@ -89,6 +91,32 @@ describe("FindingsSplitPanel", () => {
       }),
     ).toBeInTheDocument();
     expect(onTriage).toHaveBeenCalledWith("false-positive", "needs product call");
+  });
+
+  it("saves the current note when pressing Enter in the note field", () => {
+    const onTriage = vi.fn();
+    renderSplitPanel({ onTriage });
+
+    const noteField = screen.getByLabelText("Note for triage and fix");
+    fireEvent.change(noteField, {
+      target: { value: "needs product call" },
+    });
+    fireEvent.keyDown(noteField, { key: "Enter" });
+
+    expect(onTriage).toHaveBeenCalledWith("open", "needs product call");
+  });
+
+  it("keeps Shift+Enter available for note newlines", () => {
+    const onTriage = vi.fn();
+    renderSplitPanel({ onTriage });
+
+    const noteField = screen.getByLabelText("Note for triage and fix");
+    fireEvent.change(noteField, {
+      target: { value: "line one" },
+    });
+    fireEvent.keyDown(noteField, { key: "Enter", shiftKey: true });
+
+    expect(onTriage).not.toHaveBeenCalled();
   });
 
   it("supports keyboard resizing within configured limits", () => {
