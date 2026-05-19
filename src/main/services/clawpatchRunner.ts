@@ -7,14 +7,10 @@ import type {
   ClawpatchCommandRequest,
   ClawpatchStatus,
   CommandResult,
-  CommandStreamEvent
+  CommandStreamEvent,
 } from "../../shared/types";
 import { clawpatchStatuses } from "../../shared/types";
-import {
-  CommandAlreadyRunningError,
-  CommandSpawnError,
-  CommandValidationError
-} from "../errors";
+import { CommandAlreadyRunningError, CommandSpawnError, CommandValidationError } from "../errors";
 
 const commandNames = new Set(["status", "map", "report", "review", "triage", "fix", "doctor"]);
 
@@ -27,12 +23,12 @@ export interface ClawpatchRunnerShape {
   readonly run: (
     repoPath: string,
     request: ClawpatchCommandRequest,
-    onStream?: (event: CommandStreamEvent) => void
+    onStream?: (event: CommandStreamEvent) => void,
   ) => Effect.Effect<CommandResult, ClawpatchRunnerError>;
 }
 
 export class ClawpatchRunner extends Context.Service<ClawpatchRunner, ClawpatchRunnerShape>()(
-  "clawpatch/ClawpatchRunner"
+  "clawpatch/ClawpatchRunner",
 ) {}
 
 type RunClawpatchProcess = (input: {
@@ -43,11 +39,8 @@ type RunClawpatchProcess = (input: {
   readonly onStream?: (event: CommandStreamEvent) => void;
 }) => Promise<CommandResult>;
 
-export const makeClawpatchRunnerLayer = (
-  runProcess: RunClawpatchProcess = runClawpatchProcess
-) => Layer.effect(
-  ClawpatchRunner,
-  Effect.gen(function* () {
+export const makeClawpatchRunnerLayer = (runProcess: RunClawpatchProcess = runClawpatchProcess) =>
+  Layer.sync(ClawpatchRunner, () => {
     const activeRepos = new Set<string>();
 
     return ClawpatchRunner.of({
@@ -60,8 +53,8 @@ export const makeClawpatchRunnerLayer = (
           try: () => buildClawpatchArgs(request),
           catch: (error) =>
             new CommandValidationError({
-              message: error instanceof Error ? error.message : String(error)
-            })
+              message: error instanceof Error ? error.message : String(error),
+            }),
         });
         const runId = randomUUID();
         const started = Date.now();
@@ -74,14 +67,13 @@ export const makeClawpatchRunnerLayer = (
               args,
               runId,
               started,
-              onStream
+              onStream,
             }),
-          catch: (cause) => new CommandSpawnError({ repoPath, cause })
+          catch: (cause) => new CommandSpawnError({ repoPath, cause }),
         }).pipe(Effect.ensuring(Effect.sync(() => activeRepos.delete(repoPath))));
-      })
+      }),
     });
-  })
-);
+  });
 
 export const ClawpatchRunnerLive = makeClawpatchRunnerLayer();
 
@@ -119,13 +111,7 @@ export function buildClawpatchArgs(request: ClawpatchCommandRequest): string[] {
       if (!isClawpatchStatus(request.status)) {
         throw new Error(`Unsupported triage status: ${request.status}`);
       }
-      const triageArgs = [
-        ...args,
-        "--finding",
-        request.findingId,
-        "--status",
-        request.status
-      ];
+      const triageArgs = [...args, "--finding", request.findingId, "--status", request.status];
       if (request.note !== undefined && request.note.trim() !== "") {
         triageArgs.push("--note", request.note);
       }
@@ -148,7 +134,7 @@ function runClawpatchProcess(input: {
     const child = spawn("clawpatch", input.args, {
       cwd: input.repoPath,
       shell: false,
-      env: { ...process.env, NO_COLOR: "1" }
+      env: { ...process.env, NO_COLOR: "1" },
     });
 
     let stdout = "";
@@ -179,7 +165,7 @@ function runClawpatchProcess(input: {
         durationMs: Date.now() - input.started,
         stdout,
         stderr,
-        parsedJson: parseJsonOutput(stdout)
+        parsedJson: parseJsonOutput(stdout),
       });
     });
   });
@@ -193,7 +179,7 @@ function assertClawpatchId(id: string, field: string): void {
   if (typeof id !== "string" || id.trim() === "") {
     throw new Error(`Missing ${field}`);
   }
-  if (/[\0\r\n]/u.test(id)) {
+  if (id.includes("\0") || id.includes("\r") || id.includes("\n")) {
     throw new Error(`Invalid ${field}`);
   }
 }

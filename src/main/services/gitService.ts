@@ -9,7 +9,7 @@ export interface GitServiceShape {
 }
 
 export class GitService extends Context.Service<GitService, GitServiceShape>()(
-  "clawpatch/GitService"
+  "clawpatch/GitService",
 ) {}
 
 export const GitServiceLive = Layer.succeed(
@@ -18,10 +18,10 @@ export const GitServiceLive = Layer.succeed(
     readDiff: Effect.fn("git.readDiff")(function* (repoPath) {
       return yield* Effect.tryPromise({
         try: () => runGit(repoPath, ["diff", "--no-color"]),
-        catch: (cause) => new CommandSpawnError({ repoPath, cause })
+        catch: (cause) => new CommandSpawnError({ repoPath, cause }),
       });
-    })
-  })
+    }),
+  }),
 );
 
 function runGit(repoPath: string, args: readonly string[]): Promise<string> {

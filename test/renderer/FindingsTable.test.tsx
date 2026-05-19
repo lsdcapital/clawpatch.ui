@@ -8,7 +8,7 @@ import {
   defaultFindingFilters,
   filterFindings,
   getFindingFilterOptions,
-  type FindingFilters
+  type FindingFilters,
 } from "../../src/renderer/src/findingsFilters";
 
 describe("FindingsTable filters", () => {
@@ -18,15 +18,15 @@ describe("FindingsTable filters", () => {
       title: "Token is logged in debug output",
       category: "security",
       severity: "high",
-      status: "open"
+      status: "open",
     }),
     makeFinding({
       findingId: "fnd-bug",
       title: "Null branch can throw",
       category: "bug",
       severity: "medium",
-      status: "fixed"
-    })
+      status: "fixed",
+    }),
   ];
 
   it("renders filter controls, active chips, and clear behavior", () => {
@@ -72,7 +72,12 @@ describe("FindingsTable filters", () => {
     expect(screen.getByText("No findings found")).toBeInTheDocument();
 
     unmount();
-    render(<FilterHarness findings={findings} initialFilters={{ ...defaultFindingFilters, search: "missing" }} />);
+    render(
+      <FilterHarness
+        findings={findings}
+        initialFilters={{ ...defaultFindingFilters, search: "missing" }}
+      />,
+    );
     expect(screen.getByText("0 of 2 shown")).toBeInTheDocument();
     expect(screen.getByText("No findings match these filters")).toBeInTheDocument();
   });
@@ -89,7 +94,7 @@ describe("FindingsTable filters", () => {
         filterOptions={getFindingFilterOptions(findings, clawpatchStatuses)}
         onFiltersChange={vi.fn()}
         onSelectFinding={onSelectFinding}
-      />
+      />,
     );
 
     fireEvent.click(screen.getByText("Null branch can throw"));
@@ -99,7 +104,7 @@ describe("FindingsTable filters", () => {
 
 function FilterHarness({
   findings,
-  initialFilters = defaultFindingFilters
+  initialFilters = defaultFindingFilters,
 }: {
   findings: readonly FindingListItem[];
   initialFilters?: FindingFilters;
@@ -136,6 +141,6 @@ function makeFinding(overrides: Partial<FindingListItem>): FindingListItem {
     createdAt: "2026-01-01T00:00:00.000Z",
     updatedAt: "2026-01-01T00:00:00.000Z",
     localNote: null,
-    ...overrides
+    ...overrides,
   };
 }

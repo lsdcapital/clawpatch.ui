@@ -6,7 +6,7 @@ import {
   FileTextIcon,
   MoreHorizontalIcon,
   StethoscopeIcon,
-  TerminalSquareIcon
+  TerminalSquareIcon,
 } from "lucide-react";
 import type {
   ClawpatchCommandRequest,
@@ -14,7 +14,7 @@ import type {
   CommandResult,
   CommandStreamEvent,
   FindingListItem,
-  RepoSummary
+  RepoSummary,
 } from "../../../shared/types";
 import { CommandPanel } from "../components/CommandPanel";
 import { DiffViewer } from "../components/DiffViewer";
@@ -26,7 +26,7 @@ import {
   defaultFindingFilters,
   filterFindings,
   getFindingFilterOptions,
-  resolveSelectedFindingId
+  resolveSelectedFindingId,
 } from "../findingsFilters";
 import { clawpatchStatuses } from "../../../shared/constants";
 
@@ -49,12 +49,13 @@ export function ClawpatchApp() {
 
   const reposQuery = useQuery({
     queryKey: ["repos"],
-    queryFn: () => window.clawpatch.repo.list()
+    queryFn: () => window.clawpatch.repo.list(),
   });
 
   const selectedRepo = useMemo(
-    () => reposQuery.data?.find((repo) => repo.id === selectedRepoId) ?? reposQuery.data?.[0] ?? null,
-    [reposQuery.data, selectedRepoId]
+    () =>
+      reposQuery.data?.find((repo) => repo.id === selectedRepoId) ?? reposQuery.data?.[0] ?? null,
+    [reposQuery.data, selectedRepoId],
   );
 
   useEffect(() => {
@@ -66,28 +67,31 @@ export function ClawpatchApp() {
   const findingsQuery = useQuery({
     queryKey: ["findings", selectedRepo?.id],
     queryFn: () => window.clawpatch.findings.list(selectedRepo!.id),
-    enabled: selectedRepo !== null
+    enabled: selectedRepo !== null,
   });
 
-  const allFindings = findingsQuery.data ?? [];
+  const allFindings = useMemo(() => findingsQuery.data ?? [], [findingsQuery.data]);
   const filteredFindings = useMemo(
     () => filterFindings(allFindings, findingFilters),
-    [allFindings, findingFilters]
+    [allFindings, findingFilters],
   );
   const findingFilterOptions = useMemo(
     () => getFindingFilterOptions(allFindings, clawpatchStatuses),
-    [allFindings]
+    [allFindings],
   );
 
   const featureMapQuery = useQuery({
     queryKey: ["features", selectedRepo?.id],
     queryFn: () => window.clawpatch.features.map(selectedRepo!.id),
-    enabled: selectedRepo !== null
+    enabled: selectedRepo !== null,
   });
 
   const selectedFinding = useMemo(
-    () => filteredFindings.find((finding) => finding.findingId === selectedFindingId) ?? filteredFindings[0] ?? null,
-    [filteredFindings, selectedFindingId]
+    () =>
+      filteredFindings.find((finding) => finding.findingId === selectedFindingId) ??
+      filteredFindings[0] ??
+      null,
+    [filteredFindings, selectedFindingId],
   );
 
   useEffect(() => {
@@ -103,13 +107,13 @@ export function ClawpatchApp() {
   const detailQuery = useQuery({
     queryKey: ["finding", selectedRepo?.id, selectedFinding?.findingId],
     queryFn: () => window.clawpatch.findings.get(selectedRepo!.id, selectedFinding!.findingId),
-    enabled: selectedRepo !== null && selectedFinding !== null
+    enabled: selectedRepo !== null && selectedFinding !== null,
   });
 
   const diffQuery = useQuery({
     queryKey: ["diff", selectedRepo?.id],
     queryFn: () => window.clawpatch.git.diff(selectedRepo!.id),
-    enabled: selectedRepo !== null
+    enabled: selectedRepo !== null,
   });
 
   useEffect(() => {
@@ -123,7 +127,7 @@ export function ClawpatchApp() {
     onSuccess: (repo) => {
       setSelectedRepoId(repo.id);
       void queryClient.invalidateQueries({ queryKey: ["repos"] });
-    }
+    },
   });
 
   const commandMutation = useMutation({
@@ -136,9 +140,9 @@ export function ClawpatchApp() {
     onError: (error) => {
       setCommandLog((current) => [
         ...current,
-        { kind: "error", message: error instanceof Error ? error.message : String(error) }
+        { kind: "error", message: error instanceof Error ? error.message : String(error) },
       ]);
-    }
+    },
   });
 
   const triageMutation = useMutation({
@@ -146,7 +150,7 @@ export function ClawpatchApp() {
       repo,
       finding,
       status,
-      note
+      note,
     }: {
       repo: RepoSummary;
       finding: FindingListItem;
@@ -160,9 +164,9 @@ export function ClawpatchApp() {
     onError: (error) => {
       setCommandLog((current) => [
         ...current,
-        { kind: "error", message: error instanceof Error ? error.message : String(error) }
+        { kind: "error", message: error instanceof Error ? error.message : String(error) },
       ]);
-    }
+    },
   });
 
   const runCommand = (request: ClawpatchCommandRequest): void => {
@@ -198,7 +202,11 @@ export function ClawpatchApp() {
           </div>
           <div className="header-actions">
             <button
-              className={activeDrawer === "diff" ? "icon-button drawer-toggle active" : "icon-button drawer-toggle"}
+              className={
+                activeDrawer === "diff"
+                  ? "icon-button drawer-toggle active"
+                  : "icon-button drawer-toggle"
+              }
               disabled={selectedRepo === null}
               onClick={() => toggleDrawer("diff")}
               aria-pressed={activeDrawer === "diff"}
@@ -208,7 +216,11 @@ export function ClawpatchApp() {
               <DiffIcon aria-hidden="true" />
             </button>
             <button
-              className={activeDrawer === "output" ? "icon-button drawer-toggle active" : "icon-button drawer-toggle"}
+              className={
+                activeDrawer === "output"
+                  ? "icon-button drawer-toggle active"
+                  : "icon-button drawer-toggle"
+              }
               onClick={() => toggleDrawer("output")}
               aria-pressed={activeDrawer === "output"}
               aria-label="Toggle command output"
@@ -269,7 +281,9 @@ export function ClawpatchApp() {
           </div>
         </header>
 
-        {selectedRepo?.lastError ? <div className="repo-error">{selectedRepo.lastError}</div> : null}
+        {selectedRepo?.lastError ? (
+          <div className="repo-error">{selectedRepo.lastError}</div>
+        ) : null}
 
         <div className={activeDrawer === null ? "workspace-body" : "workspace-body drawer-open"}>
           <div className="primary-workspace">
@@ -301,7 +315,12 @@ export function ClawpatchApp() {
               onTriage={(status, note) => {
                 if (selectedRepo !== null && selectedFinding !== null) {
                   setActiveDrawer("output");
-                  triageMutation.mutate({ repo: selectedRepo, finding: selectedFinding, status, note });
+                  triageMutation.mutate({
+                    repo: selectedRepo,
+                    finding: selectedFinding,
+                    status,
+                    note,
+                  });
                 }
               }}
               onFix={() => {
@@ -312,11 +331,17 @@ export function ClawpatchApp() {
             />
           </div>
           {activeDrawer !== null ? (
-            <aside className="workspace-drawer" aria-label={activeDrawer === "diff" ? "Git diff" : "Command output"}>
+            <aside
+              className="workspace-drawer"
+              aria-label={activeDrawer === "diff" ? "Git diff" : "Command output"}
+            >
               {activeDrawer === "diff" ? (
                 <DiffViewer diff={diffQuery.data ?? ""} isLoading={diffQuery.isLoading} />
               ) : (
-                <CommandPanel entries={commandLog} isRunning={commandMutation.isPending || triageMutation.isPending} />
+                <CommandPanel
+                  entries={commandLog}
+                  isRunning={commandMutation.isPending || triageMutation.isPending}
+                />
               )}
             </aside>
           ) : null}
@@ -326,12 +351,15 @@ export function ClawpatchApp() {
   );
 }
 
-async function invalidateRepo(queryClient: ReturnType<typeof useQueryClient>, repoId: string | null): Promise<void> {
+async function invalidateRepo(
+  queryClient: ReturnType<typeof useQueryClient>,
+  repoId: string | null,
+): Promise<void> {
   await Promise.all([
     queryClient.invalidateQueries({ queryKey: ["repos"] }),
     queryClient.invalidateQueries({ queryKey: ["features", repoId] }),
     queryClient.invalidateQueries({ queryKey: ["findings", repoId] }),
     queryClient.invalidateQueries({ queryKey: ["finding"] }),
-    queryClient.invalidateQueries({ queryKey: ["diff", repoId] })
+    queryClient.invalidateQueries({ queryKey: ["diff", repoId] }),
   ]);
 }

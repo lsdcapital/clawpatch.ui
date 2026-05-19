@@ -30,14 +30,14 @@ describe("RepoService", () => {
       const emptyPathError = yield* service.addRepo("").pipe(
         Effect.match({
           onFailure: (error) => error,
-          onSuccess: () => null
-        })
+          onSuccess: () => null,
+        }),
       );
       const missingPathError = yield* service.addRepo(join(fixtureRepo, "missing")).pipe(
         Effect.match({
           onFailure: (error) => error,
-          onSuccess: () => null
-        })
+          onSuccess: () => null,
+        }),
       );
       const validSummary = yield* service.addRepo(fixtureRepo);
 
@@ -113,8 +113,8 @@ describe("RepoService", () => {
           command: "triage",
           findingId: "fnd-1",
           status: "uncertain",
-          note: "needs product call"
-        }
+          note: "needs product call",
+        },
       });
     }).pipe(Effect.provide(makeRepoServiceTestLayer(fixtureRepo, calls)));
   });
@@ -128,7 +128,7 @@ describe("RepoService", () => {
         Effect.gen(function* () {
           const service = yield* RepoService;
           return yield* service.listRepos();
-        })
+        }),
       );
 
       expect(repos).toEqual([]);
@@ -144,7 +144,8 @@ interface RunnerCall {
 }
 
 function makeRepoServiceTestLayer(cwd: string, calls: RunnerCall[], appData?: string) {
-  const appDataEffect = appData === undefined ? Effect.promise(() => makeTempDir()) : Effect.succeed(appData);
+  const appDataEffect =
+    appData === undefined ? Effect.promise(() => makeTempDir()) : Effect.succeed(appData);
   return Layer.unwrap(
     Effect.gen(function* () {
       const appData = yield* appDataEffect;
@@ -163,10 +164,10 @@ function makeRepoServiceTestLayer(cwd: string, calls: RunnerCall[], appData?: st
                 durationMs: 1,
                 stdout: "{}",
                 stderr: "",
-                parsedJson: {}
+                parsedJson: {},
               };
-            })
-        })
+            }),
+        }),
       );
       return RepoServiceLive(appData).pipe(
         Layer.provideMerge(
@@ -174,11 +175,11 @@ function makeRepoServiceTestLayer(cwd: string, calls: RunnerCall[], appData?: st
             runnerLayer,
             ClawpatchStateServiceLive,
             GuiMetadataServiceLive,
-            GitServiceLive
-          )
-        )
+            GitServiceLive,
+          ),
+        ),
       );
-    })
+    }),
   );
 }
 

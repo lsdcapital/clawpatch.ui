@@ -5,7 +5,7 @@ import {
   filterFindings,
   getFindingFilterOptions,
   isFindingFiltersActive,
-  resolveSelectedFindingId
+  resolveSelectedFindingId,
 } from "../../src/renderer/src/findingsFilters";
 import { clawpatchStatuses } from "../../src/shared/constants";
 
@@ -18,7 +18,9 @@ describe("finding filters", () => {
       severity: "high",
       status: "open",
       confidence: "high",
-      evidence: [{ path: "src/auth.ts", startLine: 10, endLine: 12, symbol: "logToken", quote: null }]
+      evidence: [
+        { path: "src/auth.ts", startLine: 10, endLine: 12, symbol: "logToken", quote: null },
+      ],
     }),
     makeFinding({
       findingId: "fnd-bug",
@@ -27,7 +29,9 @@ describe("finding filters", () => {
       severity: "medium",
       status: "fixed",
       confidence: "medium",
-      evidence: [{ path: "src/example.ts", startLine: 20, endLine: 21, symbol: "readValue", quote: null }]
+      evidence: [
+        { path: "src/example.ts", startLine: 20, endLine: 21, symbol: "readValue", quote: null },
+      ],
     }),
     makeFinding({
       findingId: "fnd-test",
@@ -35,38 +39,50 @@ describe("finding filters", () => {
       category: "test-gap",
       severity: "low",
       status: "uncertain",
-      confidence: "low"
-    })
+      confidence: "low",
+    }),
   ];
 
   it("filters by status", () => {
-    expect(filterFindings(findings, { ...defaultFindingFilters, status: "fixed" }).map((item) => item.findingId)).toEqual([
-      "fnd-bug"
-    ]);
+    expect(
+      filterFindings(findings, { ...defaultFindingFilters, status: "fixed" }).map(
+        (item) => item.findingId,
+      ),
+    ).toEqual(["fnd-bug"]);
   });
 
   it("filters by severity", () => {
-    expect(filterFindings(findings, { ...defaultFindingFilters, severity: "high" }).map((item) => item.findingId)).toEqual([
-      "fnd-security"
-    ]);
+    expect(
+      filterFindings(findings, { ...defaultFindingFilters, severity: "high" }).map(
+        (item) => item.findingId,
+      ),
+    ).toEqual(["fnd-security"]);
   });
 
   it("filters security as a category", () => {
     expect(
-      filterFindings(findings, { ...defaultFindingFilters, category: "security" }).map((item) => item.findingId)
+      filterFindings(findings, { ...defaultFindingFilters, category: "security" }).map(
+        (item) => item.findingId,
+      ),
     ).toEqual(["fnd-security"]);
   });
 
   it("searches title, id, and evidence metadata", () => {
-    expect(filterFindings(findings, { ...defaultFindingFilters, search: "LOG token" }).map((item) => item.findingId)).toEqual([
-      "fnd-security"
-    ]);
-    expect(filterFindings(findings, { ...defaultFindingFilters, search: "readvalue" }).map((item) => item.findingId)).toEqual([
-      "fnd-bug"
-    ]);
-    expect(filterFindings(findings, { ...defaultFindingFilters, search: "fnd-test" }).map((item) => item.findingId)).toEqual([
-      "fnd-test"
-    ]);
+    expect(
+      filterFindings(findings, { ...defaultFindingFilters, search: "LOG token" }).map(
+        (item) => item.findingId,
+      ),
+    ).toEqual(["fnd-security"]);
+    expect(
+      filterFindings(findings, { ...defaultFindingFilters, search: "readvalue" }).map(
+        (item) => item.findingId,
+      ),
+    ).toEqual(["fnd-bug"]);
+    expect(
+      filterFindings(findings, { ...defaultFindingFilters, search: "fnd-test" }).map(
+        (item) => item.findingId,
+      ),
+    ).toEqual(["fnd-test"]);
   });
 
   it("reports active filters and derived options", () => {
@@ -75,7 +91,7 @@ describe("finding filters", () => {
     expect(getFindingFilterOptions(findings, clawpatchStatuses)).toEqual({
       statuses: clawpatchStatuses,
       severities: ["high", "low", "medium"],
-      categories: ["bug", "security", "test-gap"]
+      categories: ["bug", "security", "test-gap"],
     });
   });
 
@@ -101,6 +117,6 @@ function makeFinding(overrides: Partial<FindingListItem>): FindingListItem {
     createdAt: "2026-01-01T00:00:00.000Z",
     updatedAt: "2026-01-01T00:00:00.000Z",
     localNote: null,
-    ...overrides
+    ...overrides,
   };
 }

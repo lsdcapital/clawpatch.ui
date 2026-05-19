@@ -12,7 +12,7 @@ import type {
   RepoSnapshotSchema,
   RepoSummarySchema,
   ReviewCoverageSchema,
-  ReviewRunSummarySchema
+  ReviewRunSummarySchema,
 } from "./schemas";
 export { clawpatchStatuses } from "./constants";
 
@@ -50,7 +50,7 @@ export interface Api {
       repoId: string,
       findingId: string,
       status: ClawpatchStatus,
-      note?: string
+      note?: string,
     ) => Promise<CommandResult>;
   };
   commands: {

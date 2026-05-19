@@ -81,7 +81,11 @@ export function FindingDetailPanel({ finding, isLoading, isBusy, onTriage, onFix
             ))}
           </select>
           <label htmlFor="triage-note">Note</label>
-          <textarea id="triage-note" value={note} onChange={(event) => setNote(event.currentTarget.value)} />
+          <textarea
+            id="triage-note"
+            value={note}
+            onChange={(event) => setNote(event.currentTarget.value)}
+          />
           <div className="detail-actions">
             <button disabled={isBusy} onClick={() => onTriage(status, note)}>
               Save triage

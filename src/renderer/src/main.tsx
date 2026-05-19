@@ -8,11 +8,11 @@ import "./styles.css";
 const queryClient = new QueryClient();
 
 const rootRoute = createRootRoute({
-  component: ClawpatchApp
+  component: ClawpatchApp,
 });
 
 const router = createRouter({
-  routeTree: rootRoute
+  routeTree: rootRoute,
 });
 
 declare module "@tanstack/react-router" {
@@ -26,5 +26,5 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
     <QueryClientProvider client={queryClient}>
       <RouterProvider router={router} />
     </QueryClientProvider>
-  </React.StrictMode>
+  </React.StrictMode>,
 );

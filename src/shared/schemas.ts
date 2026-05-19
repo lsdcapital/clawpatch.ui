@@ -10,16 +10,16 @@ export const ClawpatchCommandRequestSchema = Schema.Union([
   Schema.Struct({
     command: Schema.Literal("review"),
     featureId: Schema.optionalKey(Schema.String),
-    limit: Schema.optionalKey(Schema.Number)
+    limit: Schema.optionalKey(Schema.Number),
   }),
   Schema.Struct({
     command: Schema.Literal("triage"),
     findingId: Schema.String,
     status: ClawpatchStatusSchema,
-    note: Schema.optionalKey(Schema.String)
+    note: Schema.optionalKey(Schema.String),
   }),
   Schema.Struct({ command: Schema.Literal("fix"), findingId: Schema.String }),
-  Schema.Struct({ command: Schema.Literal("doctor") })
+  Schema.Struct({ command: Schema.Literal("doctor") }),
 ]);
 
 export const CommandResultSchema = Schema.Struct({
@@ -31,13 +31,13 @@ export const CommandResultSchema = Schema.Struct({
   durationMs: Schema.Number,
   stdout: Schema.String,
   stderr: Schema.String,
-  parsedJson: Schema.NullOr(Schema.Unknown)
+  parsedJson: Schema.NullOr(Schema.Unknown),
 });
 
 export const CommandStreamEventSchema = Schema.Struct({
   runId: Schema.String,
   stream: Schema.Literals(["stdout", "stderr"]),
-  chunk: Schema.String
+  chunk: Schema.String,
 });
 
 export const GuiMetadataSchema = Schema.Struct({
@@ -45,11 +45,11 @@ export const GuiMetadataSchema = Schema.Struct({
   filters: Schema.Struct({
     severity: Schema.NullOr(Schema.String),
     status: Schema.NullOr(ClawpatchStatusSchema),
-    search: Schema.String
+    search: Schema.String,
   }),
   notes: Schema.Record(Schema.String, Schema.String),
   lastSelectedFindingId: Schema.NullOr(Schema.String),
-  updatedAt: Schema.String
+  updatedAt: Schema.String,
 });
 
 export const EvidenceRefSchema = Schema.Struct({
@@ -57,7 +57,7 @@ export const EvidenceRefSchema = Schema.Struct({
   startLine: Schema.NullOr(Schema.Number),
   endLine: Schema.NullOr(Schema.Number),
   symbol: Schema.NullOr(Schema.String),
-  quote: Schema.NullOr(Schema.String)
+  quote: Schema.NullOr(Schema.String),
 });
 
 export const FindingListItemSchema = Schema.Struct({
@@ -73,7 +73,7 @@ export const FindingListItemSchema = Schema.Struct({
   linkedPatchAttemptIds: Schema.Array(Schema.String),
   createdAt: Schema.String,
   updatedAt: Schema.String,
-  localNote: Schema.NullOr(Schema.String)
+  localNote: Schema.NullOr(Schema.String),
 });
 
 export const FindingDetailSchema = Schema.Struct({
@@ -86,7 +86,7 @@ export const FindingDetailSchema = Schema.Struct({
   minimumFixScope: Schema.NullOr(Schema.String),
   feature: Schema.NullOr(Schema.Unknown),
   patchAttempts: Schema.Array(Schema.Unknown),
-  history: Schema.Array(Schema.Unknown)
+  history: Schema.Array(Schema.Unknown),
 });
 
 export const FeatureMapItemSchema = Schema.Struct({
@@ -99,7 +99,7 @@ export const FeatureMapItemSchema = Schema.Struct({
   contextFileCount: Schema.Number,
   testCount: Schema.Number,
   findingCount: Schema.Number,
-  updatedAt: Schema.String
+  updatedAt: Schema.String,
 });
 
 export const ReviewRunSummarySchema = Schema.Struct({
@@ -109,7 +109,7 @@ export const ReviewRunSummarySchema = Schema.Struct({
   finishedAt: Schema.NullOr(Schema.String),
   limit: Schema.NullOr(Schema.Number),
   reviewedFeatureCount: Schema.Number,
-  args: Schema.Array(Schema.String)
+  args: Schema.Array(Schema.String),
 });
 
 export const ReviewCoverageSchema = Schema.Struct({
@@ -118,12 +118,12 @@ export const ReviewCoverageSchema = Schema.Struct({
   pendingReviewFeatureIds: Schema.Array(Schema.String),
   latestReviewRun: Schema.NullOr(ReviewRunSummarySchema),
   latestLimitedReviewRun: Schema.NullOr(ReviewRunSummarySchema),
-  hasLimitedReviewRemainder: Schema.Boolean
+  hasLimitedReviewRemainder: Schema.Boolean,
 });
 
 export const FeatureMapSnapshotSchema = Schema.Struct({
   features: Schema.Array(FeatureMapItemSchema),
-  coverage: ReviewCoverageSchema
+  coverage: ReviewCoverageSchema,
 });
 
 export const RepoSummarySchema = Schema.Struct({
@@ -135,7 +135,7 @@ export const RepoSummarySchema = Schema.Struct({
   lastError: Schema.NullOr(Schema.String),
   findingCount: Schema.Number,
   openFindingCount: Schema.Number,
-  updatedAt: Schema.String
+  updatedAt: Schema.String,
 });
 
 export const RepoSnapshotSchema = Schema.Struct({
@@ -143,7 +143,7 @@ export const RepoSnapshotSchema = Schema.Struct({
   status: Schema.NullOr(Schema.Unknown),
   findings: Schema.Array(FindingListItemSchema),
   diff: Schema.String,
-  metadata: GuiMetadataSchema
+  metadata: GuiMetadataSchema,
 });
 
 export const RepoListSchema = Schema.Array(RepoSummarySchema);

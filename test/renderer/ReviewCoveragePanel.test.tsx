@@ -21,7 +21,7 @@ describe("ReviewCoveragePanel actions", () => {
         onReviewNext={onReviewNext}
         onReviewAllPending={onReviewAllPending}
         onReviewFeature={() => undefined}
-      />
+      />,
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Update map" }));
@@ -51,18 +51,21 @@ describe("ReviewCoveragePanel actions", () => {
         onReviewNext={() => undefined}
         onReviewAllPending={() => undefined}
         onReviewFeature={() => undefined}
-      />
+      />,
     );
 
     expect(screen.getByRole("button", { name: "Review next" })).toBeDisabled();
     expect(screen.queryByRole("button", { name: /remaining/i })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Show map table" })).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByRole("button", { name: "Show map table" })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
   });
 });
 
 function makeSnapshot({
   totalFeatures,
-  pendingReviewCount
+  pendingReviewCount,
 }: {
   totalFeatures: number;
   pendingReviewCount: number;
@@ -82,8 +85,8 @@ function makeSnapshot({
               contextFileCount: 1,
               testCount: 1,
               findingCount: 0,
-              updatedAt: "2026-05-19T00:00:00.000Z"
-            }
+              updatedAt: "2026-05-19T00:00:00.000Z",
+            },
           ],
     coverage: {
       totalFeatures,
@@ -91,7 +94,7 @@ function makeSnapshot({
       pendingReviewFeatureIds: [],
       latestReviewRun: null,
       latestLimitedReviewRun: null,
-      hasLimitedReviewRemainder: false
-    }
+      hasLimitedReviewRemainder: false,
+    },
   };
 }

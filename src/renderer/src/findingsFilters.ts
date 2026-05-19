@@ -17,12 +17,12 @@ export const defaultFindingFilters: FindingFilters = {
   search: "",
   status: null,
   severity: null,
-  category: null
+  category: null,
 };
 
 export function filterFindings(
   findings: readonly FindingListItem[],
-  filters: FindingFilters
+  filters: FindingFilters,
 ): FindingListItem[] {
   const query = normalize(filters.search);
   const queryTokens = query.split(" ").filter((token) => token !== "");
@@ -49,12 +49,12 @@ export function filterFindings(
 
 export function getFindingFilterOptions(
   findings: readonly FindingListItem[],
-  statuses: readonly ClawpatchStatus[]
+  statuses: readonly ClawpatchStatus[],
 ): FindingFilterOptions {
   return {
     statuses,
     severities: uniqueSorted(findings.map((finding) => finding.severity)),
-    categories: uniqueSorted(findings.map((finding) => finding.category))
+    categories: uniqueSorted(findings.map((finding) => finding.category)),
   };
 }
 
@@ -69,12 +69,15 @@ export function isFindingFiltersActive(filters: FindingFilters): boolean {
 
 export function resolveSelectedFindingId(
   selectedFindingId: string | null,
-  findings: readonly FindingListItem[]
+  findings: readonly FindingListItem[],
 ): string | null {
   if (findings.length === 0) {
     return null;
   }
-  if (selectedFindingId !== null && findings.some((finding) => finding.findingId === selectedFindingId)) {
+  if (
+    selectedFindingId !== null &&
+    findings.some((finding) => finding.findingId === selectedFindingId)
+  ) {
     return selectedFindingId;
   }
   return findings[0]?.findingId ?? null;
@@ -89,8 +92,8 @@ function findingSearchText(finding: FindingListItem): string {
       finding.severity,
       finding.status,
       finding.confidence,
-      ...finding.evidence.flatMap((evidence) => [evidence.path, evidence.symbol ?? ""])
-    ].join(" ")
+      ...finding.evidence.flatMap((evidence) => [evidence.path, evidence.symbol ?? ""]),
+    ].join(" "),
   );
 }
 
@@ -99,7 +102,7 @@ function normalize(value: string): string {
 }
 
 function uniqueSorted(values: readonly string[]): string[] {
-  return Array.from(new Set(values.filter((value) => value.trim() !== ""))).sort((left, right) =>
-    left.localeCompare(right)
+  return Array.from(new Set(values.filter((value) => value.trim() !== ""))).toSorted(
+    (left, right) => left.localeCompare(right),
   );
 }

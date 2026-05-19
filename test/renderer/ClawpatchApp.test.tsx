@@ -6,15 +6,17 @@ import type { Api, CommandResult, FeatureMapSnapshot, RepoSummary } from "../../
 
 describe("ClawpatchApp header actions", () => {
   it("keeps secondary commands reachable from the overflow menu", async () => {
-    const run = vi.fn<Api["commands"]["run"]>(
-      async (_repoId, request) => makeCommandResult(request.command)
+    const run = vi.fn<Api["commands"]["run"]>(async (_repoId, request) =>
+      makeCommandResult(request.command),
     );
     window.clawpatch = makeApi(run);
 
     render(
-      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+      <QueryClientProvider
+        client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+      >
         <ClawpatchApp />
-      </QueryClientProvider>
+      </QueryClientProvider>,
     );
 
     await screen.findByRole("heading", { name: "auth" });
@@ -29,7 +31,9 @@ describe("ClawpatchApp header actions", () => {
 
     fireEvent.click(within(menu).getByRole("menuitem", { name: "Doctor" }));
     await waitFor(() => expect(run).toHaveBeenCalledWith("repo-auth", { command: "doctor" }));
-    expect(within(screen.getByRole("banner")).queryByRole("button", { name: "Review next" })).not.toBeInTheDocument();
+    expect(
+      within(screen.getByRole("banner")).queryByRole("button", { name: "Review next" }),
+    ).not.toBeInTheDocument();
   });
 });
 
@@ -49,29 +53,29 @@ function makeApi(run: Api["commands"]["run"]): Api {
           filters: { severity: null, status: null, search: "" },
           notes: {},
           lastSelectedFindingId: null,
-          updatedAt: "2026-05-19T00:00:00.000Z"
-        }
-      })
+          updatedAt: "2026-05-19T00:00:00.000Z",
+        },
+      }),
     },
     findings: {
       list: async () => [],
       get: async () => {
         throw new Error("No finding expected");
-      }
+      },
     },
     features: {
-      map: async () => makeFeatureMapSnapshot()
+      map: async () => makeFeatureMapSnapshot(),
     },
     triage: {
-      set: async () => makeCommandResult("triage")
+      set: async () => makeCommandResult("triage"),
     },
     commands: {
       run,
-      onStream: () => () => undefined
+      onStream: () => () => undefined,
     },
     git: {
-      diff: async () => ""
-    }
+      diff: async () => "",
+    },
   };
 }
 
@@ -85,7 +89,7 @@ function makeRepo(): RepoSummary {
     lastError: null,
     findingCount: 0,
     openFindingCount: 0,
-    updatedAt: "2026-05-19T00:00:00.000Z"
+    updatedAt: "2026-05-19T00:00:00.000Z",
   };
 }
 
@@ -98,8 +102,8 @@ function makeFeatureMapSnapshot(): FeatureMapSnapshot {
       pendingReviewFeatureIds: [],
       latestReviewRun: null,
       latestLimitedReviewRun: null,
-      hasLimitedReviewRemainder: false
-    }
+      hasLimitedReviewRemainder: false,
+    },
   };
 }
 
@@ -113,6 +117,6 @@ function makeCommandResult(command: string): CommandResult {
     durationMs: 1,
     stdout: "",
     stderr: "",
-    parsedJson: null
+    parsedJson: null,
   };
 }

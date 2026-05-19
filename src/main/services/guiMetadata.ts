@@ -14,7 +14,7 @@ export interface GuiMetadataServiceShape {
   readonly setNote: (
     repoPath: string,
     findingId: string,
-    note: string
+    note: string,
   ) => Effect.Effect<GuiMetadata, unknown>;
 }
 
@@ -27,7 +27,7 @@ const liveService: GuiMetadataServiceShape = {
   read: Effect.fn("guiMetadata.read")(function* (repoPath) {
     const path = metadataPath(repoPath);
     const raw = yield* Effect.tryPromise(() => readFile(path, "utf8")).pipe(
-      Effect.catch(() => Effect.succeed(null))
+      Effect.catch(() => Effect.succeed(null)),
     );
     if (raw === null) {
       return defaultMetadata();
@@ -35,14 +35,14 @@ const liveService: GuiMetadataServiceShape = {
 
     const parsed = yield* Effect.try({
       try: () => JSON.parse(raw) as unknown,
-      catch: (cause) => cause
+      catch: (cause) => cause,
     }).pipe(Effect.catch(() => Effect.succeed(null)));
     if (parsed === null) {
       return defaultMetadata();
     }
 
     const decoded = yield* Schema.decodeUnknownEffect(GuiMetadataSchema)(parsed).pipe(
-      Effect.catch(() => Effect.succeed(defaultMetadata()))
+      Effect.catch(() => Effect.succeed(defaultMetadata())),
     );
     return normalizeMetadata(decoded);
   }),
@@ -50,11 +50,11 @@ const liveService: GuiMetadataServiceShape = {
     const next = { ...metadata, schemaVersion: 1 as const, updatedAt: new Date().toISOString() };
     yield* Effect.tryPromise({
       try: () => mkdir(join(repoPath, ".clawpatch", "gui"), { recursive: true }),
-      catch: (cause) => new JsonDecodeError({ path: metadataPath(repoPath), cause })
+      catch: (cause) => new JsonDecodeError({ path: metadataPath(repoPath), cause }),
     });
     yield* Effect.tryPromise({
       try: () => writeFile(metadataPath(repoPath), `${JSON.stringify(next, null, 2)}\n`, "utf8"),
-      catch: (cause) => new JsonDecodeError({ path: metadataPath(repoPath), cause })
+      catch: (cause) => new JsonDecodeError({ path: metadataPath(repoPath), cause }),
     });
     return next;
   }),
@@ -69,14 +69,14 @@ const liveService: GuiMetadataServiceShape = {
     return yield* liveService.write(repoPath, {
       ...metadata,
       notes: nextNotes,
-      lastSelectedFindingId: findingId
+      lastSelectedFindingId: findingId,
     });
-  })
+  }),
 };
 
 export const GuiMetadataServiceLive = Layer.succeed(
   GuiMetadataService,
-  GuiMetadataService.of(liveService)
+  GuiMetadataService.of(liveService),
 );
 
 function metadataPath(repoPath: string): string {
@@ -89,7 +89,7 @@ function normalizeMetadata(metadata: GuiMetadata): GuiMetadata {
     ...metadata,
     filters: { ...defaultMetadata().filters, ...metadata.filters },
     notes: metadata.notes ?? {},
-    schemaVersion: 1
+    schemaVersion: 1,
   };
 }
 
@@ -99,10 +99,10 @@ function defaultMetadata(): GuiMetadata {
     filters: {
       severity: null,
       status: null,
-      search: ""
+      search: "",
     },
     notes: {},
     lastSelectedFindingId: null,
-    updatedAt: new Date(0).toISOString()
+    updatedAt: new Date(0).toISOString(),
   };
 }

@@ -26,8 +26,8 @@ function createWindow(): void {
       preload: join(import.meta.dirname, "../preload/index.mjs"),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false
-    }
+      sandbox: false,
+    },
   });
 
   if (process.env["ELECTRON_RENDERER_URL"] !== undefined) {
@@ -68,15 +68,15 @@ function makeAppRuntime(userDataPath: string): ManagedRuntime.ManagedRuntime<any
     ClawpatchRunnerLive,
     ClawpatchStateServiceLive,
     GuiMetadataServiceLive,
-    GitServiceLive
+    GitServiceLive,
   );
   const repoLayer = RepoServiceLive(userDataPath).pipe(Layer.provideMerge(coreLayer));
   let runtime: ManagedRuntime.ManagedRuntime<any, any>;
   runtime = ManagedRuntime.make(
     Layer.mergeAll(
       repoLayer,
-      EffectIpcLive(ipcMain, (effect) => runtime.runPromise(effect))
-    )
+      EffectIpcLive(ipcMain, (effect) => runtime.runPromise(effect)),
+    ),
   );
   return runtime;
 }

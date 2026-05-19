@@ -16,7 +16,7 @@ export function RepoSidebar({
   isAdding,
   addError,
   onAddRepo,
-  onSelectRepo
+  onSelectRepo,
 }: Props) {
   const [isPicking, setIsPicking] = useState(false);
   const [pickError, setPickError] = useState<unknown>(null);
@@ -48,8 +48,16 @@ export function RepoSidebar({
         <button disabled={isAdding || isPicking} onClick={() => void pickRepo()}>
           {isPicking ? "Choosing repo" : "Add repo"}
         </button>
-        {pickError ? <div className="form-error">{pickError instanceof Error ? pickError.message : String(pickError)}</div> : null}
-        {addError ? <div className="form-error">{addError instanceof Error ? addError.message : String(addError)}</div> : null}
+        {pickError ? (
+          <div className="form-error">
+            {pickError instanceof Error ? pickError.message : String(pickError)}
+          </div>
+        ) : null}
+        {addError ? (
+          <div className="form-error">
+            {addError instanceof Error ? addError.message : String(addError)}
+          </div>
+        ) : null}
       </div>
       <div className="repo-section-header">
         <span>Repositories</span>

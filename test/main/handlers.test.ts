@@ -3,15 +3,8 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as ManagedRuntime from "effect/ManagedRuntime";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  REPO_PICK_FOLDER_CHANNEL
-} from "../../src/shared/ipcChannels";
-import type {
-  ClawpatchCommandRequest,
-  CommandResult,
-  FeatureMapSnapshot,
-  RepoSummary
-} from "../../src/shared/types";
+import { REPO_PICK_FOLDER_CHANNEL } from "../../src/shared/ipcChannels";
+import type { CommandResult, FeatureMapSnapshot, RepoSummary } from "../../src/shared/types";
 import { RepoService } from "../../src/main/services/repoService";
 import { installIpcHandlers } from "../../src/main/ipc/handlers";
 import { EffectIpcLive, type IpcMainLike } from "../../src/main/ipc/effectIpc";
@@ -19,17 +12,17 @@ import { EffectIpcLive, type IpcMainLike } from "../../src/main/ipc/effectIpc";
 const { getAllWindowsMock, getFocusedWindowMock, showOpenDialogMock } = vi.hoisted(() => ({
   getAllWindowsMock: vi.fn(),
   getFocusedWindowMock: vi.fn(),
-  showOpenDialogMock: vi.fn()
+  showOpenDialogMock: vi.fn(),
 }));
 
 vi.mock("electron", () => ({
   BrowserWindow: {
     getAllWindows: getAllWindowsMock,
-    getFocusedWindow: getFocusedWindowMock
+    getFocusedWindow: getFocusedWindowMock,
   },
   dialog: {
-    showOpenDialog: showOpenDialogMock
-  }
+    showOpenDialog: showOpenDialogMock,
+  },
 }));
 
 describe("IPC handlers", () => {
@@ -45,16 +38,16 @@ describe("IPC handlers", () => {
     getAllWindowsMock.mockReturnValue([]);
     showOpenDialogMock.mockResolvedValue({
       canceled: false,
-      filePaths: ["/tmp/clawpatch-repo"]
+      filePaths: ["/tmp/clawpatch-repo"],
     });
     const { listener, runtime } = await installHandlersForTest();
 
     try {
       await expect(listener({} as IpcMainInvokeEvent, undefined)).resolves.toBe(
-        "/tmp/clawpatch-repo"
+        "/tmp/clawpatch-repo",
       );
       expect(showOpenDialogMock).toHaveBeenCalledWith(focusedWindow, {
-        properties: ["openDirectory"]
+        properties: ["openDirectory"],
       });
     } finally {
       await runtime.dispose();
@@ -87,14 +80,14 @@ async function installHandlersForTest(): Promise<{
     removeHandler: vi.fn(),
     handle: vi.fn((channel, listener) => {
       registered.set(channel, listener);
-    })
+    }),
   };
   let runtime: ManagedRuntime.ManagedRuntime<any, any>;
   runtime = ManagedRuntime.make(
     Layer.mergeAll(
       makeRepoServiceLayer(),
-      EffectIpcLive(ipcMain, (effect) => runtime.runPromise(effect))
-    )
+      EffectIpcLive(ipcMain, (effect) => runtime.runPromise(effect)),
+    ),
   );
 
   await runtime.runPromise(installIpcHandlers(() => undefined));
@@ -123,19 +116,19 @@ function makeRepoServiceLayer() {
             filters: {
               severity: null,
               status: null,
-              search: ""
+              search: "",
             },
             notes: {},
-            updatedAt: "2026-05-19T00:00:00.000Z"
-          }
+            updatedAt: "2026-05-19T00:00:00.000Z",
+          },
         }),
       listFindings: () => Effect.succeed([]),
       readFeatureMap: () => Effect.succeed(makeFeatureMapSnapshot()),
       getFinding: () => Effect.die("not implemented"),
       runCommand: () => Effect.succeed(makeCommandResult()),
       setTriage: () => Effect.succeed(makeCommandResult()),
-      readDiff: () => Effect.succeed("")
-    })
+      readDiff: () => Effect.succeed(""),
+    }),
   );
 }
 
@@ -149,7 +142,7 @@ function makeRepoSummary(): RepoSummary {
     findingCount: 0,
     openFindingCount: 0,
     lastError: null,
-    updatedAt: "2026-05-19T00:00:00.000Z"
+    updatedAt: "2026-05-19T00:00:00.000Z",
   };
 }
 
@@ -162,8 +155,8 @@ function makeFeatureMapSnapshot(): FeatureMapSnapshot {
       pendingReviewFeatureIds: [],
       latestReviewRun: null,
       latestLimitedReviewRun: null,
-      hasLimitedReviewRemainder: false
-    }
+      hasLimitedReviewRemainder: false,
+    },
   };
 }
 
@@ -177,6 +170,6 @@ function makeCommandResult(): CommandResult {
     durationMs: 1,
     stdout: "{}",
     stderr: "",
-    parsedJson: {}
+    parsedJson: {},
   };
 }

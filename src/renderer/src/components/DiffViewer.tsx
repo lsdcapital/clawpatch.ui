@@ -15,7 +15,7 @@ export function DiffViewer({ diff, isLoading }: { diff: string; isLoading: boole
           lineNumbers: true,
           foldGutter: false,
           highlightActiveLine: false,
-          highlightSelectionMatches: false
+          highlightSelectionMatches: false,
         }}
         extensions={[javascript()]}
         editable={false}

@@ -3,6 +3,5 @@ export const clawpatchStatuses = [
   "false-positive",
   "fixed",
   "wont-fix",
-  "uncertain"
+  "uncertain",
 ] as const;
-

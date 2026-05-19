@@ -5,7 +5,10 @@ import { it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { describe, expect } from "vitest";
-import { ClawpatchStateService, ClawpatchStateServiceLive } from "../../src/main/services/clawpatchState";
+import {
+  ClawpatchStateService,
+  ClawpatchStateServiceLive,
+} from "../../src/main/services/clawpatchState";
 import { GuiMetadataService, GuiMetadataServiceLive } from "../../src/main/services/guiMetadata";
 
 const fixtureRepo = resolve("test/fixtures/clawpatch-repo");
@@ -24,9 +27,9 @@ describe("clawpatch state reader", () => {
         findingId: "fnd-1",
         title: "Null branch can throw",
         severity: "high",
-        status: "open"
+        status: "open",
       });
-    }).pipe(Effect.provide(stateLayer))
+    }).pipe(Effect.provide(stateLayer)),
   );
 
   it.effect("loads finding details with feature and linked patches", () =>
@@ -37,13 +40,13 @@ describe("clawpatch state reader", () => {
       const detail = yield* state.readFindingDetail(
         fixtureRepo,
         "fnd-1",
-        yield* metadata.read(fixtureRepo)
+        yield* metadata.read(fixtureRepo),
       );
 
       expect(detail.reasoning).toContain("null");
       expect(detail.feature).toMatchObject({ featureId: "feat-1" });
       expect(detail.patchAttempts).toHaveLength(1);
-    }).pipe(Effect.provide(stateLayer))
+    }).pipe(Effect.provide(stateLayer)),
   );
 
   it.effect("reads feature map coverage when run records are missing", () =>
@@ -57,16 +60,16 @@ describe("clawpatch state reader", () => {
         featureId: "feat-1",
         title: "Example module",
         status: "reviewed",
-        source: "fixture"
+        source: "fixture",
       });
       expect(snapshot.coverage).toMatchObject({
         totalFeatures: 1,
         pendingReviewCount: 0,
         latestReviewRun: null,
         latestLimitedReviewRun: null,
-        hasLimitedReviewRemainder: false
+        hasLimitedReviewRemainder: false,
       });
-    }).pipe(Effect.provide(stateLayer))
+    }).pipe(Effect.provide(stateLayer)),
   );
 
   it.effect("detects limited review runs with pending map items", () =>
@@ -74,8 +77,12 @@ describe("clawpatch state reader", () => {
       const tempRepo = yield* Effect.promise(() => mkdtemp(join(tmpdir(), "clawpatch-fixture-")));
       yield* Effect.promise(() => cp(fixtureRepo, tempRepo, { recursive: true }));
       try {
-        yield* Effect.promise(() => mkdir(join(tempRepo, ".clawpatch", "features"), { recursive: true }));
-        yield* Effect.promise(() => mkdir(join(tempRepo, ".clawpatch", "runs"), { recursive: true }));
+        yield* Effect.promise(() =>
+          mkdir(join(tempRepo, ".clawpatch", "features"), { recursive: true }),
+        );
+        yield* Effect.promise(() =>
+          mkdir(join(tempRepo, ".clawpatch", "runs"), { recursive: true }),
+        );
         yield* Effect.promise(() =>
           writeFile(
             join(tempRepo, ".clawpatch", "features", "feat-pending.json"),
@@ -90,13 +97,13 @@ describe("clawpatch state reader", () => {
                 contextFiles: [{ path: "src/api.ts" }],
                 tests: [{ path: "src/checkout.test.tsx" }],
                 findingIds: [],
-                updatedAt: "2026-01-02T00:00:00.000Z"
+                updatedAt: "2026-01-02T00:00:00.000Z",
               },
               null,
-              2
+              2,
             ),
-            "utf8"
-          )
+            "utf8",
+          ),
         );
         yield* Effect.promise(() =>
           writeFile(
@@ -112,13 +119,13 @@ describe("clawpatch state reader", () => {
                 contextFiles: [],
                 tests: [],
                 findingIds: ["fnd-2"],
-                updatedAt: "2026-01-03T00:00:00.000Z"
+                updatedAt: "2026-01-03T00:00:00.000Z",
               },
               null,
-              2
+              2,
             ),
-            "utf8"
-          )
+            "utf8",
+          ),
         );
         yield* Effect.promise(() =>
           writeFile(
@@ -134,13 +141,13 @@ describe("clawpatch state reader", () => {
                 claimedFeatureIds: ["feat-1"],
                 findingIds: [],
                 patchAttemptIds: [],
-                errors: []
+                errors: [],
               },
               null,
-              2
+              2,
             ),
-            "utf8"
-          )
+            "utf8",
+          ),
         );
 
         const state = yield* ClawpatchStateService;
@@ -150,13 +157,13 @@ describe("clawpatch state reader", () => {
         expect(snapshot.coverage.latestLimitedReviewRun).toMatchObject({
           runId: "run-limited",
           limit: 3,
-          reviewedFeatureCount: 1
+          reviewedFeatureCount: 1,
         });
         expect(snapshot.coverage.hasLimitedReviewRemainder).toBe(true);
       } finally {
         yield* Effect.promise(() => rm(tempRepo, { recursive: true, force: true }));
       }
-    }).pipe(Effect.provide(stateLayer))
+    }).pipe(Effect.provide(stateLayer)),
   );
 
   it.effect("skips malformed finding records at the schema boundary", () =>
@@ -164,13 +171,15 @@ describe("clawpatch state reader", () => {
       const tempRepo = yield* Effect.promise(() => mkdtemp(join(tmpdir(), "clawpatch-fixture-")));
       yield* Effect.promise(() => cp(fixtureRepo, tempRepo, { recursive: true }));
       try {
-        yield* Effect.promise(() => mkdir(join(tempRepo, ".clawpatch", "findings"), { recursive: true }));
+        yield* Effect.promise(() =>
+          mkdir(join(tempRepo, ".clawpatch", "findings"), { recursive: true }),
+        );
         yield* Effect.promise(() =>
           writeFile(
             join(tempRepo, ".clawpatch", "findings", "malformed.json"),
             JSON.stringify({ findingId: "bad", title: "missing required fields" }),
-            "utf8"
-          )
+            "utf8",
+          ),
         );
 
         const state = yield* ClawpatchStateService;
@@ -181,7 +190,7 @@ describe("clawpatch state reader", () => {
       } finally {
         yield* Effect.promise(() => rm(tempRepo, { recursive: true, force: true }));
       }
-    }).pipe(Effect.provide(stateLayer))
+    }).pipe(Effect.provide(stateLayer)),
   );
 });
 describe("gui metadata", () => {
@@ -200,6 +209,6 @@ describe("gui metadata", () => {
       } finally {
         yield* Effect.promise(() => rm(tempRepo, { recursive: true, force: true }));
       }
-    }).pipe(Effect.provide(stateLayer))
+    }).pipe(Effect.provide(stateLayer)),
   );
 });

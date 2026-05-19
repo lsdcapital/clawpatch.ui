@@ -11,7 +11,7 @@ import type {
   FindingDetail,
   FindingListItem,
   GuiMetadata,
-  ReviewRunSummary
+  ReviewRunSummary,
 } from "../../shared/types";
 import { JsonDecodeError } from "../errors";
 
@@ -34,7 +34,7 @@ const RawFindingSchema = Schema.Struct({
   history: Schema.optionalKey(Schema.Array(Schema.Unknown)),
   linkedPatchAttemptIds: Schema.optionalKey(Schema.Array(Schema.String)),
   createdAt: Schema.String,
-  updatedAt: Schema.String
+  updatedAt: Schema.String,
 });
 
 type RawFinding = typeof RawFindingSchema.Type;
@@ -44,12 +44,12 @@ export interface ClawpatchStateServiceShape {
   readonly readFeatureMap: (repoPath: string) => Effect.Effect<FeatureMapSnapshot, unknown>;
   readonly readFindingList: (
     repoPath: string,
-    metadata: GuiMetadata
+    metadata: GuiMetadata,
   ) => Effect.Effect<FindingListItem[], unknown>;
   readonly readFindingDetail: (
     repoPath: string,
     findingId: string,
-    metadata: GuiMetadata
+    metadata: GuiMetadata,
   ) => Effect.Effect<FindingDetail, unknown>;
 }
 
@@ -64,7 +64,7 @@ const liveService: ClawpatchStateServiceShape = {
     const candidates = [join(stateDir, "config.json"), join(stateDir, "findings")];
     for (const candidate of candidates) {
       const exists = yield* Effect.tryPromise(() => stat(candidate).then(() => true)).pipe(
-        Effect.catch(() => Effect.succeed(false))
+        Effect.catch(() => Effect.succeed(false)),
       );
       if (exists) {
         return true;
@@ -79,19 +79,19 @@ const liveService: ClawpatchStateServiceShape = {
   readFeatureMap: Effect.fn("clawpatchState.readFeatureMap")(function* (repoPath) {
     const [featureRecords, runRecords] = yield* Effect.all([
       readRecords(repoPath, "features"),
-      readRecords(repoPath, "runs")
+      readRecords(repoPath, "runs"),
     ]);
     const features = featureRecords
       .map(toFeatureMapItem)
       .filter((feature): feature is FeatureMapItem => feature !== null)
-      .sort(rankFeatureMapItem);
+      .toSorted(rankFeatureMapItem);
     const pendingReviewFeatureIds = features
       .filter((feature) => isPendingReviewStatus(feature.status))
       .map((feature) => feature.featureId);
     const reviewRuns = runRecords
       .map(toReviewRunSummary)
       .filter((run): run is ReviewRunSummary => run !== null)
-      .sort(compareReviewRunNewestFirst);
+      .toSorted(compareReviewRunNewestFirst);
     const latestReviewRun = reviewRuns[0] ?? null;
     const latestLimitedReviewRun = reviewRuns.find((run) => run.limit !== null) ?? null;
 
@@ -104,46 +104,49 @@ const liveService: ClawpatchStateServiceShape = {
         latestReviewRun,
         latestLimitedReviewRun,
         hasLimitedReviewRemainder:
-          latestLimitedReviewRun !== null && pendingReviewFeatureIds.length > 0
-      }
+          latestLimitedReviewRun !== null && pendingReviewFeatureIds.length > 0,
+      },
     };
   }),
-  readFindingDetail: Effect.fn("clawpatchState.readFindingDetail")(function* (
-    repoPath,
-    findingId,
-    metadata
-  ) {
-    const finding = (yield* readRawFindings(repoPath)).find((item) => item.findingId === findingId);
-    if (finding === undefined) {
-      return yield* Effect.fail(new Error(`Finding not found: ${findingId}`));
-    }
+  readFindingDetail: Effect.fn("clawpatchState.readFindingDetail")(
+    function* (repoPath, findingId, metadata) {
+      const finding = (yield* readRawFindings(repoPath)).find(
+        (item) => item.findingId === findingId,
+      );
+      if (finding === undefined) {
+        return yield* Effect.fail(new Error(`Finding not found: ${findingId}`));
+      }
 
-    const [features, patches] = yield* Effect.all([
-      readRecords(repoPath, "features"),
-      readRecords(repoPath, "patches")
-    ]);
-    const feature = features.find((item) => objectId(item, "featureId") === finding.featureId) ?? null;
-    const patchIds = new Set(finding.linkedPatchAttemptIds ?? []);
-    const linkedPatches = patches.filter((item) => patchIds.has(objectId(item, "patchAttemptId")));
+      const [features, patches] = yield* Effect.all([
+        readRecords(repoPath, "features"),
+        readRecords(repoPath, "patches"),
+      ]);
+      const feature =
+        features.find((item) => objectId(item, "featureId") === finding.featureId) ?? null;
+      const patchIds = new Set(finding.linkedPatchAttemptIds ?? []);
+      const linkedPatches = patches.filter((item) =>
+        patchIds.has(objectId(item, "patchAttemptId")),
+      );
 
-    return {
-      ...toFindingListItem(finding, metadata),
-      reasoning: finding.reasoning,
-      reproduction: finding.reproduction ?? null,
-      recommendation: finding.recommendation,
-      whyTestsDoNotAlreadyCoverThis: finding.whyTestsDoNotAlreadyCoverThis ?? null,
-      suggestedRegressionTest: finding.suggestedRegressionTest ?? null,
-      minimumFixScope: finding.minimumFixScope ?? null,
-      feature,
-      patchAttempts: linkedPatches,
-      history: [...(finding.history ?? [])]
-    };
-  })
+      return {
+        ...toFindingListItem(finding, metadata),
+        reasoning: finding.reasoning,
+        reproduction: finding.reproduction ?? null,
+        recommendation: finding.recommendation,
+        whyTestsDoNotAlreadyCoverThis: finding.whyTestsDoNotAlreadyCoverThis ?? null,
+        suggestedRegressionTest: finding.suggestedRegressionTest ?? null,
+        minimumFixScope: finding.minimumFixScope ?? null,
+        feature,
+        patchAttempts: linkedPatches,
+        history: [...(finding.history ?? [])],
+      };
+    },
+  ),
 };
 
 export const ClawpatchStateServiceLive = Layer.succeed(
   ClawpatchStateService,
-  ClawpatchStateService.of(liveService)
+  ClawpatchStateService.of(liveService),
 );
 
 const readRawFindings = Effect.fn("clawpatchState.readRawFindings")(function* (repoPath: string) {
@@ -151,27 +154,27 @@ const readRawFindings = Effect.fn("clawpatchState.readRawFindings")(function* (r
   return records
     .map(decodeRawFinding)
     .filter((finding): finding is RawFinding => finding !== null)
-    .sort((a, b) => rankFinding(a) - rankFinding(b) || a.findingId.localeCompare(b.findingId));
+    .toSorted((a, b) => rankFinding(a) - rankFinding(b) || a.findingId.localeCompare(b.findingId));
 });
 
 const readRecords = Effect.fn("clawpatchState.readRecords")(function* (
   repoPath: string,
-  directory: string
+  directory: string,
 ) {
   const dir = join(repoPath, ".clawpatch", directory);
   const names = yield* Effect.tryPromise(() => readdir(dir)).pipe(
-    Effect.catch(() => Effect.succeed([] as string[]))
+    Effect.catch(() => Effect.succeed([] as string[])),
   );
 
   const records: unknown[] = [];
-  for (const name of [...names].sort()) {
+  for (const name of names.toSorted()) {
     if (!name.endsWith(".json")) {
       continue;
     }
     const path = join(dir, basename(name));
     const parsed = yield* Effect.tryPromise({
       try: async () => JSON.parse(await readFile(path, "utf8")) as unknown,
-      catch: (cause) => new JsonDecodeError({ path, cause })
+      catch: (cause) => new JsonDecodeError({ path, cause }),
     }).pipe(Effect.catch(() => Effect.succeed(null)));
     if (parsed !== null) {
       records.push(parsed);
@@ -203,12 +206,12 @@ function toFindingListItem(finding: RawFinding, metadata: GuiMetadata): FindingL
       startLine: nullableNumber(item, "startLine"),
       endLine: nullableNumber(item, "endLine"),
       symbol: nullableString(item, "symbol"),
-      quote: nullableString(item, "quote")
+      quote: nullableString(item, "quote"),
     })),
     linkedPatchAttemptIds: [...(finding.linkedPatchAttemptIds ?? [])],
     createdAt: finding.createdAt,
     updatedAt: finding.updatedAt,
-    localNote: metadata.notes[finding.findingId] ?? null
+    localNote: metadata.notes[finding.findingId] ?? null,
   };
 }
 
@@ -227,16 +230,24 @@ function toFeatureMapItem(value: unknown): FeatureMapItem | null {
       stringValue(value, "title"),
       stringValue(value, "summary"),
       stringValue(value, "path"),
-      featureId
+      featureId,
     ),
     status: firstNonEmptyString(stringValue(value, "status"), "unknown"),
     kind: firstNonEmptyString(stringValue(value, "kind"), "unknown"),
-    source: firstNonEmptyString(stringValue(value, "source"), stringValue(value, "project"), "unknown"),
+    source: firstNonEmptyString(
+      stringValue(value, "source"),
+      stringValue(value, "project"),
+      "unknown",
+    ),
     ownedFileCount,
     contextFileCount,
     testCount,
     findingCount,
-    updatedAt: firstNonEmptyString(stringValue(value, "updatedAt"), stringValue(value, "createdAt"), "")
+    updatedAt: firstNonEmptyString(
+      stringValue(value, "updatedAt"),
+      stringValue(value, "createdAt"),
+      "",
+    ),
   };
 }
 
@@ -258,7 +269,7 @@ function toReviewRunSummary(value: unknown): ReviewRunSummary | null {
     finishedAt: nullableString(value, "finishedAt"),
     limit: reviewLimit(args),
     reviewedFeatureCount: arrayValue(value, "claimedFeatureIds").length,
-    args
+    args,
   };
 }
 
@@ -278,7 +289,9 @@ function reviewLimit(args: readonly string[]): number | null {
 }
 
 function compareReviewRunNewestFirst(left: ReviewRunSummary, right: ReviewRunSummary): number {
-  return timestamp(right.startedAt) - timestamp(left.startedAt) || right.runId.localeCompare(left.runId);
+  return (
+    timestamp(right.startedAt) - timestamp(left.startedAt) || right.runId.localeCompare(left.runId)
+  );
 }
 
 function rankFeatureMapItem(left: FeatureMapItem, right: FeatureMapItem): number {
@@ -317,21 +330,33 @@ function firstNonEmptyString(...values: string[]): string {
 }
 
 function objectId(value: unknown, key: string): string {
-  if (typeof value === "object" && value !== null && typeof (value as Record<string, unknown>)[key] === "string") {
+  if (
+    typeof value === "object" &&
+    value !== null &&
+    typeof (value as Record<string, unknown>)[key] === "string"
+  ) {
     return (value as Record<string, string>)[key];
   }
   return "";
 }
 
 function valueOrEmpty(value: unknown, key: string): string {
-  if (typeof value === "object" && value !== null && typeof (value as Record<string, unknown>)[key] === "string") {
+  if (
+    typeof value === "object" &&
+    value !== null &&
+    typeof (value as Record<string, unknown>)[key] === "string"
+  ) {
     return (value as Record<string, string>)[key];
   }
   return "";
 }
 
 function stringValue(value: unknown, key: string): string {
-  if (typeof value === "object" && value !== null && typeof (value as Record<string, unknown>)[key] === "string") {
+  if (
+    typeof value === "object" &&
+    value !== null &&
+    typeof (value as Record<string, unknown>)[key] === "string"
+  ) {
     return (value as Record<string, string>)[key];
   }
   return "";

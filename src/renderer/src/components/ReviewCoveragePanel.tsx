@@ -22,7 +22,7 @@ export function ReviewCoveragePanel({
   onRunMap,
   onReviewNext,
   onReviewAllPending,
-  onReviewFeature
+  onReviewFeature,
 }: Props) {
   const coverage = snapshot?.coverage ?? null;
   const pendingCount = coverage?.pendingReviewCount ?? 0;
@@ -41,7 +41,11 @@ export function ReviewCoveragePanel({
             <RefreshCwIcon aria-hidden="true" />
             Update map
           </button>
-          <button className="primary-action" disabled={isBusy || totalFeatures === 0} onClick={onReviewNext}>
+          <button
+            className="primary-action"
+            disabled={isBusy || totalFeatures === 0}
+            onClick={onReviewNext}
+          >
             <ListChecksIcon aria-hidden="true" />
             Review next
           </button>
@@ -51,7 +55,9 @@ export function ReviewCoveragePanel({
             </button>
           ) : null}
           <button
-            className={isExpanded ? "icon-button drawer-toggle active" : "icon-button drawer-toggle"}
+            className={
+              isExpanded ? "icon-button drawer-toggle active" : "icon-button drawer-toggle"
+            }
             disabled={snapshot === null}
             onClick={onToggleExpanded}
             aria-pressed={isExpanded}

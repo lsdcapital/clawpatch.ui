@@ -92,13 +92,7 @@
       "command": "pnpm test"
     }
   ],
-  "tags": [
-    "node",
-    "typescript",
-    "source-group",
-    "project:clawpatch-gui",
-    "project-root:."
-  ],
+  "tags": ["node", "typescript", "source-group", "project:clawpatch-gui", "project-root:."],
   "trustBoundaries": [],
   "status": "pending",
   "lock": null,

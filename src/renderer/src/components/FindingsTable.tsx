@@ -3,7 +3,7 @@ import {
   defaultFindingFilters,
   isFindingFiltersActive,
   type FindingFilterOptions,
-  type FindingFilters
+  type FindingFilters,
 } from "../findingsFilters";
 
 interface Props {
@@ -25,7 +25,7 @@ export function FindingsTable({
   filters,
   filterOptions,
   onFiltersChange,
-  onSelectFinding
+  onSelectFinding,
 }: Props) {
   const filtersActive = isFindingFiltersActive(filters);
   const countLabel = isLoading
@@ -82,16 +82,28 @@ export function FindingsTable({
         {filtersActive ? (
           <div className="filter-chips" aria-label="Active filters">
             {filters.search.trim() !== "" ? (
-              <FilterChip label={`Search: ${filters.search.trim()}`} onClear={() => updateFilters({ search: "" })} />
+              <FilterChip
+                label={`Search: ${filters.search.trim()}`}
+                onClear={() => updateFilters({ search: "" })}
+              />
             ) : null}
             {filters.status !== null ? (
-              <FilterChip label={labelFor(filters.status)} onClear={() => updateFilters({ status: null })} />
+              <FilterChip
+                label={labelFor(filters.status)}
+                onClear={() => updateFilters({ status: null })}
+              />
             ) : null}
             {filters.severity !== null ? (
-              <FilterChip label={labelFor(filters.severity)} onClear={() => updateFilters({ severity: null })} />
+              <FilterChip
+                label={labelFor(filters.severity)}
+                onClear={() => updateFilters({ severity: null })}
+              />
             ) : null}
             {filters.category !== null ? (
-              <FilterChip label={labelFor(filters.category)} onClear={() => updateFilters({ category: null })} />
+              <FilterChip
+                label={labelFor(filters.category)}
+                onClear={() => updateFilters({ category: null })}
+              />
             ) : null}
           </div>
         ) : null}
@@ -117,7 +129,9 @@ export function FindingsTable({
           </button>
         ))}
         {!isLoading && findings.length === 0 ? (
-          <div className="empty-state">{filtersActive ? "No findings match these filters" : "No findings found"}</div>
+          <div className="empty-state">
+            {filtersActive ? "No findings match these filters" : "No findings found"}
+          </div>
         ) : null}
       </div>
     </section>
@@ -128,7 +142,7 @@ function FilterGroup<TValue extends string>({
   title,
   values,
   selectedValue,
-  onSelect
+  onSelect,
 }: {
   title: string;
   values: readonly TValue[];
@@ -142,7 +156,11 @@ function FilterGroup<TValue extends string>({
         All
       </button>
       {values.map((value) => (
-        <button key={value} className={selectedValue === value ? "active" : ""} onClick={() => onSelect(value)}>
+        <button
+          key={value}
+          className={selectedValue === value ? "active" : ""}
+          onClick={() => onSelect(value)}
+        >
           {labelFor(value)}
         </button>
       ))}

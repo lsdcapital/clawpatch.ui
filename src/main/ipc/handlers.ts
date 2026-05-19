@@ -10,7 +10,7 @@ import {
   FindingListSchema,
   RepoListSchema,
   RepoSnapshotSchema,
-  RepoSummarySchema
+  RepoSummarySchema,
 } from "../../shared/schemas";
 import type { CommandStreamEvent } from "../../shared/types";
 import { RepoService } from "../services/repoService";
@@ -24,7 +24,7 @@ import {
   REPO_LIST_CHANNEL,
   REPO_PICK_FOLDER_CHANNEL,
   REPO_REFRESH_CHANNEL,
-  TRIAGE_SET_CHANNEL
+  TRIAGE_SET_CHANNEL,
 } from "../../shared/ipcChannels";
 import { EffectIpc, makeIpcMethod } from "./effectIpc";
 
@@ -35,11 +35,11 @@ const TriageSetPayload = Schema.Struct({
   repoId: Schema.String,
   findingId: Schema.String,
   status: ClawpatchStatusSchema,
-  note: Schema.optionalKey(Schema.String)
+  note: Schema.optionalKey(Schema.String),
 });
 const CommandRunPayload = Schema.Struct({
   repoId: Schema.String,
-  request: ClawpatchCommandRequestSchema
+  request: ClawpatchCommandRequestSchema,
 });
 
 export const installIpcHandlers = (publishCommandStream: (event: CommandStreamEvent) => void) =>
@@ -52,56 +52,56 @@ export const installIpcHandlers = (publishCommandStream: (event: CommandStreamEv
         channel: REPO_LIST_CHANNEL,
         payload: Schema.Void,
         result: RepoListSchema,
-        handler: () => repos.listRepos()
-      })
+        handler: () => repos.listRepos(),
+      }),
     );
     yield* ipc.handle(
       makeIpcMethod({
         channel: REPO_ADD_CHANNEL,
         payload: RepoAddPayload,
         result: RepoSummarySchema,
-        handler: ({ repoPath }) => repos.addRepo(repoPath)
-      })
+        handler: ({ repoPath }) => repos.addRepo(repoPath),
+      }),
     );
     yield* ipc.handle(
       makeIpcMethod({
         channel: REPO_PICK_FOLDER_CHANNEL,
         payload: Schema.Void,
         result: Schema.NullOr(Schema.String),
-        handler: () => pickRepoFolder()
-      })
+        handler: () => pickRepoFolder(),
+      }),
     );
     yield* ipc.handle(
       makeIpcMethod({
         channel: REPO_REFRESH_CHANNEL,
         payload: RepoIdPayload,
         result: RepoSnapshotSchema,
-        handler: ({ repoId }) => repos.refreshRepo(repoId)
-      })
+        handler: ({ repoId }) => repos.refreshRepo(repoId),
+      }),
     );
     yield* ipc.handle(
       makeIpcMethod({
         channel: FINDINGS_LIST_CHANNEL,
         payload: RepoIdPayload,
         result: FindingListSchema,
-        handler: ({ repoId }) => repos.listFindings(repoId)
-      })
+        handler: ({ repoId }) => repos.listFindings(repoId),
+      }),
     );
     yield* ipc.handle(
       makeIpcMethod({
         channel: FINDINGS_GET_CHANNEL,
         payload: FindingPayload,
         result: FindingDetailSchema,
-        handler: ({ repoId, findingId }) => repos.getFinding(repoId, findingId)
-      })
+        handler: ({ repoId, findingId }) => repos.getFinding(repoId, findingId),
+      }),
     );
     yield* ipc.handle(
       makeIpcMethod({
         channel: FEATURES_MAP_CHANNEL,
         payload: RepoIdPayload,
         result: FeatureMapSnapshotSchema,
-        handler: ({ repoId }) => repos.readFeatureMap(repoId)
-      })
+        handler: ({ repoId }) => repos.readFeatureMap(repoId),
+      }),
     );
     yield* ipc.handle(
       makeIpcMethod({
@@ -109,8 +109,8 @@ export const installIpcHandlers = (publishCommandStream: (event: CommandStreamEv
         payload: TriageSetPayload,
         result: CommandResultSchema,
         handler: ({ repoId, findingId, status, note }) =>
-          repos.setTriage(repoId, findingId, status, note)
-      })
+          repos.setTriage(repoId, findingId, status, note),
+      }),
     );
     yield* ipc.handle(
       makeIpcMethod({
@@ -118,16 +118,16 @@ export const installIpcHandlers = (publishCommandStream: (event: CommandStreamEv
         payload: CommandRunPayload,
         result: CommandResultSchema,
         handler: ({ repoId, request }) =>
-          repos.runCommand(repoId, request, (event) => publishCommandStream(event))
-      })
+          repos.runCommand(repoId, request, (event) => publishCommandStream(event)),
+      }),
     );
     yield* ipc.handle(
       makeIpcMethod({
         channel: GIT_DIFF_CHANNEL,
         payload: RepoIdPayload,
         result: Schema.String,
-        handler: ({ repoId }) => repos.readDiff(repoId)
-      })
+        handler: ({ repoId }) => repos.readDiff(repoId),
+      }),
     );
   }).pipe(Effect.withSpan("ipc.installHandlers"));
 
@@ -135,7 +135,7 @@ const pickRepoFolder = Effect.fn("repo.pickFolder")(function* () {
   const owner = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0] ?? null;
   const options: OpenDialogOptions = { properties: ["openDirectory"] };
   const result = yield* Effect.promise(() =>
-    owner === null ? dialog.showOpenDialog(options) : dialog.showOpenDialog(owner, options)
+    owner === null ? dialog.showOpenDialog(options) : dialog.showOpenDialog(owner, options),
   );
 
   if (result.canceled) {

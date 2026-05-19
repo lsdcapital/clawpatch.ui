@@ -14,7 +14,7 @@ import type {
   FindingDetail,
   FindingListItem,
   RepoSnapshot,
-  RepoSummary
+  RepoSummary,
 } from "../../shared/types";
 import { InvalidRepoPathError, RepoNotFoundError } from "../errors";
 import { ClawpatchRunner } from "./clawpatchRunner";
@@ -36,19 +36,19 @@ export interface RepoServiceShape {
   readonly runCommand: (
     repoId: string,
     request: ClawpatchCommandRequest,
-    onStream?: (event: CommandStreamEvent) => void
+    onStream?: (event: CommandStreamEvent) => void,
   ) => Effect.Effect<CommandResult, unknown>;
   readonly setTriage: (
     repoId: string,
     findingId: string,
     status: ClawpatchStatus,
-    note?: string
+    note?: string,
   ) => Effect.Effect<CommandResult, unknown>;
   readonly readDiff: (repoId: string) => Effect.Effect<string, unknown>;
 }
 
 export class RepoService extends Context.Service<RepoService, RepoServiceShape>()(
-  "clawpatch/RepoService"
+  "clawpatch/RepoService",
 ) {}
 
 export const RepoServiceLive = (appDataDir: string) =>
@@ -63,7 +63,7 @@ export const RepoServiceLive = (appDataDir: string) =>
 
       const readRegistry = Effect.fn("repoService.readRegistry")(function* () {
         const raw = yield* Effect.tryPromise(() => readFile(registryPath, "utf8")).pipe(
-          Effect.catch(() => Effect.succeed(null))
+          Effect.catch(() => Effect.succeed(null)),
         );
         if (raw === null) {
           return { repos: [] } satisfies RegistryFile;
@@ -72,21 +72,25 @@ export const RepoServiceLive = (appDataDir: string) =>
         return yield* Effect.try({
           try: () => {
             const parsed = JSON.parse(raw) as Partial<RegistryFile>;
-            return { repos: Array.isArray(parsed.repos) ? parsed.repos : [] } satisfies RegistryFile;
+            return {
+              repos: Array.isArray(parsed.repos) ? parsed.repos : [],
+            } satisfies RegistryFile;
           },
-          catch: (cause) => cause
+          catch: (cause) => cause,
         }).pipe(Effect.catch(() => Effect.succeed({ repos: [] } satisfies RegistryFile)));
       });
 
-      const writeRegistry = Effect.fn("repoService.writeRegistry")(function* (registry: RegistryFile) {
+      const writeRegistry = Effect.fn("repoService.writeRegistry")(function* (
+        registry: RegistryFile,
+      ) {
         yield* Effect.tryPromise({
           try: () => mkdir(dirname(registryPath), { recursive: true }),
           catch: (cause) =>
             new InvalidRepoPathError({
               message: "Unable to create repo registry directory",
               path: registryPath,
-              cause
-            })
+              cause,
+            }),
         });
         yield* Effect.tryPromise({
           try: () => writeFile(registryPath, `${JSON.stringify(registry, null, 2)}\n`, "utf8"),
@@ -94,8 +98,8 @@ export const RepoServiceLive = (appDataDir: string) =>
             new InvalidRepoPathError({
               message: "Unable to write repo registry",
               path: registryPath,
-              cause
-            })
+              cause,
+            }),
         });
       });
 
@@ -111,7 +115,7 @@ export const RepoServiceLive = (appDataDir: string) =>
 
       const summarizeRepo = Effect.fn("repoService.summarizeRepo")(function* (
         repoPath: string,
-        id: string
+        id: string,
       ) {
         const hasClawpatch = yield* state.detect(repoPath);
         let isValid = false;
@@ -126,9 +130,9 @@ export const RepoServiceLive = (appDataDir: string) =>
               Effect.succeed({
                 exitCode: 1,
                 stderr: error instanceof Error ? error.message : String(error),
-                stdout: ""
-              })
-            )
+                stdout: "",
+              }),
+            ),
           );
           isValid = status.exitCode === 0;
           lastError = isValid ? null : status.stderr || status.stdout || "clawpatch status failed";
@@ -146,7 +150,7 @@ export const RepoServiceLive = (appDataDir: string) =>
           lastError,
           findingCount: findings.length,
           openFindingCount: findings.filter((item) => item.status === "open").length,
-          updatedAt: new Date().toISOString()
+          updatedAt: new Date().toISOString(),
         } satisfies RepoSummary;
       });
 
@@ -155,7 +159,7 @@ export const RepoServiceLive = (appDataDir: string) =>
           const registry = yield* readRegistry();
           return yield* Effect.all(
             registry.repos.map((repo) => summarizeRepo(repo.path, repo.id)),
-            { concurrency: "unbounded" }
+            { concurrency: "unbounded" },
           );
         }),
         addRepo: Effect.fn("repoService.addRepo")(function* (repoPath) {
@@ -170,7 +174,7 @@ export const RepoServiceLive = (appDataDir: string) =>
             id: repoId(normalized),
             name: basename(normalized),
             path: normalized,
-            updatedAt: new Date().toISOString()
+            updatedAt: new Date().toISOString(),
           };
           registry.repos.push(repo);
           yield* writeRegistry(registry);
@@ -181,14 +185,14 @@ export const RepoServiceLive = (appDataDir: string) =>
           const repoMetadata = yield* metadata.read(repo.path);
           const [summary, diff] = yield* Effect.all([
             summarizeRepo(repo.path, repo.id),
-            git.readDiff(repo.path)
+            git.readDiff(repo.path),
           ]);
           const findings = yield* state.readFindingList(repo.path, repoMetadata);
           return {
             repo: {
               ...summary,
               findingCount: findings.length,
-              openFindingCount: findings.filter((item) => item.status === "open").length
+              openFindingCount: findings.filter((item) => item.status === "open").length,
             },
             status:
               summary.lastError === null
@@ -196,7 +200,7 @@ export const RepoServiceLive = (appDataDir: string) =>
                 : null,
             findings,
             diff,
-            metadata: repoMetadata
+            metadata: repoMetadata,
           };
         }),
         listFindings: Effect.fn("repoService.listFindings")(function* (repoIdValue) {
@@ -209,7 +213,11 @@ export const RepoServiceLive = (appDataDir: string) =>
         }),
         getFinding: Effect.fn("repoService.getFinding")(function* (repoIdValue, findingId) {
           const repo = yield* requireRepo(repoIdValue);
-          return yield* state.readFindingDetail(repo.path, findingId, yield* metadata.read(repo.path));
+          return yield* state.readFindingDetail(
+            repo.path,
+            findingId,
+            yield* metadata.read(repo.path),
+          );
         }),
         runCommand: Effect.fn("repoService.runCommand")(function* (repoIdValue, request, onStream) {
           const repo = yield* requireRepo(repoIdValue);
@@ -219,7 +227,7 @@ export const RepoServiceLive = (appDataDir: string) =>
           repoIdValue,
           findingId,
           status,
-          note = ""
+          note = "",
         ) {
           const repo = yield* requireRepo(repoIdValue);
           return yield* runner.run(repo.path, { command: "triage", findingId, status, note });
@@ -227,9 +235,9 @@ export const RepoServiceLive = (appDataDir: string) =>
         readDiff: Effect.fn("repoService.readDiff")(function* (repoIdValue) {
           const repo = yield* requireRepo(repoIdValue);
           return yield* git.readDiff(repo.path);
-        })
+        }),
       });
-    })
+    }),
   );
 
 const normalizeExistingDirectory = (inputPath: string) =>
@@ -237,10 +245,10 @@ const normalizeExistingDirectory = (inputPath: string) =>
     if (typeof inputPath !== "string" || inputPath.trim() === "") {
       return yield* new InvalidRepoPathError({ message: "Repo path is required" });
     }
-    if (/[\0\r\n]/u.test(inputPath)) {
+    if (inputPath.includes("\0") || inputPath.includes("\r") || inputPath.includes("\n")) {
       return yield* new InvalidRepoPathError({
         message: "Repo path contains invalid characters",
-        path: inputPath
+        path: inputPath,
       });
     }
 
@@ -251,13 +259,13 @@ const normalizeExistingDirectory = (inputPath: string) =>
         new InvalidRepoPathError({
           message: "Repo path does not exist",
           path: normalized,
-          cause
-        })
+          cause,
+        }),
     });
     if (!stats.isDirectory()) {
       return yield* new InvalidRepoPathError({
         message: "Repo path must be a directory",
-        path: normalized
+        path: normalized,
       });
     }
     return normalized;

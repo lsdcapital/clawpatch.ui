@@ -61,4 +61,3 @@ export class IpcEncodeError extends Data.TaggedError("IpcEncodeError")<{
     return `Invalid IPC result for ${this.channel}`;
   }
 }
-

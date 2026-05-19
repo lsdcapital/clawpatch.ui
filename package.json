@@ -9,7 +9,12 @@
     "build": "tsc --noEmit && electron-vite build",
     "preview": "electron-vite preview",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "lint": "oxlint --report-unused-disable-directives",
+    "fmt": "oxfmt",
+    "fmt:check": "oxfmt --check",
+    "check": "pnpm typecheck && pnpm lint && pnpm fmt:check"
   },
   "dependencies": {
     "@codemirror/lang-javascript": "^6.2.4",
@@ -34,6 +39,8 @@
     "electron": "^42.1.0",
     "electron-vite": "^4.0.0",
     "jsdom": "^27.3.0",
+    "oxfmt": "^0.40.0",
+    "oxlint": "^1.65.0",
     "typescript": "^5.9.3",
     "vite": "^7.3.0",
     "vitest": "^4.0.15"

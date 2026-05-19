@@ -1,0 +1,16 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "ignorePatterns": ["out", "dist", "node_modules", "*.tsbuildinfo"],
+  "plugins": ["eslint", "oxc", "react", "unicorn", "typescript"],
+  "categories": {
+    "correctness": "error",
+    "suspicious": "error",
+    "perf": "error"
+  },
+  "rules": {
+    "react-in-jsx-scope": "off",
+    "eslint/no-shadow": "off",
+    "eslint/no-await-in-loop": "off",
+    "eslint/no-underscore-dangle": "off"
+  }
+}
