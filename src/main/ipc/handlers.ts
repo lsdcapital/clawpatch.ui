@@ -1,3 +1,4 @@
+import { BrowserWindow, dialog, type OpenDialogOptions } from "electron";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import {
@@ -21,6 +22,7 @@ import {
   GIT_DIFF_CHANNEL,
   REPO_ADD_CHANNEL,
   REPO_LIST_CHANNEL,
+  REPO_PICK_FOLDER_CHANNEL,
   REPO_REFRESH_CHANNEL,
   TRIAGE_SET_CHANNEL
 } from "../../shared/ipcChannels";
@@ -59,6 +61,14 @@ export const installIpcHandlers = (publishCommandStream: (event: CommandStreamEv
         payload: RepoAddPayload,
         result: RepoSummarySchema,
         handler: ({ repoPath }) => repos.addRepo(repoPath)
+      })
+    );
+    yield* ipc.handle(
+      makeIpcMethod({
+        channel: REPO_PICK_FOLDER_CHANNEL,
+        payload: Schema.Void,
+        result: Schema.NullOr(Schema.String),
+        handler: () => pickRepoFolder()
       })
     );
     yield* ipc.handle(
@@ -120,3 +130,16 @@ export const installIpcHandlers = (publishCommandStream: (event: CommandStreamEv
       })
     );
   }).pipe(Effect.withSpan("ipc.installHandlers"));
+
+const pickRepoFolder = Effect.fn("repo.pickFolder")(function* () {
+  const owner = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0] ?? null;
+  const options: OpenDialogOptions = { properties: ["openDirectory"] };
+  const result = yield* Effect.promise(() =>
+    owner === null ? dialog.showOpenDialog(options) : dialog.showOpenDialog(owner, options)
+  );
+
+  if (result.canceled) {
+    return null;
+  }
+  return result.filePaths[0] ?? null;
+});

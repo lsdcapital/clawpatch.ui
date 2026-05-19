@@ -1,5 +1,6 @@
 export const REPO_LIST_CHANNEL = "repo:list";
 export const REPO_ADD_CHANNEL = "repo:add";
+export const REPO_PICK_FOLDER_CHANNEL = "repo:pick-folder";
 export const REPO_REFRESH_CHANNEL = "repo:refresh";
 export const FINDINGS_LIST_CHANNEL = "findings:list";
 export const FINDINGS_GET_CHANNEL = "findings:get";

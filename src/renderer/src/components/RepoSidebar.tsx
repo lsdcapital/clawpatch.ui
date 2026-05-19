@@ -1,4 +1,4 @@
-import { FormEvent, useState } from "react";
+import { useState } from "react";
 import type { RepoSummary } from "../../../shared/types";
 
 interface Props {
@@ -18,12 +18,24 @@ export function RepoSidebar({
   onAddRepo,
   onSelectRepo
 }: Props) {
-  const [repoPath, setRepoPath] = useState("");
+  const [isPicking, setIsPicking] = useState(false);
+  const [pickError, setPickError] = useState<unknown>(null);
 
-  const submit = (event: FormEvent): void => {
-    event.preventDefault();
-    if (repoPath.trim() !== "") {
-      onAddRepo(repoPath.trim());
+  const pickRepo = async (): Promise<void> => {
+    if (isAdding || isPicking) {
+      return;
+    }
+    setPickError(null);
+    setIsPicking(true);
+    try {
+      const repoPath = await window.clawpatch.repo.pickFolder();
+      if (repoPath !== null) {
+        onAddRepo(repoPath);
+      }
+    } catch (error) {
+      setPickError(error);
+    } finally {
+      setIsPicking(false);
     }
   };
 
@@ -32,17 +44,13 @@ export function RepoSidebar({
       <div className="sidebar-header">
         <div className="brand">Clawpatch</div>
       </div>
-      <form className="repo-form" onSubmit={submit}>
-        <label htmlFor="repo-path">Repository path</label>
-        <input
-          id="repo-path"
-          value={repoPath}
-          onChange={(event) => setRepoPath(event.currentTarget.value)}
-          placeholder="/path/to/repo"
-        />
-        <button disabled={isAdding || repoPath.trim() === ""}>Add repo</button>
+      <div className="repo-form">
+        <button disabled={isAdding || isPicking} onClick={() => void pickRepo()}>
+          {isPicking ? "Choosing repo" : "Add repo"}
+        </button>
+        {pickError ? <div className="form-error">{pickError instanceof Error ? pickError.message : String(pickError)}</div> : null}
         {addError ? <div className="form-error">{addError instanceof Error ? addError.message : String(addError)}</div> : null}
-      </form>
+      </div>
       <div className="repo-section-header">
         <span>Repositories</span>
         <small>{repos.length}</small>

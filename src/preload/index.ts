@@ -14,6 +14,7 @@ import {
   GIT_DIFF_CHANNEL,
   REPO_ADD_CHANNEL,
   REPO_LIST_CHANNEL,
+  REPO_PICK_FOLDER_CHANNEL,
   REPO_REFRESH_CHANNEL,
   TRIAGE_SET_CHANNEL
 } from "../shared/ipcChannels";
@@ -22,6 +23,7 @@ const api: Api = {
   repo: {
     list: () => ipcRenderer.invoke(REPO_LIST_CHANNEL),
     add: (repoPath) => ipcRenderer.invoke(REPO_ADD_CHANNEL, { repoPath }),
+    pickFolder: () => ipcRenderer.invoke(REPO_PICK_FOLDER_CHANNEL),
     refresh: (repoId) => ipcRenderer.invoke(REPO_REFRESH_CHANNEL, { repoId })
   },
   findings: {
