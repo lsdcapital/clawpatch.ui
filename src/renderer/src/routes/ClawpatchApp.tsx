@@ -13,7 +13,6 @@ import {
   DiffIcon,
   FileTextIcon,
   MoreHorizontalIcon,
-  RefreshCwIcon,
   StethoscopeIcon,
   TerminalSquareIcon,
 } from "lucide-react";
@@ -345,17 +344,6 @@ export function ClawpatchApp() {
               </button>
               {isCommandMenuOpen ? (
                 <div className="command-menu-popover" role="menu" aria-label="Repository commands">
-                  <button
-                    role="menuitem"
-                    disabled={selectedRepo === null || commandMutation.isPending}
-                    onClick={() => {
-                      setIsCommandMenuOpen(false);
-                      runCommand({ command: "map" });
-                    }}
-                  >
-                    <RefreshCwIcon aria-hidden="true" />
-                    Update map
-                  </button>
                   <button
                     role="menuitem"
                     disabled={selectedRepo === null || commandMutation.isPending}
