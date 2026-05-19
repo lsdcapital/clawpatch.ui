@@ -145,7 +145,7 @@ export function ClawpatchApp() {
       />
       <section className="workspace">
         <header className="workspace-header">
-          <div>
+          <div className="workspace-title">
             <h1>{selectedRepo?.name ?? "Clawpatch"}</h1>
             <p>{selectedRepo?.path ?? "Add a repository with .clawpatch state to begin."}</p>
           </div>

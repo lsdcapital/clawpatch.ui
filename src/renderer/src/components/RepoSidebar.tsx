@@ -29,7 +29,9 @@ export function RepoSidebar({
 
   return (
     <aside className="repo-sidebar">
-      <div className="brand">Clawpatch</div>
+      <div className="sidebar-header">
+        <div className="brand">Clawpatch</div>
+      </div>
       <form className="repo-form" onSubmit={submit}>
         <label htmlFor="repo-path">Repository path</label>
         <input
@@ -41,16 +43,22 @@ export function RepoSidebar({
         <button disabled={isAdding || repoPath.trim() === ""}>Add repo</button>
         {addError ? <div className="form-error">{addError instanceof Error ? addError.message : String(addError)}</div> : null}
       </form>
+      <div className="repo-section-header">
+        <span>Repositories</span>
+        <small>{repos.length}</small>
+      </div>
       <div className="repo-list">
         {repos.map((repo) => (
           <button
             key={repo.id}
             className={repo.id === selectedRepoId ? "repo-item selected" : "repo-item"}
             onClick={() => onSelectRepo(repo.id)}
+            title={repo.path}
           >
-            <span>{repo.name}</span>
-            <small>{repo.openFindingCount} open</small>
-            {!repo.isValid ? <em>invalid</em> : null}
+            <span className="repo-name">{repo.name}</span>
+            <small className="repo-count">{repo.openFindingCount} open</small>
+            <span className="repo-path">{repo.path}</span>
+            {!repo.isValid ? <em className="repo-invalid">invalid</em> : null}
           </button>
         ))}
       </div>
