@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ClawpatchStatus, FindingDetail } from "../../../shared/types";
 import { clawpatchStatuses } from "../../../shared/types";
 
@@ -20,14 +20,48 @@ export function FindingDetailPanel({
   onRevalidate,
 }: Props) {
   const [status, setStatus] = useState<ClawpatchStatus>("open");
+  const [isStatusMenuOpen, setIsStatusMenuOpen] = useState(false);
   const [note, setNote] = useState("");
+  const statusSelectorRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (finding !== null) {
       setStatus(finding.status);
+      setIsStatusMenuOpen(false);
       setNote("");
     }
   }, [finding]);
+
+  useEffect(() => {
+    if (!isStatusMenuOpen) {
+      return;
+    }
+
+    function handlePointerDown(event: MouseEvent): void {
+      const selectorElement = statusSelectorRef.current;
+      if (selectorElement === null || !(event.target instanceof Node)) {
+        return;
+      }
+
+      if (!selectorElement.contains(event.target)) {
+        setIsStatusMenuOpen(false);
+      }
+    }
+
+    function handleKeyDown(event: KeyboardEvent): void {
+      if (event.key === "Escape") {
+        setIsStatusMenuOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isStatusMenuOpen]);
 
   if (finding === null) {
     return (
@@ -47,23 +81,42 @@ export function FindingDetailPanel({
         <h2>{finding.title}</h2>
         <div className="detail-header-meta">
           <span>{finding.findingId}</span>
-          <select
-            aria-label="Finding status"
-            className="detail-status-select"
-            id="triage-status"
-            value={status}
-            onChange={(event) => setStatus(event.currentTarget.value as ClawpatchStatus)}
-          >
-            {clawpatchStatuses.map((item) => (
-              <option key={item} value={item}>
-                {item}
-              </option>
-            ))}
-          </select>
         </div>
       </div>
       <div className="detail-body">
         <div className="meta-grid">
+          <span>Status</span>
+          <div className="detail-status-selector" ref={statusSelectorRef}>
+            <button
+              aria-expanded={isStatusMenuOpen}
+              aria-haspopup="menu"
+              aria-label={`Finding status: ${status}`}
+              className="detail-status-trigger"
+              type="button"
+              onClick={() => setIsStatusMenuOpen((isOpen) => !isOpen)}
+            >
+              <span>{status}</span>
+            </button>
+            {isStatusMenuOpen ? (
+              <div className="detail-status-menu" role="menu" aria-label="Finding status options">
+                {clawpatchStatuses.map((item) => (
+                  <button
+                    aria-checked={item === status}
+                    className={item === status ? "active" : ""}
+                    key={item}
+                    role="menuitemradio"
+                    type="button"
+                    onClick={() => {
+                      setStatus(item);
+                      setIsStatusMenuOpen(false);
+                    }}
+                  >
+                    {item}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </div>
           <span>Severity</span>
           <strong>{finding.severity}</strong>
           <span>Confidence</span>

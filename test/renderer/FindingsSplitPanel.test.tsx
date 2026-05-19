@@ -37,7 +37,7 @@ describe("FindingsSplitPanel", () => {
     expect(screen.getByText("Token is logged in debug output")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Selected detail title" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Revalidate" })).toBeInTheDocument();
-    expect(screen.getByRole("combobox", { name: "Finding status" })).toHaveValue("open");
+    expect(screen.getByRole("button", { name: "Finding status: open" })).toBeInTheDocument();
     expect(screen.getByText("Needs product call")).toBeInTheDocument();
     expect(screen.getByText("Accepted risk")).toBeInTheDocument();
     expect(
@@ -54,26 +54,40 @@ describe("FindingsSplitPanel", () => {
     expect(onRevalidate).toHaveBeenCalledOnce();
   });
 
-  it("keeps status in the detail header and saves it with the current note", () => {
+  it("keeps status in the metadata card and saves it with the current note", () => {
     const onTriage = vi.fn();
     renderSplitPanel({ onTriage });
 
     const detailHeader = screen
       .getByRole("heading", { name: "Selected detail title" })
       .closest(".detail-header");
+    const statusButton = screen.getByRole("button", { name: "Finding status: open" });
+    const metaGrid = statusButton.closest(".meta-grid");
 
     expect(detailHeader).not.toBeNull();
+    expect(metaGrid).not.toBeNull();
+    expect(
+      within(detailHeader as HTMLElement).queryByRole("button", { name: /Finding status/ }),
+    ).not.toBeInTheDocument();
 
-    const statusSelect = within(detailHeader as HTMLElement).getByRole("combobox", {
-      name: "Finding status",
-    });
     fireEvent.change(screen.getByLabelText("Note for triage and fix"), {
       target: { value: "needs product call" },
     });
-    fireEvent.change(statusSelect, { target: { value: "false-positive" } });
+    fireEvent.click(statusButton);
+    fireEvent.click(
+      within(screen.getByRole("menu", { name: "Finding status options" })).getByRole(
+        "menuitemradio",
+        { name: "false-positive" },
+      ),
+    );
     fireEvent.click(screen.getByRole("button", { name: "Save triage" }));
 
-    expect(statusSelect).toHaveValue("false-positive");
+    expect(screen.queryByRole("menu", { name: "Finding status options" })).not.toBeInTheDocument();
+    expect(
+      within(metaGrid as HTMLElement).getByRole("button", {
+        name: "Finding status: false-positive",
+      }),
+    ).toBeInTheDocument();
     expect(onTriage).toHaveBeenCalledWith("false-positive", "needs product call");
   });
 
