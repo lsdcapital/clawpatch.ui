@@ -23,7 +23,7 @@ function createWindow(): void {
     minHeight: 680,
     title: "Clawpatch",
     webPreferences: {
-      preload: join(__dirname, "../preload/index.mjs"),
+      preload: join(import.meta.dirname, "../preload/index.mjs"),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false
@@ -33,7 +33,7 @@ function createWindow(): void {
   if (process.env["ELECTRON_RENDERER_URL"] !== undefined) {
     void mainWindow.loadURL(process.env["ELECTRON_RENDERER_URL"]);
   } else {
-    void mainWindow.loadFile(join(__dirname, "../renderer/index.html"));
+    void mainWindow.loadFile(join(import.meta.dirname, "../renderer/index.html"));
   }
 }
 
