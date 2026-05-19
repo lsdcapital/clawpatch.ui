@@ -1,5 +1,6 @@
 import type {
   ClawpatchCommandRequestSchema,
+  CommandInterruptResultSchema,
   ClawpatchStatusSchema,
   CommandResultSchema,
   CommandStreamEventSchema,
@@ -19,6 +20,7 @@ export { clawpatchStatuses } from "./constants";
 
 export type ClawpatchStatus = typeof ClawpatchStatusSchema.Type;
 export type ClawpatchCommandRequest = typeof ClawpatchCommandRequestSchema.Type;
+export type CommandInterruptResult = typeof CommandInterruptResultSchema.Type;
 export type CommandResult = typeof CommandResultSchema.Type;
 export type CommandStreamEvent = typeof CommandStreamEventSchema.Type;
 export type RepoSummary = typeof RepoSummarySchema.Type;
@@ -57,6 +59,7 @@ export interface Api {
   };
   commands: {
     run: (repoId: string, request: ClawpatchCommandRequest) => Promise<CommandResult>;
+    interrupt: (repoId: string) => Promise<CommandInterruptResult>;
     onStream: (listener: (event: CommandStreamEvent) => void) => () => void;
   };
   git: {

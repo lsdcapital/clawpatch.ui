@@ -212,6 +212,38 @@ describe("ClawpatchApp header actions", () => {
     expect(screen.getByRole("complementary", { name: "Command output" })).toBeInTheDocument();
   });
 
+  it("interrupts a running command from command output", async () => {
+    let resolveRun: ((result: CommandResult) => void) | undefined;
+    const run = vi.fn<Api["commands"]["run"]>(
+      (_repoId, request) =>
+        new Promise<CommandResult>((resolve) => {
+          resolveRun = () => resolve(makeCommandResult(request.command));
+        }),
+    );
+    const interrupt = vi.fn<Api["commands"]["interrupt"]>(async () => ({ interrupted: true }));
+    window.clawpatch = makeApi(run, { interrupt });
+
+    renderApp();
+
+    await screen.findByRole("heading", { name: "auth" });
+    fireEvent.click(screen.getByRole("button", { name: "Toggle command output" }));
+    expect(screen.queryByRole("button", { name: "Interrupt command" })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "More commands" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Status" }));
+
+    await waitFor(() => expect(run).toHaveBeenCalledWith("repo-auth", { command: "status" }));
+    fireEvent.click(screen.getByRole("button", { name: "Interrupt command" }));
+
+    await waitFor(() => expect(interrupt).toHaveBeenCalledWith("repo-auth"));
+
+    const finish = resolveRun;
+    if (finish === undefined) {
+      throw new Error("command did not start");
+    }
+    finish(makeCommandResult("status"));
+  });
+
   it("supports keyboard resizing for the shared inspector", async () => {
     window.clawpatch = makeApi(vi.fn<Api["commands"]["run"]>(async () => makeCommandResult("map")));
 
@@ -325,6 +357,7 @@ function makeApi(
   options: {
     findings?: readonly FindingListItem[];
     findingDetail?: FindingDetail;
+    interrupt?: Api["commands"]["interrupt"];
     triageSet?: Api["triage"]["set"];
   } = {},
 ): Api {
@@ -363,6 +396,7 @@ function makeApi(
     },
     commands: {
       run,
+      interrupt: options.interrupt ?? (async () => ({ interrupted: false })),
       onStream: () => () => undefined,
     },
     git: {

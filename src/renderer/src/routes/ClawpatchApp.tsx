@@ -168,6 +168,16 @@ export function ClawpatchApp() {
     },
   });
 
+  const commandInterruptMutation = useMutation({
+    mutationFn: (repo: RepoSummary) => window.clawpatch.commands.interrupt(repo.id),
+    onError: (error) => {
+      setCommandLog((current) => [
+        ...current,
+        { kind: "error", message: error instanceof Error ? error.message : String(error) },
+      ]);
+    },
+  });
+
   const triageMutation = useMutation({
     mutationFn: ({
       repo,
@@ -198,6 +208,13 @@ export function ClawpatchApp() {
     }
     setActiveInspector("output");
     commandMutation.mutate({ repo: selectedRepo, request });
+  };
+
+  const interruptCommand = (): void => {
+    if (selectedRepo === null) {
+      return;
+    }
+    commandInterruptMutation.mutate(selectedRepo);
   };
 
   const runFixWithSavedGuidance = (
@@ -531,6 +548,7 @@ export function ClawpatchApp() {
                 <CommandPanel
                   entries={commandLog}
                   isRunning={commandMutation.isPending || triageMutation.isPending}
+                  onInterrupt={interruptCommand}
                 />
               )}
             </aside>

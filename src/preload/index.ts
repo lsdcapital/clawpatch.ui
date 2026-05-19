@@ -6,6 +6,7 @@ import type {
   CommandStreamEvent,
 } from "../shared/types";
 import {
+  COMMANDS_INTERRUPT_CHANNEL,
   COMMANDS_RUN_CHANNEL,
   COMMANDS_STREAM_CHANNEL,
   FEATURES_MAP_CHANNEL,
@@ -40,6 +41,7 @@ const api: Api = {
   commands: {
     run: (repoId: string, request: ClawpatchCommandRequest) =>
       ipcRenderer.invoke(COMMANDS_RUN_CHANNEL, { repoId, request }),
+    interrupt: (repoId: string) => ipcRenderer.invoke(COMMANDS_INTERRUPT_CHANNEL, { repoId }),
     onStream: (listener: (event: CommandStreamEvent) => void) => {
       const handler = (_event: Electron.IpcRendererEvent, payload: CommandStreamEvent): void =>
         listener(payload);

@@ -4,6 +4,7 @@ import * as Schema from "effect/Schema";
 import {
   ClawpatchCommandRequestSchema,
   ClawpatchStatusSchema,
+  CommandInterruptResultSchema,
   CommandResultSchema,
   FeatureMapSnapshotSchema,
   FindingDetailSchema,
@@ -15,6 +16,7 @@ import {
 import type { CommandStreamEvent } from "../../shared/types";
 import { RepoService } from "../services/repoService";
 import {
+  COMMANDS_INTERRUPT_CHANNEL,
   COMMANDS_RUN_CHANNEL,
   FEATURES_MAP_CHANNEL,
   FINDINGS_GET_CHANNEL,
@@ -119,6 +121,14 @@ export const installIpcHandlers = (publishCommandStream: (event: CommandStreamEv
         result: CommandResultSchema,
         handler: ({ repoId, request }) =>
           repos.runCommand(repoId, request, (event) => publishCommandStream(event)),
+      }),
+    );
+    yield* ipc.handle(
+      makeIpcMethod({
+        channel: COMMANDS_INTERRUPT_CHANNEL,
+        payload: RepoIdPayload,
+        result: CommandInterruptResultSchema,
+        handler: ({ repoId }) => repos.interruptCommand(repoId),
       }),
     );
     yield* ipc.handle(

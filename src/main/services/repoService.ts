@@ -8,6 +8,7 @@ import * as Layer from "effect/Layer";
 import type {
   ClawpatchCommandRequest,
   ClawpatchStatus,
+  CommandInterruptResult,
   CommandResult,
   CommandStreamEvent,
   FeatureMapSnapshot,
@@ -38,6 +39,7 @@ export interface RepoServiceShape {
     request: ClawpatchCommandRequest,
     onStream?: (event: CommandStreamEvent) => void,
   ) => Effect.Effect<CommandResult, unknown>;
+  readonly interruptCommand: (repoId: string) => Effect.Effect<CommandInterruptResult, unknown>;
   readonly setTriage: (
     repoId: string,
     findingId: string,
@@ -218,6 +220,10 @@ export const RepoServiceLive = (appDataDir: string) =>
         runCommand: Effect.fn("repoService.runCommand")(function* (repoIdValue, request, onStream) {
           const repo = yield* requireRepo(repoIdValue);
           return yield* runner.run(repo.path, request, onStream);
+        }),
+        interruptCommand: Effect.fn("repoService.interruptCommand")(function* (repoIdValue) {
+          const repo = yield* requireRepo(repoIdValue);
+          return yield* runner.interrupt(repo.path);
         }),
         setTriage: Effect.fn("repoService.setTriage")(function* (
           repoIdValue,

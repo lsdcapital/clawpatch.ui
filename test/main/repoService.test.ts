@@ -119,6 +119,18 @@ describe("RepoService", () => {
     }).pipe(Effect.provide(makeRepoServiceTestLayer(fixtureRepo, calls)));
   });
 
+  it.effect("interrupts commands by repo id", () => {
+    const calls: RunnerCall[] = [];
+    return Effect.gen(function* () {
+      const service = yield* RepoService;
+
+      const summary = yield* service.addRepo(fixtureRepo);
+      const result = yield* service.interruptCommand(summary.id);
+
+      expect(result).toEqual({ interrupted: true });
+    }).pipe(Effect.provide(makeRepoServiceTestLayer(fixtureRepo, calls)));
+  });
+
   it("falls back to an empty registry when repos.json is malformed", async () => {
     const appData = await makeTempDir();
     await writeFile(join(appData, "repos.json"), "{not-json", "utf8");
@@ -167,6 +179,7 @@ function makeRepoServiceTestLayer(cwd: string, calls: RunnerCall[], appData?: st
                 parsedJson: {},
               };
             }),
+          interrupt: () => Effect.succeed({ interrupted: true }),
         }),
       );
       return RepoServiceLive(appData).pipe(

@@ -6,6 +6,7 @@ import * as Layer from "effect/Layer";
 import type {
   ClawpatchCommandRequest,
   ClawpatchStatus,
+  CommandInterruptResult,
   CommandResult,
   CommandStreamEvent,
 } from "../../shared/types";
@@ -34,6 +35,7 @@ export interface ClawpatchRunnerShape {
     request: ClawpatchCommandRequest,
     onStream?: (event: CommandStreamEvent) => void,
   ) => Effect.Effect<CommandResult, ClawpatchRunnerError>;
+  readonly interrupt: (repoPath: string) => Effect.Effect<CommandInterruptResult>;
 }
 
 export class ClawpatchRunner extends Context.Service<ClawpatchRunner, ClawpatchRunnerShape>()(
@@ -46,15 +48,16 @@ type RunClawpatchProcess = (input: {
   readonly runId: string;
   readonly started: number;
   readonly onStream?: (event: CommandStreamEvent) => void;
+  readonly registerInterrupt: (interrupt: () => boolean) => void;
 }) => Promise<CommandResult>;
 
 export const makeClawpatchRunnerLayer = (runProcess: RunClawpatchProcess = runClawpatchProcess) =>
   Layer.sync(ClawpatchRunner, () => {
-    const activeRepos = new Set<string>();
+    const activeCommands = new Map<string, { interrupt: () => boolean }>();
 
     return ClawpatchRunner.of({
       run: Effect.fn("clawpatch.runner.run")(function* (repoPath, request, onStream) {
-        if (activeRepos.has(repoPath)) {
+        if (activeCommands.has(repoPath)) {
           return yield* new CommandAlreadyRunningError({ repoPath });
         }
 
@@ -67,7 +70,8 @@ export const makeClawpatchRunnerLayer = (runProcess: RunClawpatchProcess = runCl
         });
         const runId = randomUUID();
         const started = Date.now();
-        activeRepos.add(repoPath);
+        const activeCommand = { interrupt: () => false };
+        activeCommands.set(repoPath, activeCommand);
 
         return yield* Effect.tryPromise({
           try: () =>
@@ -77,10 +81,21 @@ export const makeClawpatchRunnerLayer = (runProcess: RunClawpatchProcess = runCl
               runId,
               started,
               onStream,
+              registerInterrupt: (interrupt) => {
+                activeCommand.interrupt = interrupt;
+              },
             }),
           catch: (cause) => new CommandSpawnError({ repoPath, cause }),
-        }).pipe(Effect.ensuring(Effect.sync(() => activeRepos.delete(repoPath))));
+        }).pipe(Effect.ensuring(Effect.sync(() => activeCommands.delete(repoPath))));
       }),
+      interrupt: (repoPath) =>
+        Effect.sync((): CommandInterruptResult => {
+          const activeCommand = activeCommands.get(repoPath);
+          if (activeCommand === undefined) {
+            return { interrupted: false };
+          }
+          return { interrupted: activeCommand.interrupt() };
+        }),
     });
   });
 
@@ -139,6 +154,7 @@ function runClawpatchProcess(input: {
   readonly runId: string;
   readonly started: number;
   readonly onStream?: (event: CommandStreamEvent) => void;
+  readonly registerInterrupt: (interrupt: () => boolean) => void;
 }): Promise<CommandResult> {
   return new Promise((resolve, reject) => {
     const child = spawn("clawpatch", input.args, {
@@ -149,6 +165,25 @@ function runClawpatchProcess(input: {
 
     let stdout = "";
     let stderr = "";
+    let closed = false;
+    let escalationTimer: NodeJS.Timeout | null = null;
+
+    input.registerInterrupt(() => {
+      if (closed) {
+        return false;
+      }
+
+      const interrupted = child.kill("SIGINT");
+      if (interrupted && escalationTimer === null) {
+        escalationTimer = setTimeout(() => {
+          if (!closed) {
+            child.kill("SIGTERM");
+          }
+        }, 2_000);
+        escalationTimer.unref();
+      }
+      return interrupted;
+    });
 
     child.stdout.setEncoding("utf8");
     child.stderr.setEncoding("utf8");
@@ -166,6 +201,10 @@ function runClawpatchProcess(input: {
     child.on("error", reject);
 
     child.on("close", (exitCode) => {
+      closed = true;
+      if (escalationTimer !== null) {
+        clearTimeout(escalationTimer);
+      }
       resolve({
         runId: input.runId,
         command: "clawpatch",
