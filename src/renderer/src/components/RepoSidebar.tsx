@@ -4,6 +4,7 @@ import type { RepoSummary } from "../../../shared/types";
 import { appName, appVersion } from "../appInfo";
 
 interface Props {
+  id?: string;
   repos: readonly RepoSummary[];
   selectedRepoId: string | null;
   isAdding: boolean;
@@ -13,6 +14,7 @@ interface Props {
 }
 
 export function RepoSidebar({
+  id,
   repos,
   selectedRepoId,
   isAdding,
@@ -42,7 +44,7 @@ export function RepoSidebar({
   };
 
   return (
-    <aside className="repo-sidebar">
+    <aside className="repo-sidebar" id={id}>
       <div className="sidebar-header">
         <div className="brand">
           <span className="brand-name">{appName}</span>

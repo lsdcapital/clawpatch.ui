@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import packageJson from "../../package.json";
 import { ClawpatchApp } from "../../src/renderer/src/routes/ClawpatchApp";
 import type {
@@ -12,7 +12,13 @@ import type {
   RepoSummary,
 } from "../../src/shared/types";
 
+const repoSidebarCollapsedStorageKey = "clawpatch.repoSidebarCollapsed.v1";
+
 describe("ClawpatchApp header actions", () => {
+  beforeEach(() => {
+    installLocalStorage();
+  });
+
   it("shows the app brand and package version in the sidebar", async () => {
     window.clawpatch = makeApi(vi.fn<Api["commands"]["run"]>(async () => makeCommandResult("map")));
 
@@ -22,6 +28,56 @@ describe("ClawpatchApp header actions", () => {
 
     expect(screen.getByText("Clawpatch UI")).toBeInTheDocument();
     expect(screen.getByText(`v${packageJson.version}`)).toBeInTheDocument();
+  });
+
+  it("hides and restores the repositories panel from the workspace header", async () => {
+    window.clawpatch = makeApi(vi.fn<Api["commands"]["run"]>(async () => makeCommandResult("map")));
+
+    renderApp();
+
+    await screen.findByRole("heading", { name: "auth" });
+
+    const hideButton = screen.getByRole("button", { name: "Hide repositories panel" });
+    expect(hideButton).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByText("Clawpatch UI")).toBeInTheDocument();
+    expect(screen.getByText("Repositories (1)")).toBeInTheDocument();
+
+    fireEvent.click(hideButton);
+
+    expect(screen.queryByText("Clawpatch UI")).not.toBeInTheDocument();
+    expect(screen.queryByText("Repositories (1)")).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "auth" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Show repositories panel" })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+    expect(window.localStorage.getItem(repoSidebarCollapsedStorageKey)).toBe("true");
+
+    fireEvent.click(screen.getByRole("button", { name: "Show repositories panel" }));
+
+    expect(screen.getByText("Clawpatch UI")).toBeInTheDocument();
+    expect(screen.getByText("Repositories (1)")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Hide repositories panel" })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
+    expect(window.localStorage.getItem(repoSidebarCollapsedStorageKey)).toBe("false");
+  });
+
+  it("loads the repositories panel collapsed from local storage", async () => {
+    window.localStorage.setItem(repoSidebarCollapsedStorageKey, "true");
+    window.clawpatch = makeApi(vi.fn<Api["commands"]["run"]>(async () => makeCommandResult("map")));
+
+    renderApp();
+
+    await screen.findByRole("heading", { name: "auth" });
+
+    expect(screen.queryByText("Clawpatch UI")).not.toBeInTheDocument();
+    expect(screen.queryByText("Repositories (1)")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Show repositories panel" })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
   });
 
   it("adds repositories from the header plus button", async () => {
@@ -248,6 +304,20 @@ function renderApp() {
       <ClawpatchApp />
     </QueryClientProvider>,
   );
+}
+
+function installLocalStorage(): void {
+  const values = new Map<string, string>();
+
+  Object.defineProperty(window, "localStorage", {
+    configurable: true,
+    value: {
+      getItem: vi.fn((key: string) => values.get(key) ?? null),
+      setItem: vi.fn((key: string, value: string) => {
+        values.set(key, value);
+      }),
+    },
+  });
 }
 
 function makeApi(

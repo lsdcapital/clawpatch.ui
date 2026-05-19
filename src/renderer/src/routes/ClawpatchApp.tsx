@@ -13,6 +13,8 @@ import {
   DiffIcon,
   FileTextIcon,
   MoreHorizontalIcon,
+  PanelLeftCloseIcon,
+  PanelLeftOpenIcon,
   StethoscopeIcon,
   TerminalSquareIcon,
 } from "lucide-react";
@@ -51,6 +53,8 @@ const INSPECTOR_DEFAULT_WIDTH = 440;
 const INSPECTOR_KEYBOARD_STEP = 24;
 const INSPECTOR_RESIZE_TRACK_WIDTH = 8;
 const PRIMARY_MIN_WIDTH = 520;
+const REPO_SIDEBAR_ID = "repo-sidebar";
+const REPO_SIDEBAR_COLLAPSED_STORAGE_KEY = "clawpatch.repoSidebarCollapsed.v1";
 
 export function ClawpatchApp() {
   const queryClient = useQueryClient();
@@ -63,6 +67,7 @@ export function ClawpatchApp() {
   const [isInspectorResizing, setIsInspectorResizing] = useState(false);
   const [findingFilters, setFindingFilters] = useState(defaultFindingFilters);
   const [isCommandMenuOpen, setIsCommandMenuOpen] = useState(false);
+  const [isRepoSidebarCollapsed, setIsRepoSidebarCollapsed] = useState(readStoredSidebarState);
   const workspaceBodyRef = useRef<HTMLDivElement>(null);
 
   const reposQuery = useQuery({
@@ -291,21 +296,48 @@ export function ClawpatchApp() {
     setActiveInspector((current) => (current === inspector ? null : inspector));
   };
 
+  const toggleRepoSidebar = (): void => {
+    setIsRepoSidebarCollapsed((current) => {
+      const next = !current;
+      persistSidebarState(next);
+      return next;
+    });
+  };
+
   return (
-    <main className="app-shell">
-      <RepoSidebar
-        repos={reposQuery.data ?? []}
-        selectedRepoId={selectedRepo?.id ?? null}
-        isAdding={addRepoMutation.isPending}
-        addError={addRepoMutation.error}
-        onAddRepo={(repoPath) => addRepoMutation.mutate(repoPath)}
-        onSelectRepo={(repoId) => {
-          setSelectedRepoId(repoId);
-          setSelectedFindingId(null);
-        }}
-      />
+    <main className={isRepoSidebarCollapsed ? "app-shell sidebar-collapsed" : "app-shell"}>
+      {isRepoSidebarCollapsed ? null : (
+        <RepoSidebar
+          id={REPO_SIDEBAR_ID}
+          repos={reposQuery.data ?? []}
+          selectedRepoId={selectedRepo?.id ?? null}
+          isAdding={addRepoMutation.isPending}
+          addError={addRepoMutation.error}
+          onAddRepo={(repoPath) => addRepoMutation.mutate(repoPath)}
+          onSelectRepo={(repoId) => {
+            setSelectedRepoId(repoId);
+            setSelectedFindingId(null);
+          }}
+        />
+      )}
       <section className="workspace">
         <header className="workspace-header">
+          <button
+            className="icon-button sidebar-toggle"
+            onClick={toggleRepoSidebar}
+            aria-controls={REPO_SIDEBAR_ID}
+            aria-expanded={!isRepoSidebarCollapsed}
+            aria-label={
+              isRepoSidebarCollapsed ? "Show repositories panel" : "Hide repositories panel"
+            }
+            title={isRepoSidebarCollapsed ? "Show repositories panel" : "Hide repositories panel"}
+          >
+            {isRepoSidebarCollapsed ? (
+              <PanelLeftOpenIcon aria-hidden="true" />
+            ) : (
+              <PanelLeftCloseIcon aria-hidden="true" />
+            )}
+          </button>
           <div className="workspace-title">
             <h1>{selectedRepo?.name ?? "Clawpatch"}</h1>
             <p>{selectedRepo?.path ?? "Add a repository with .clawpatch state to begin."}</p>
@@ -514,6 +546,25 @@ function inspectorLabel(activeInspector: Exclude<ActiveInspector, null>): string
     return "Git diff";
   }
   return "Command output";
+}
+
+function readStoredSidebarState(): boolean {
+  let storedState: string | null;
+  try {
+    storedState = window.localStorage.getItem(REPO_SIDEBAR_COLLAPSED_STORAGE_KEY);
+  } catch {
+    return false;
+  }
+
+  return storedState === "true";
+}
+
+function persistSidebarState(isCollapsed: boolean): void {
+  try {
+    window.localStorage.setItem(REPO_SIDEBAR_COLLAPSED_STORAGE_KEY, String(isCollapsed));
+  } catch {
+    // The toggle should keep working even if local storage is unavailable.
+  }
 }
 
 async function invalidateRepo(
