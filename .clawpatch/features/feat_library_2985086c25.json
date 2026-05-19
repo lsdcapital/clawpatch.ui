@@ -139,12 +139,7 @@
     }
   ],
   "tests": [],
-  "tags": [
-    "node",
-    "package",
-    "project:clawpatch-gui",
-    "project-root:."
-  ],
+  "tags": ["node", "package", "project:clawpatch-gui", "project-root:."],
   "trustBoundaries": [],
   "status": "needs-fix",
   "lock": null,

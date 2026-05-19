@@ -1,43 +1,197 @@
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { FeatureMapSnapshot } from "../../../shared/types";
+import {
+  defaultReviewQueueFilters,
+  filterReviewQueue,
+  getReviewQueueFilterOptions,
+  isReviewQueueFiltersActive,
+  type ReviewQueueFilters,
+  type ReviewQueueStatusFilter,
+} from "../reviewQueueFilters";
 
 interface Props {
   snapshot: FeatureMapSnapshot | null;
   isLoading: boolean;
   isBusy: boolean;
   onReviewFeature: (featureId: string) => void;
+  onReviewPending: (limit: number) => void;
+  onUpdateMap: () => void;
 }
 
-export function ReviewMapPanel({ snapshot, isLoading, isBusy, onReviewFeature }: Props) {
+export function ReviewMapPanel({
+  snapshot,
+  isLoading,
+  isBusy,
+  onReviewFeature,
+  onReviewPending,
+  onUpdateMap,
+}: Props) {
+  const filterMenuRef = useRef<HTMLDetailsElement>(null);
+  const [filters, setFilters] = useState(defaultReviewQueueFilters);
+  const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
+  const features = useMemo(() => snapshot?.features ?? [], [snapshot]);
+  const filteredFeatures = useMemo(() => filterReviewQueue(features, filters), [features, filters]);
+  const filterOptions = useMemo(() => getReviewQueueFilterOptions(features), [features]);
+  const filtersActive = isReviewQueueFiltersActive(filters);
+  const pendingCount = snapshot?.coverage.pendingReviewCount ?? 0;
+  const totalCount = snapshot?.coverage.totalFeatures ?? 0;
+  const statusLabel = isLoading
+    ? "Loading"
+    : `${pendingCount} pending/error of ${totalCount} map items`;
+  const countLabel = isLoading
+    ? "Loading"
+    : filtersActive
+      ? `${filteredFeatures.length} of ${totalCount} shown`
+      : `${totalCount} total`;
+
+  const updateFilters = (nextFilters: Partial<ReviewQueueFilters>): void => {
+    setFilters((current) => ({ ...current, ...nextFilters }));
+  };
+
+  useEffect(() => {
+    if (!isFilterMenuOpen) {
+      return;
+    }
+
+    const closeFilterMenuOnOutsideClick = (event: MouseEvent): void => {
+      const menuElement = filterMenuRef.current;
+
+      if (menuElement === null || !(event.target instanceof Node)) {
+        return;
+      }
+
+      if (!menuElement.contains(event.target)) {
+        setIsFilterMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", closeFilterMenuOnOutsideClick);
+
+    return () => {
+      document.removeEventListener("mousedown", closeFilterMenuOnOutsideClick);
+    };
+  }, [isFilterMenuOpen]);
+
   return (
-    <section className="panel review-map-panel">
+    <section className="panel review-queue-panel">
       <div className="panel-header">
-        <h2>Review Coverage</h2>
-        <span>
-          {isLoading ? "Loading" : `${snapshot?.coverage.pendingReviewCount ?? 0} pending`}
-        </span>
+        <h2>Review Queue</h2>
+        <span>{statusLabel}</span>
+      </div>
+      <div className="review-queue-toolbar">
+        <div className="review-queue-actions">
+          <button
+            disabled={isBusy || pendingCount === 0}
+            onClick={() => onReviewPending(pendingCount)}
+            aria-label={`Review all ${pendingCount} pending and error map items`}
+          >
+            Review pending
+          </button>
+          <button disabled={isBusy} onClick={onUpdateMap}>
+            Update map
+          </button>
+        </div>
+        <div className="findings-filter-row">
+          <input
+            aria-label="Search review queue"
+            value={filters.search}
+            onChange={(event) => updateFilters({ search: event.currentTarget.value })}
+            placeholder="Search review queue..."
+          />
+          <details className="filter-menu" open={isFilterMenuOpen} ref={filterMenuRef}>
+            <summary
+              onClick={(event) => {
+                event.preventDefault();
+                setIsFilterMenuOpen((isOpen) => !isOpen);
+              }}
+            >
+              Filter
+            </summary>
+            <div className="filter-popover">
+              <StatusFilterGroup
+                values={filterOptions.statuses}
+                selectedValue={filters.status}
+                onSelect={(status) => updateFilters({ status })}
+              />
+              <FilterGroup
+                title="Kind"
+                values={filterOptions.kinds}
+                selectedValue={filters.kind}
+                onSelect={(kind) => updateFilters({ kind })}
+              />
+              <FilterGroup
+                title="Source"
+                values={filterOptions.sources}
+                selectedValue={filters.source}
+                onSelect={(source) => updateFilters({ source })}
+              />
+            </div>
+          </details>
+          <button disabled={!filtersActive} onClick={() => setFilters(defaultReviewQueueFilters)}>
+            Clear
+          </button>
+        </div>
+        <div className="review-queue-summary-row">
+          <span>{countLabel}</span>
+          {filtersActive ? (
+            <div className="filter-chips" aria-label="Active review queue filters">
+              {filters.search.trim() !== "" ? (
+                <FilterChip
+                  label={`Search: ${filters.search.trim()}`}
+                  onClear={() => updateFilters({ search: "" })}
+                />
+              ) : null}
+              {filters.status !== defaultReviewQueueFilters.status ? (
+                <FilterChip
+                  label={statusLabelFor(filters.status)}
+                  onClear={() => updateFilters({ status: defaultReviewQueueFilters.status })}
+                />
+              ) : null}
+              {filters.kind !== null ? (
+                <FilterChip
+                  label={labelFor(filters.kind)}
+                  onClear={() => updateFilters({ kind: null })}
+                />
+              ) : null}
+              {filters.source !== null ? (
+                <FilterChip
+                  label={labelFor(filters.source)}
+                  onClear={() => updateFilters({ source: null })}
+                />
+              ) : null}
+            </div>
+          ) : null}
+        </div>
       </div>
       {snapshot === null ? (
         <div className="empty-state">
           {isLoading ? "Loading map coverage." : "No map coverage loaded."}
         </div>
       ) : (
-        <ReviewMapTable snapshot={snapshot} isBusy={isBusy} onReviewFeature={onReviewFeature} />
+        <ReviewMapTable
+          features={filteredFeatures}
+          hasActiveFilters={filtersActive}
+          isBusy={isBusy}
+          onReviewFeature={onReviewFeature}
+        />
       )}
     </section>
   );
 }
 
 function ReviewMapTable({
-  snapshot,
+  features,
+  hasActiveFilters,
   isBusy,
   onReviewFeature,
 }: {
-  snapshot: FeatureMapSnapshot;
+  features: FeatureMapSnapshot["features"];
+  hasActiveFilters: boolean;
   isBusy: boolean;
   onReviewFeature: (featureId: string) => void;
 }) {
   return (
-    <div className="feature-map-table" role="table" aria-label="Review coverage map">
+    <div className="feature-map-table" role="table" aria-label="Review queue map">
       <div className="feature-map-row feature-map-head" role="row">
         <span>Status</span>
         <span>Kind</span>
@@ -45,12 +199,15 @@ function ReviewMapTable({
         <span>Files</span>
         <span>Findings</span>
         <span>Title</span>
+        <span>Updated</span>
         <span>Action</span>
       </div>
-      {snapshot.features.length === 0 ? (
-        <div className="feature-map-empty">No map items found.</div>
+      {features.length === 0 ? (
+        <div className="feature-map-empty">
+          {hasActiveFilters ? "No map items match these filters." : "No map items found."}
+        </div>
       ) : (
-        snapshot.features.map((feature) => (
+        features.map((feature) => (
           <div className="feature-map-row" role="row" key={feature.featureId}>
             <span className={`feature-status ${feature.status}`}>{feature.status}</span>
             <span>{feature.kind}</span>
@@ -58,6 +215,7 @@ function ReviewMapTable({
             <span>{feature.ownedFileCount + feature.contextFileCount + feature.testCount}</span>
             <span>{feature.findingCount}</span>
             <strong title={feature.featureId}>{feature.title}</strong>
+            <span>{formatUpdatedAt(feature.updatedAt)}</span>
             <button
               disabled={isBusy}
               onClick={() => onReviewFeature(feature.featureId)}
@@ -70,4 +228,105 @@ function ReviewMapTable({
       )}
     </div>
   );
+}
+
+function StatusFilterGroup({
+  values,
+  selectedValue,
+  onSelect,
+}: {
+  values: readonly string[];
+  selectedValue: ReviewQueueStatusFilter;
+  onSelect: (value: ReviewQueueStatusFilter) => void;
+}) {
+  return (
+    <div className="filter-group">
+      <span>Status</span>
+      <button
+        className={selectedValue === "actionable" ? "active" : ""}
+        onClick={() => onSelect("actionable")}
+      >
+        Actionable
+      </button>
+      <button className={selectedValue === null ? "active" : ""} onClick={() => onSelect(null)}>
+        All
+      </button>
+      {values.map((value) => (
+        <button
+          key={value}
+          className={selectedValue === value ? "active" : ""}
+          onClick={() => onSelect(value)}
+        >
+          {labelFor(value)}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function FilterGroup({
+  title,
+  values,
+  selectedValue,
+  onSelect,
+}: {
+  title: string;
+  values: readonly string[];
+  selectedValue: string | null;
+  onSelect: (value: string | null) => void;
+}) {
+  return (
+    <div className="filter-group">
+      <span>{title}</span>
+      <button className={selectedValue === null ? "active" : ""} onClick={() => onSelect(null)}>
+        All
+      </button>
+      {values.map((value) => (
+        <button
+          key={value}
+          className={selectedValue === value ? "active" : ""}
+          onClick={() => onSelect(value)}
+        >
+          {labelFor(value)}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function FilterChip({ label, onClear }: { label: string; onClear: () => void }) {
+  return (
+    <button className="filter-chip" onClick={onClear} aria-label={`Clear ${label} filter`}>
+      <span>{label}</span>
+      <span aria-hidden="true">x</span>
+    </button>
+  );
+}
+
+function statusLabelFor(value: ReviewQueueStatusFilter): string {
+  if (value === "actionable") {
+    return "Actionable";
+  }
+  if (value === null) {
+    return "All statuses";
+  }
+  return labelFor(value);
+}
+
+function labelFor(value: string): string {
+  return value
+    .split("-")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function formatUpdatedAt(value: string): string {
+  if (value.trim() === "") {
+    return "-";
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "-";
+  }
+  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
