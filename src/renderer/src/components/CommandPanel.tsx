@@ -35,7 +35,9 @@ export function CommandPanel({
       </div>
       <pre>
         {entries.length === 0
-          ? "No commands run yet."
+          ? isRunning
+            ? "Command starting..."
+            : "No commands run yet."
           : entries
               .map((entry) => {
                 if (entry.kind === "stream") {

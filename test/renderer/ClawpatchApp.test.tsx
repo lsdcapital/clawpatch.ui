@@ -291,6 +291,8 @@ describe("ClawpatchApp header actions", () => {
     fireEvent.click(screen.getByRole("menuitem", { name: "Status" }));
 
     await waitFor(() => expect(run).toHaveBeenCalledWith("repo-auth", { command: "status" }));
+    expect(screen.getByText("Command starting...")).toBeInTheDocument();
+    expect(screen.queryByText("No commands run yet.")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Interrupt command" }));
 
     await waitFor(() => expect(interrupt).toHaveBeenCalledWith("repo-auth"));

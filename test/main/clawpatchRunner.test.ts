@@ -142,8 +142,18 @@ describe("buildClawpatchArgs", () => {
           return yield* runner.run(repoPath, { command: "status" });
         }),
       );
+    const isRunning = (repoPath: string) =>
+      runtime.runPromise(
+        Effect.gen(function* () {
+          const runner = yield* ClawpatchRunner;
+          return yield* runner.isRunning(repoPath);
+        }),
+      );
 
+    await expect(isRunning("/tmp/repo-a")).resolves.toBe(false);
     const first = run("/tmp/repo-a");
+    await expect(isRunning("/tmp/repo-a")).resolves.toBe(true);
+    await expect(isRunning("/tmp/repo-b")).resolves.toBe(false);
     await expect(run("/tmp/repo-a")).rejects.toThrow(
       "A Clawpatch command is already running for this repo",
     );
@@ -164,6 +174,7 @@ describe("buildClawpatchArgs", () => {
       parsedJson: {},
     });
     await expect(first).resolves.toMatchObject({ exitCode: 0 });
+    await expect(isRunning("/tmp/repo-a")).resolves.toBe(false);
     await runtime.dispose();
   });
 
@@ -194,6 +205,15 @@ describe("buildClawpatchArgs", () => {
       runtime.runPromise(
         Effect.gen(function* () {
           const runner = yield* ClawpatchRunner;
+          return yield* runner.isRunning("/tmp/repo-a");
+        }),
+      ),
+    ).resolves.toBe(true);
+
+    await expect(
+      runtime.runPromise(
+        Effect.gen(function* () {
+          const runner = yield* ClawpatchRunner;
           return yield* runner.interrupt("/tmp/repo-a");
         }),
       ),
@@ -216,6 +236,15 @@ describe("buildClawpatchArgs", () => {
       parsedJson: null,
     });
     await expect(run).resolves.toMatchObject({ exitCode: 130 });
+
+    await expect(
+      runtime.runPromise(
+        Effect.gen(function* () {
+          const runner = yield* ClawpatchRunner;
+          return yield* runner.isRunning("/tmp/repo-a");
+        }),
+      ),
+    ).resolves.toBe(false);
 
     await expect(
       runtime.runPromise(
