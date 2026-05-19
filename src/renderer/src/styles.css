@@ -122,10 +122,27 @@ button:disabled {
 }
 
 .brand {
+  align-items: baseline;
   color: #171a20;
+  display: flex;
   font-size: 13px;
   font-weight: 700;
+  gap: 6px;
   letter-spacing: 0;
+  min-width: 0;
+}
+
+.brand-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.brand-version {
+  color: var(--muted);
+  flex: none;
+  font-size: 11px;
+  font-weight: 600;
 }
 
 .repo-form {
