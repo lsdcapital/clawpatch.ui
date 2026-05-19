@@ -1,4 +1,12 @@
-import { useEffect, useMemo, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type KeyboardEvent,
+  type PointerEvent,
+} from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ActivityIcon,
@@ -22,6 +30,7 @@ import { DiffViewer } from "../components/DiffViewer";
 import { FindingsSplitPanel } from "../components/FindingsSplitPanel";
 import { RepoSidebar } from "../components/RepoSidebar";
 import { ReviewCoveragePanel } from "../components/ReviewCoveragePanel";
+import { ReviewMapPanel } from "../components/ReviewMapPanel";
 import {
   defaultFindingFilters,
   filterFindings,
@@ -35,17 +44,26 @@ type LogEntry =
   | { kind: "result"; result: CommandResult }
   | { kind: "error"; message: string };
 
-type ActiveDrawer = "diff" | "output" | null;
+type ActiveInspector = "diff" | "output" | "review" | null;
+
+const INSPECTOR_MIN_WIDTH = 320;
+const INSPECTOR_MAX_WIDTH = 720;
+const INSPECTOR_DEFAULT_WIDTH = 440;
+const INSPECTOR_KEYBOARD_STEP = 24;
+const INSPECTOR_RESIZE_TRACK_WIDTH = 8;
+const PRIMARY_MIN_WIDTH = 520;
 
 export function ClawpatchApp() {
   const queryClient = useQueryClient();
   const [selectedRepoId, setSelectedRepoId] = useState<string | null>(null);
   const [selectedFindingId, setSelectedFindingId] = useState<string | null>(null);
   const [commandLog, setCommandLog] = useState<LogEntry[]>([]);
-  const [activeDrawer, setActiveDrawer] = useState<ActiveDrawer>(null);
+  const [activeInspector, setActiveInspector] = useState<ActiveInspector>(null);
+  const [inspectorWidth, setInspectorWidth] = useState(INSPECTOR_DEFAULT_WIDTH);
+  const [isInspectorResizing, setIsInspectorResizing] = useState(false);
   const [findingFilters, setFindingFilters] = useState(defaultFindingFilters);
-  const [isMapExpanded, setIsMapExpanded] = useState(false);
   const [isCommandMenuOpen, setIsCommandMenuOpen] = useState(false);
+  const workspaceBodyRef = useRef<HTMLDivElement>(null);
 
   const reposQuery = useQuery({
     queryKey: ["repos"],
@@ -173,12 +191,78 @@ export function ClawpatchApp() {
     if (selectedRepo === null) {
       return;
     }
-    setActiveDrawer("output");
+    setActiveInspector("output");
     commandMutation.mutate({ repo: selectedRepo, request });
   };
 
-  const toggleDrawer = (drawer: Exclude<ActiveDrawer, null>): void => {
-    setActiveDrawer((current) => (current === drawer ? null : drawer));
+  const inspectorMaxWidth = (): number => {
+    const body = workspaceBodyRef.current;
+    if (body === null) {
+      return INSPECTOR_MAX_WIDTH;
+    }
+    const bodyWidth = body.getBoundingClientRect().width;
+    if (bodyWidth === 0) {
+      return INSPECTOR_MAX_WIDTH;
+    }
+    const availableWidth = bodyWidth - PRIMARY_MIN_WIDTH - INSPECTOR_RESIZE_TRACK_WIDTH;
+    return Math.min(INSPECTOR_MAX_WIDTH, Math.max(INSPECTOR_MIN_WIDTH, availableWidth));
+  };
+
+  const clampInspectorWidth = (nextWidth: number): number =>
+    Math.min(inspectorMaxWidth(), Math.max(INSPECTOR_MIN_WIDTH, nextWidth));
+
+  const setClampedInspectorWidth = (nextWidth: number): void => {
+    setInspectorWidth(clampInspectorWidth(nextWidth));
+  };
+
+  const updateInspectorWidthFromPointer = (clientX: number): void => {
+    const body = workspaceBodyRef.current;
+    if (body === null) {
+      return;
+    }
+    const rect = body.getBoundingClientRect();
+    setClampedInspectorWidth(rect.right - clientX);
+  };
+
+  const handleInspectorPointerDown = (event: PointerEvent<HTMLDivElement>): void => {
+    event.currentTarget.setPointerCapture(event.pointerId);
+    setIsInspectorResizing(true);
+    updateInspectorWidthFromPointer(event.clientX);
+    event.preventDefault();
+  };
+
+  const handleInspectorPointerMove = (event: PointerEvent<HTMLDivElement>): void => {
+    if (!isInspectorResizing) {
+      return;
+    }
+    updateInspectorWidthFromPointer(event.clientX);
+  };
+
+  const stopInspectorResizing = (event: PointerEvent<HTMLDivElement>): void => {
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    setIsInspectorResizing(false);
+  };
+
+  const handleInspectorSeparatorKeyDown = (event: KeyboardEvent<HTMLDivElement>): void => {
+    if (event.key === "ArrowLeft") {
+      setClampedInspectorWidth(inspectorWidth + INSPECTOR_KEYBOARD_STEP);
+      event.preventDefault();
+    } else if (event.key === "ArrowRight") {
+      setClampedInspectorWidth(inspectorWidth - INSPECTOR_KEYBOARD_STEP);
+      event.preventDefault();
+    } else if (event.key === "Home") {
+      setClampedInspectorWidth(INSPECTOR_MIN_WIDTH);
+      event.preventDefault();
+    } else if (event.key === "End") {
+      setClampedInspectorWidth(INSPECTOR_MAX_WIDTH);
+      event.preventDefault();
+    }
+  };
+
+  const toggleInspector = (inspector: Exclude<ActiveInspector, null>): void => {
+    setActiveInspector((current) => (current === inspector ? null : inspector));
   };
 
   return (
@@ -203,13 +287,13 @@ export function ClawpatchApp() {
           <div className="header-actions">
             <button
               className={
-                activeDrawer === "diff"
+                activeInspector === "diff"
                   ? "icon-button drawer-toggle active"
                   : "icon-button drawer-toggle"
               }
               disabled={selectedRepo === null}
-              onClick={() => toggleDrawer("diff")}
-              aria-pressed={activeDrawer === "diff"}
+              onClick={() => toggleInspector("diff")}
+              aria-pressed={activeInspector === "diff"}
               aria-label="Toggle diff panel"
               title="Toggle diff panel"
             >
@@ -217,12 +301,12 @@ export function ClawpatchApp() {
             </button>
             <button
               className={
-                activeDrawer === "output"
+                activeInspector === "output"
                   ? "icon-button drawer-toggle active"
                   : "icon-button drawer-toggle"
               }
-              onClick={() => toggleDrawer("output")}
-              aria-pressed={activeDrawer === "output"}
+              onClick={() => toggleInspector("output")}
+              aria-pressed={activeInspector === "output"}
               aria-label="Toggle command output"
               title="Toggle command output"
             >
@@ -296,16 +380,25 @@ export function ClawpatchApp() {
           <div className="repo-error">{selectedRepo.lastError}</div>
         ) : null}
 
-        <div className={activeDrawer === null ? "workspace-body" : "workspace-body drawer-open"}>
+        <div
+          className={
+            activeInspector === null
+              ? "workspace-body"
+              : isInspectorResizing
+                ? "workspace-body inspector-open resizing"
+                : "workspace-body inspector-open"
+          }
+          ref={workspaceBodyRef}
+          style={{ "--inspector-width": `${inspectorWidth}px` } as CSSProperties}
+        >
           <div className="primary-workspace">
             <ReviewCoveragePanel
               snapshot={featureMapQuery.data ?? null}
               isLoading={featureMapQuery.isLoading}
               isBusy={commandMutation.isPending || triageMutation.isPending}
-              isExpanded={isMapExpanded}
-              onToggleExpanded={() => setIsMapExpanded((current) => !current)}
+              isExpanded={activeInspector === "review"}
+              onToggleExpanded={() => toggleInspector("review")}
               onReviewAllPending={(limit) => runCommand({ command: "review", limit })}
-              onReviewFeature={(featureId) => runCommand({ command: "review", featureId })}
             />
             <FindingsSplitPanel
               findings={filteredFindings}
@@ -321,7 +414,7 @@ export function ClawpatchApp() {
               onSelectFinding={setSelectedFindingId}
               onTriage={(status, note) => {
                 if (selectedRepo !== null && selectedFinding !== null) {
-                  setActiveDrawer("output");
+                  setActiveInspector("output");
                   triageMutation.mutate({
                     repo: selectedRepo,
                     finding: selectedFinding,
@@ -337,17 +430,38 @@ export function ClawpatchApp() {
               }}
             />
           </div>
-          {activeDrawer !== null ? (
-            <aside
-              className="workspace-drawer"
-              aria-label={activeDrawer === "diff" ? "Git diff" : "Command output"}
-            >
-              {activeDrawer === "diff" ? (
+          {activeInspector !== null ? (
+            <div
+              aria-label="Resize inspector pane"
+              aria-orientation="vertical"
+              aria-valuemax={inspectorMaxWidth()}
+              aria-valuemin={INSPECTOR_MIN_WIDTH}
+              aria-valuenow={Math.round(inspectorWidth)}
+              className="workspace-resize-handle"
+              onKeyDown={handleInspectorSeparatorKeyDown}
+              onPointerCancel={stopInspectorResizing}
+              onPointerDown={handleInspectorPointerDown}
+              onPointerMove={handleInspectorPointerMove}
+              onPointerUp={stopInspectorResizing}
+              role="separator"
+              tabIndex={0}
+            />
+          ) : null}
+          {activeInspector !== null ? (
+            <aside className="workspace-inspector" aria-label={inspectorLabel(activeInspector)}>
+              {activeInspector === "diff" ? (
                 <DiffViewer diff={diffQuery.data ?? ""} isLoading={diffQuery.isLoading} />
-              ) : (
+              ) : activeInspector === "output" ? (
                 <CommandPanel
                   entries={commandLog}
                   isRunning={commandMutation.isPending || triageMutation.isPending}
+                />
+              ) : (
+                <ReviewMapPanel
+                  snapshot={featureMapQuery.data ?? null}
+                  isLoading={featureMapQuery.isLoading}
+                  isBusy={commandMutation.isPending || triageMutation.isPending}
+                  onReviewFeature={(featureId) => runCommand({ command: "review", featureId })}
                 />
               )}
             </aside>
@@ -356,6 +470,16 @@ export function ClawpatchApp() {
       </section>
     </main>
   );
+}
+
+function inspectorLabel(activeInspector: Exclude<ActiveInspector, null>): string {
+  if (activeInspector === "diff") {
+    return "Git diff";
+  }
+  if (activeInspector === "review") {
+    return "Review coverage";
+  }
+  return "Command output";
 }
 
 async function invalidateRepo(

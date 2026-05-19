@@ -384,9 +384,8 @@ button:disabled {
   padding: 0 14px 14px;
 }
 
-.workspace-body.drawer-open {
-  gap: 10px;
-  grid-template-columns: minmax(0, 1fr) clamp(360px, 34vw, 560px);
+.workspace-body.inspector-open {
+  grid-template-columns: minmax(520px, 1fr) 8px minmax(320px, var(--inspector-width));
 }
 
 .primary-workspace {
@@ -442,9 +441,8 @@ button:disabled {
 }
 
 .feature-map-table {
-  border-top: 1px solid var(--border);
   display: grid;
-  max-height: 260px;
+  flex: 1;
   min-height: 0;
   overflow: auto;
 }
@@ -515,9 +513,8 @@ button:disabled {
   padding: 12px 10px;
 }
 
-.workspace-drawer {
+.workspace-inspector {
   background: var(--surface);
-  border-left: 1px solid var(--border);
   display: flex;
   min-height: 0;
   min-width: 0;
@@ -536,7 +533,7 @@ button:disabled {
   overflow: hidden;
 }
 
-.workspace-drawer .panel {
+.workspace-inspector .panel {
   border: 0;
   border-radius: 0;
   box-shadow: none;
@@ -587,34 +584,29 @@ button:disabled {
   overflow: hidden;
 }
 
+.workspace-resize-handle,
 .findings-resize-handle {
-  background: #f6f7f8;
-  border-left: 1px solid var(--border);
-  border-right: 1px solid var(--border);
+  background:
+    linear-gradient(var(--border), var(--border)) center / 1px 100% no-repeat,
+    transparent;
   cursor: col-resize;
   min-height: 0;
   position: relative;
   touch-action: none;
 }
 
-.findings-resize-handle::after {
-  background: #c9ced6;
-  border-radius: 999px;
-  content: "";
-  height: 32px;
-  left: 50%;
-  position: absolute;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  width: 2px;
-}
-
+.workspace-resize-handle:hover,
+.workspace-resize-handle:focus-visible,
+.workspace-body.resizing .workspace-resize-handle,
 .findings-resize-handle:hover,
 .findings-resize-handle:focus-visible,
 .findings-workspace.resizing .findings-resize-handle {
-  background: var(--accent-soft);
+  background:
+    linear-gradient(#a9c4ff, #a9c4ff) center / 1px 100% no-repeat,
+    var(--accent-soft);
 }
 
+.workspace-resize-handle:focus-visible,
 .findings-resize-handle:focus-visible {
   outline: 2px solid rgba(47, 111, 237, 0.25);
   outline-offset: -2px;
@@ -970,8 +962,8 @@ button.table-row:hover:not(:disabled) {
 }
 
 @media (max-width: 1160px) {
-  .workspace-body.drawer-open {
-    grid-template-columns: minmax(0, 1fr) clamp(340px, 38vw, 440px);
+  .workspace-body.inspector-open {
+    grid-template-columns: minmax(0, 1fr) 8px minmax(320px, min(var(--inspector-width), 440px));
   }
 
   .findings-workspace {

@@ -6,7 +6,6 @@ import type { FeatureMapSnapshot } from "../../src/shared/types";
 describe("ReviewCoveragePanel actions", () => {
   it("keeps review controls tied to map coverage state", () => {
     const onReviewAllPending = vi.fn();
-    const onReviewFeature = vi.fn();
     const onToggleExpanded = vi.fn();
 
     render(
@@ -17,7 +16,6 @@ describe("ReviewCoveragePanel actions", () => {
         isExpanded={true}
         onToggleExpanded={onToggleExpanded}
         onReviewAllPending={onReviewAllPending}
-        onReviewFeature={onReviewFeature}
       />,
     );
 
@@ -27,8 +25,7 @@ describe("ReviewCoveragePanel actions", () => {
     fireEvent.click(screen.getByRole("button", { name: "Review 2 remaining" }));
     expect(onReviewAllPending).toHaveBeenCalledWith(2);
 
-    fireEvent.click(screen.getByRole("button", { name: "Review" }));
-    expect(onReviewFeature).toHaveBeenCalledWith("feat-auth");
+    expect(screen.queryByRole("table", { name: "Review coverage map" })).not.toBeInTheDocument();
 
     const tableToggle = screen.getByRole("button", { name: "Hide map table" });
     expect(tableToggle).toHaveAttribute("aria-pressed", "true");
@@ -45,7 +42,6 @@ describe("ReviewCoveragePanel actions", () => {
         isExpanded={false}
         onToggleExpanded={() => undefined}
         onReviewAllPending={() => undefined}
-        onReviewFeature={() => undefined}
       />,
     );
 
