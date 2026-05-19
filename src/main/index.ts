@@ -1,10 +1,19 @@
 import { app, BrowserWindow, ipcMain } from "electron";
 import { join } from "node:path";
-import type { ClawpatchCommandRequest, ClawpatchStatus, CommandStreamEvent } from "../shared/types";
-import { RepoService } from "./services/repoService";
+import * as Layer from "effect/Layer";
+import * as ManagedRuntime from "effect/ManagedRuntime";
+import { COMMANDS_STREAM_CHANNEL } from "../shared/ipcChannels";
+import type { CommandStreamEvent } from "../shared/types";
+import { EffectIpcLive } from "./ipc/effectIpc";
+import { installIpcHandlers } from "./ipc/handlers";
+import { ClawpatchRunnerLive } from "./services/clawpatchRunner";
+import { ClawpatchStateServiceLive } from "./services/clawpatchState";
+import { GitServiceLive } from "./services/gitService";
+import { GuiMetadataServiceLive } from "./services/guiMetadata";
+import { RepoServiceLive } from "./services/repoService";
 
 let mainWindow: BrowserWindow | null = null;
-let repoService: RepoService;
+let appRuntime: ManagedRuntime.ManagedRuntime<any, any> | null = null;
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
@@ -28,9 +37,9 @@ function createWindow(): void {
   }
 }
 
-app.whenReady().then(() => {
-  repoService = new RepoService(app.getPath("userData"));
-  registerIpc();
+app.whenReady().then(async () => {
+  appRuntime = makeAppRuntime(app.getPath("userData"));
+  await appRuntime.runPromise(installIpcHandlers((event) => publishCommandStream(event)));
   createWindow();
 
   app.on("activate", () => {
@@ -40,31 +49,34 @@ app.whenReady().then(() => {
   });
 });
 
+app.on("before-quit", () => {
+  void appRuntime?.dispose();
+});
+
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") {
     app.quit();
   }
 });
 
-function registerIpc(): void {
-  ipcMain.handle("repo:list", () => repoService.listRepos());
-  ipcMain.handle("repo:add", (_event, repoPath: string) => repoService.addRepo(repoPath));
-  ipcMain.handle("repo:refresh", (_event, repoId: string) => repoService.refreshRepo(repoId));
-  ipcMain.handle("findings:list", (_event, repoId: string) => repoService.listFindings(repoId));
-  ipcMain.handle("findings:get", (_event, repoId: string, findingId: string) =>
-    repoService.getFinding(repoId, findingId)
-  );
-  ipcMain.handle(
-    "triage:set",
-    (_event, repoId: string, findingId: string, status: ClawpatchStatus, note?: string) =>
-      repoService.setTriage(repoId, findingId, status, note)
-  );
-  ipcMain.handle("commands:run", (_event, repoId: string, request: ClawpatchCommandRequest) =>
-    repoService.runCommand(repoId, request, (streamEvent) => publishCommandStream(streamEvent))
-  );
-  ipcMain.handle("git:diff", (_event, repoId: string) => repoService.readDiff(repoId));
+function publishCommandStream(event: CommandStreamEvent): void {
+  mainWindow?.webContents.send(COMMANDS_STREAM_CHANNEL, event);
 }
 
-function publishCommandStream(event: CommandStreamEvent): void {
-  mainWindow?.webContents.send("commands:stream", event);
+function makeAppRuntime(userDataPath: string): ManagedRuntime.ManagedRuntime<any, any> {
+  const coreLayer = Layer.mergeAll(
+    ClawpatchRunnerLive,
+    ClawpatchStateServiceLive,
+    GuiMetadataServiceLive,
+    GitServiceLive
+  );
+  const repoLayer = RepoServiceLive(userDataPath).pipe(Layer.provideMerge(coreLayer));
+  let runtime: ManagedRuntime.ManagedRuntime<any, any>;
+  runtime = ManagedRuntime.make(
+    Layer.mergeAll(
+      repoLayer,
+      EffectIpcLive(ipcMain, (effect) => runtime.runPromise(effect))
+    )
+  );
+  return runtime;
 }

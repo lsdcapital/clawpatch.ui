@@ -1,5 +1,8 @@
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
+import * as Context from "effect/Context";
+import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
 import type {
   ClawpatchCommandRequest,
   ClawpatchStatus,
@@ -7,8 +10,80 @@ import type {
   CommandStreamEvent
 } from "../../shared/types";
 import { clawpatchStatuses } from "../../shared/types";
+import {
+  CommandAlreadyRunningError,
+  CommandSpawnError,
+  CommandValidationError
+} from "../errors";
 
 const commandNames = new Set(["status", "report", "review", "triage", "fix", "doctor"]);
+
+export type ClawpatchRunnerError =
+  | CommandValidationError
+  | CommandAlreadyRunningError
+  | CommandSpawnError;
+
+export interface ClawpatchRunnerShape {
+  readonly run: (
+    repoPath: string,
+    request: ClawpatchCommandRequest,
+    onStream?: (event: CommandStreamEvent) => void
+  ) => Effect.Effect<CommandResult, ClawpatchRunnerError>;
+}
+
+export class ClawpatchRunner extends Context.Service<ClawpatchRunner, ClawpatchRunnerShape>()(
+  "clawpatch/ClawpatchRunner"
+) {}
+
+type RunClawpatchProcess = (input: {
+  readonly repoPath: string;
+  readonly args: readonly string[];
+  readonly runId: string;
+  readonly started: number;
+  readonly onStream?: (event: CommandStreamEvent) => void;
+}) => Promise<CommandResult>;
+
+export const makeClawpatchRunnerLayer = (
+  runProcess: RunClawpatchProcess = runClawpatchProcess
+) => Layer.effect(
+  ClawpatchRunner,
+  Effect.gen(function* () {
+    const activeRepos = new Set<string>();
+
+    return ClawpatchRunner.of({
+      run: Effect.fn("clawpatch.runner.run")(function* (repoPath, request, onStream) {
+        if (activeRepos.has(repoPath)) {
+          return yield* new CommandAlreadyRunningError({ repoPath });
+        }
+
+        const args = yield* Effect.try({
+          try: () => buildClawpatchArgs(request),
+          catch: (error) =>
+            new CommandValidationError({
+              message: error instanceof Error ? error.message : String(error)
+            })
+        });
+        const runId = randomUUID();
+        const started = Date.now();
+        activeRepos.add(repoPath);
+
+        return yield* Effect.tryPromise({
+          try: () =>
+            runProcess({
+              repoPath,
+              args,
+              runId,
+              started,
+              onStream
+            }),
+          catch: (cause) => new CommandSpawnError({ repoPath, cause })
+        }).pipe(Effect.ensuring(Effect.sync(() => activeRepos.delete(repoPath))));
+      })
+    });
+  })
+);
+
+export const ClawpatchRunnerLive = makeClawpatchRunnerLayer();
 
 export function isClawpatchStatus(value: string): value is ClawpatchStatus {
   return (clawpatchStatuses as readonly string[]).includes(value);
@@ -50,67 +125,52 @@ export function buildClawpatchArgs(request: ClawpatchCommandRequest): string[] {
   }
 }
 
-export class ClawpatchRunner {
-  private readonly activeRepos = new Set<string>();
+function runClawpatchProcess(input: {
+  readonly repoPath: string;
+  readonly args: readonly string[];
+  readonly runId: string;
+  readonly started: number;
+  readonly onStream?: (event: CommandStreamEvent) => void;
+}): Promise<CommandResult> {
+  return new Promise((resolve, reject) => {
+    const child = spawn("clawpatch", input.args, {
+      cwd: input.repoPath,
+      shell: false,
+      env: { ...process.env, NO_COLOR: "1" }
+    });
 
-  async run(
-    repoPath: string,
-    request: ClawpatchCommandRequest,
-    onStream?: (event: CommandStreamEvent) => void
-  ): Promise<CommandResult> {
-    if (this.activeRepos.has(repoPath)) {
-      throw new Error("A Clawpatch command is already running for this repo");
-    }
+    let stdout = "";
+    let stderr = "";
 
-    const args = buildClawpatchArgs(request);
-    const runId = randomUUID();
-    const started = Date.now();
-    this.activeRepos.add(repoPath);
+    child.stdout.setEncoding("utf8");
+    child.stderr.setEncoding("utf8");
 
-    return new Promise((resolve, reject) => {
-      const child = spawn("clawpatch", args, {
-        cwd: repoPath,
-        shell: false,
-        env: { ...process.env, NO_COLOR: "1" }
-      });
+    child.stdout.on("data", (chunk: string) => {
+      stdout += chunk;
+      input.onStream?.({ runId: input.runId, stream: "stdout", chunk });
+    });
 
-      let stdout = "";
-      let stderr = "";
+    child.stderr.on("data", (chunk: string) => {
+      stderr += chunk;
+      input.onStream?.({ runId: input.runId, stream: "stderr", chunk });
+    });
 
-      child.stdout.setEncoding("utf8");
-      child.stderr.setEncoding("utf8");
+    child.on("error", reject);
 
-      child.stdout.on("data", (chunk: string) => {
-        stdout += chunk;
-        onStream?.({ runId, stream: "stdout", chunk });
-      });
-
-      child.stderr.on("data", (chunk: string) => {
-        stderr += chunk;
-        onStream?.({ runId, stream: "stderr", chunk });
-      });
-
-      child.on("error", (error) => {
-        this.activeRepos.delete(repoPath);
-        reject(error);
-      });
-
-      child.on("close", (exitCode) => {
-        this.activeRepos.delete(repoPath);
-        resolve({
-          runId,
-          command: "clawpatch",
-          args,
-          cwd: repoPath,
-          exitCode,
-          durationMs: Date.now() - started,
-          stdout,
-          stderr,
-          parsedJson: parseJsonOutput(stdout)
-        });
+    child.on("close", (exitCode) => {
+      resolve({
+        runId: input.runId,
+        command: "clawpatch",
+        args: [...input.args],
+        cwd: input.repoPath,
+        exitCode,
+        durationMs: Date.now() - input.started,
+        stdout,
+        stderr,
+        parsedJson: parseJsonOutput(stdout)
       });
     });
-  }
+  });
 }
 
 function assertFindingId(findingId: string): void {

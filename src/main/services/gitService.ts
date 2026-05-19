@@ -1,10 +1,30 @@
 import { spawn } from "node:child_process";
+import * as Context from "effect/Context";
+import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
+import { CommandSpawnError } from "../errors";
 
-export async function readGitDiff(repoPath: string): Promise<string> {
-  return runGit(repoPath, ["diff", "--no-color"]);
+export interface GitServiceShape {
+  readonly readDiff: (repoPath: string) => Effect.Effect<string, CommandSpawnError>;
 }
 
-async function runGit(repoPath: string, args: string[]): Promise<string> {
+export class GitService extends Context.Service<GitService, GitServiceShape>()(
+  "clawpatch/GitService"
+) {}
+
+export const GitServiceLive = Layer.succeed(
+  GitService,
+  GitService.of({
+    readDiff: Effect.fn("git.readDiff")(function* (repoPath) {
+      return yield* Effect.tryPromise({
+        try: () => runGit(repoPath, ["diff", "--no-color"]),
+        catch: (cause) => new CommandSpawnError({ repoPath, cause })
+      });
+    })
+  })
+);
+
+function runGit(repoPath: string, args: readonly string[]): Promise<string> {
   return new Promise((resolve) => {
     const child = spawn("git", args, { cwd: repoPath, shell: false });
     let stdout = "";

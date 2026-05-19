@@ -1,0 +1,10 @@
+export const REPO_LIST_CHANNEL = "repo:list";
+export const REPO_ADD_CHANNEL = "repo:add";
+export const REPO_REFRESH_CHANNEL = "repo:refresh";
+export const FINDINGS_LIST_CHANNEL = "findings:list";
+export const FINDINGS_GET_CHANNEL = "findings:get";
+export const TRIAGE_SET_CHANNEL = "triage:set";
+export const COMMANDS_RUN_CHANNEL = "commands:run";
+export const COMMANDS_STREAM_CHANNEL = "commands:stream";
+export const GIT_DIFF_CHANNEL = "git:diff";
+
