@@ -29,11 +29,13 @@
   "whyTestsDoNotAlreadyCoverThis": "The feature declares no linked tests, and there is no evidence of schema decode tests for status-bearing requests or command stream events.",
   "suggestedRegressionTest": "Add tests that decode representative valid values for `ClawpatchStatusSchema`, `ClawpatchCommandRequestSchema` triage requests, `GuiMetadataSchema`, and `CommandStreamEventSchema`, and assert invalid literals are rejected.",
   "minimumFixScope": "Update the literal schema construction sites in `src/shared/schemas.ts` and add focused schema validation tests.",
-  "status": "open",
+  "status": "uncertain",
   "history": [],
   "signature": "sig_feat-library-648a355089_277b15bfd7",
-  "linkedPatchAttemptIds": [],
+  "linkedPatchAttemptIds": [
+    "pat_fnd-sig-feat-library-648a355089-_bb92e6293d"
+  ],
   "createdByRunId": "20260519T113652-408557",
   "createdAt": "2026-05-19T11:37:17.745Z",
-  "updatedAt": "2026-05-19T11:37:17.745Z"
+  "updatedAt": "2026-05-19T12:01:26.850Z"
 }

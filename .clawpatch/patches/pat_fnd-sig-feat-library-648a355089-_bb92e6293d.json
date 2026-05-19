@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "patchAttemptId": "pat_fnd-sig-feat-library-648a355089-_bb92e6293d",
+  "findingIds": [
+    "fnd_sig-feat-library-648a355089-277b_16b9c723a8"
+  ],
+  "featureIds": [
+    "feat_library_648a355089"
+  ],
+  "status": "applied",
+  "plan": "Added focused regression coverage for the shared Effect schemas. No source schema change was made because the installed Effect 4 beta API defines `Schema.Literals` as accepting a readonly literals array, and the new tests verify the expected decode behavior for status and stream literals.",
+  "filesChanged": [
+    "test/shared/schemas.test.ts"
+  ],
+  "commandsRun": [
+    {
+      "command": "pnpm test",
+      "cwd": "/Users/steflsd/src/lsdcapital/clawpatch.ui",
+      "exitCode": 0,
+      "durationMs": 3384,
+      "stdout": "\n RUN  v4.1.6 /Users/steflsd/src/lsdcapital/clawpatch.ui\n\n ✓ test/main/windowState.test.ts (4 tests) 29ms\n ✓ test/renderer/findingsFilters.test.ts (6 tests) 36ms\n ✓ test/main/clawpatchRunner.test.ts (8 tests) 9ms\n ✓ test/main/effectIpc.test.ts (1 test) 21ms\n ✓ test/main/handlers.test.ts (3 tests) 8ms\n ✓ test/main/repoService.test.ts (7 tests) 64ms\n ✓ test/main/clawpatchState.test.ts (5 tests) 91ms\n ✓ test/renderer/ReviewMapPanel.test.tsx (4 tests) 278ms\n ✓ test/renderer/FindingsTable.test.tsx (5 tests) 325ms\n ✓ test/renderer/styles.test.ts (1 test) 3ms\n ✓ test/renderer/FindingsSplitPanel.test.tsx (8 tests) 425ms\n ✓ test/preload/index.test.ts (1 test) 6ms\n ✓ test/shared/schemas.test.ts (6 tests) 3ms\n ✓ test/renderer/ClawpatchApp.test.tsx (14 tests) 1346ms\n\n Test Files  14 passed (14)\n      Tests  73 passed (73)\n   Start at  16:01:24\n   Duration  2.76s (transform 1.12s, setup 960ms, import 2.73s, tests 2.64s, environment 8.79s)\n\n",
+      "stderr": "$ vitest run\nstderr | test/renderer/ClawpatchApp.test.tsx > ClawpatchApp header actions > interrupts a running command from command output\nAn update to ClawpatchApp inside a test was not wrapped in act(...).\n\nWhen testing, code that causes React state updates should be wrapped into act(...):\n\nact(() => {\n  /* fire events that update state */\n});\n/* assert on the output */\n\nThis ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act\n\n"
+    }
+  ],
+  "testResults": [
+    {
+      "command": "pnpm test",
+      "cwd": "/Users/steflsd/src/lsdcapital/clawpatch.ui",
+      "exitCode": 0,
+      "durationMs": 3384,
+      "stdout": "\n RUN  v4.1.6 /Users/steflsd/src/lsdcapital/clawpatch.ui\n\n ✓ test/main/windowState.test.ts (4 tests) 29ms\n ✓ test/renderer/findingsFilters.test.ts (6 tests) 36ms\n ✓ test/main/clawpatchRunner.test.ts (8 tests) 9ms\n ✓ test/main/effectIpc.test.ts (1 test) 21ms\n ✓ test/main/handlers.test.ts (3 tests) 8ms\n ✓ test/main/repoService.test.ts (7 tests) 64ms\n ✓ test/main/clawpatchState.test.ts (5 tests) 91ms\n ✓ test/renderer/ReviewMapPanel.test.tsx (4 tests) 278ms\n ✓ test/renderer/FindingsTable.test.tsx (5 tests) 325ms\n ✓ test/renderer/styles.test.ts (1 test) 3ms\n ✓ test/renderer/FindingsSplitPanel.test.tsx (8 tests) 425ms\n ✓ test/preload/index.test.ts (1 test) 6ms\n ✓ test/shared/schemas.test.ts (6 tests) 3ms\n ✓ test/renderer/ClawpatchApp.test.tsx (14 tests) 1346ms\n\n Test Files  14 passed (14)\n      Tests  73 passed (73)\n   Start at  16:01:24\n   Duration  2.76s (transform 1.12s, setup 960ms, import 2.73s, tests 2.64s, environment 8.79s)\n\n",
+      "stderr": "$ vitest run\nstderr | test/renderer/ClawpatchApp.test.tsx > ClawpatchApp header actions > interrupts a running command from command output\nAn update to ClawpatchApp inside a test was not wrapped in act(...).\n\nWhen testing, code that causes React state updates should be wrapped into act(...):\n\nact(() => {\n  /* fire events that update state */\n});\n/* assert on the output */\n\nThis ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act\n\n"
+    }
+  ],
+  "provider": {
+    "name": "codex",
+    "model": null,
+    "reasoningEffort": null,
+    "requestId": null,
+    "startedAt": "2026-05-19T11:59:51.027Z",
+    "finishedAt": "2026-05-19T12:01:26.849Z"
+  },
+  "git": {
+    "baseSha": "8c0c368bc476535638041e453ca6ff41415d6e91",
+    "commitSha": null,
+    "branchName": "main",
+    "prUrl": null
+  },
+  "createdAt": "2026-05-19T11:59:51.024Z",
+  "updatedAt": "2026-05-19T12:01:26.849Z"
+}
