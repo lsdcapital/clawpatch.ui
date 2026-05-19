@@ -341,9 +341,125 @@ button:disabled {
   display: grid;
   gap: 10px;
   grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+  grid-template-rows: auto minmax(0, 1fr);
   min-height: 0;
   min-width: 0;
   overflow: hidden;
+}
+
+.review-coverage-panel {
+  grid-column: 1 / -1;
+}
+
+.review-coverage-strip {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  min-width: 0;
+  padding: 9px 10px;
+}
+
+.review-coverage-copy {
+  min-width: 0;
+}
+
+.review-coverage-copy h2 {
+  color: #252932;
+  font-size: 12px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.review-coverage-copy p {
+  color: var(--muted);
+  font-size: 12px;
+  margin: 2px 0 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.review-coverage-actions {
+  display: flex;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.feature-map-table {
+  border-top: 1px solid var(--border);
+  display: grid;
+  max-height: 260px;
+  min-height: 0;
+  overflow: auto;
+}
+
+.feature-map-row {
+  align-items: center;
+  border-bottom: 1px solid #edf0f2;
+  display: grid;
+  font-size: 12px;
+  gap: 8px;
+  grid-template-columns:
+    minmax(76px, 0.7fr)
+    minmax(76px, 0.7fr)
+    minmax(86px, 0.8fr)
+    minmax(42px, 0.35fr)
+    minmax(58px, 0.45fr)
+    minmax(160px, 1.8fr)
+    minmax(72px, 0.55fr);
+  min-height: 34px;
+  min-width: 0;
+  padding: 6px 10px;
+}
+
+.feature-map-row > * {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.feature-map-row strong {
+  font-weight: 600;
+}
+
+.feature-map-head {
+  background: #f6f7f8;
+  color: var(--subtle);
+  font-size: 11px;
+  font-weight: 700;
+  position: sticky;
+  text-transform: uppercase;
+  top: 0;
+  z-index: 1;
+}
+
+.feature-status {
+  font-weight: 700;
+}
+
+.feature-status.pending,
+.feature-status.error {
+  color: var(--warning);
+}
+
+.feature-status.needs-fix {
+  color: var(--danger);
+}
+
+.feature-status.reviewed,
+.feature-status.fixed,
+.feature-status.revalidated {
+  color: var(--success);
+}
+
+.feature-map-empty {
+  color: var(--muted);
+  font-size: 12px;
+  padding: 12px 10px;
 }
 
 .workspace-drawer {

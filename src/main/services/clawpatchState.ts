@@ -5,7 +5,14 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Schema from "effect/Schema";
 import { ClawpatchStatusSchema } from "../../shared/schemas";
-import type { FindingDetail, FindingListItem, GuiMetadata } from "../../shared/types";
+import type {
+  FeatureMapItem,
+  FeatureMapSnapshot,
+  FindingDetail,
+  FindingListItem,
+  GuiMetadata,
+  ReviewRunSummary
+} from "../../shared/types";
 import { JsonDecodeError } from "../errors";
 
 const RawFindingSchema = Schema.Struct({
@@ -34,6 +41,7 @@ type RawFinding = typeof RawFindingSchema.Type;
 
 export interface ClawpatchStateServiceShape {
   readonly detect: (repoPath: string) => Effect.Effect<boolean, unknown>;
+  readonly readFeatureMap: (repoPath: string) => Effect.Effect<FeatureMapSnapshot, unknown>;
   readonly readFindingList: (
     repoPath: string,
     metadata: GuiMetadata
@@ -67,6 +75,38 @@ const liveService: ClawpatchStateServiceShape = {
   readFindingList: Effect.fn("clawpatchState.readFindingList")(function* (repoPath, metadata) {
     const rawFindings = yield* readRawFindings(repoPath);
     return rawFindings.map((finding) => toFindingListItem(finding, metadata));
+  }),
+  readFeatureMap: Effect.fn("clawpatchState.readFeatureMap")(function* (repoPath) {
+    const [featureRecords, runRecords] = yield* Effect.all([
+      readRecords(repoPath, "features"),
+      readRecords(repoPath, "runs")
+    ]);
+    const features = featureRecords
+      .map(toFeatureMapItem)
+      .filter((feature): feature is FeatureMapItem => feature !== null)
+      .sort(rankFeatureMapItem);
+    const pendingReviewFeatureIds = features
+      .filter((feature) => isPendingReviewStatus(feature.status))
+      .map((feature) => feature.featureId);
+    const reviewRuns = runRecords
+      .map(toReviewRunSummary)
+      .filter((run): run is ReviewRunSummary => run !== null)
+      .sort(compareReviewRunNewestFirst);
+    const latestReviewRun = reviewRuns[0] ?? null;
+    const latestLimitedReviewRun = reviewRuns.find((run) => run.limit !== null) ?? null;
+
+    return {
+      features,
+      coverage: {
+        totalFeatures: features.length,
+        pendingReviewCount: pendingReviewFeatureIds.length,
+        pendingReviewFeatureIds,
+        latestReviewRun,
+        latestLimitedReviewRun,
+        hasLimitedReviewRemainder:
+          latestLimitedReviewRun !== null && pendingReviewFeatureIds.length > 0
+      }
+    };
   }),
   readFindingDetail: Effect.fn("clawpatchState.readFindingDetail")(function* (
     repoPath,
@@ -172,10 +212,108 @@ function toFindingListItem(finding: RawFinding, metadata: GuiMetadata): FindingL
   };
 }
 
+function toFeatureMapItem(value: unknown): FeatureMapItem | null {
+  const featureId = valueOrEmpty(value, "featureId");
+  if (featureId === "") {
+    return null;
+  }
+  const ownedFileCount = arrayValue(value, "ownedFiles").length;
+  const contextFileCount = arrayValue(value, "contextFiles").length;
+  const testCount = arrayValue(value, "tests").length;
+  const findingCount = arrayValue(value, "findingIds").length;
+  return {
+    featureId,
+    title: firstNonEmptyString(
+      stringValue(value, "title"),
+      stringValue(value, "summary"),
+      stringValue(value, "path"),
+      featureId
+    ),
+    status: firstNonEmptyString(stringValue(value, "status"), "unknown"),
+    kind: firstNonEmptyString(stringValue(value, "kind"), "unknown"),
+    source: firstNonEmptyString(stringValue(value, "source"), stringValue(value, "project"), "unknown"),
+    ownedFileCount,
+    contextFileCount,
+    testCount,
+    findingCount,
+    updatedAt: firstNonEmptyString(stringValue(value, "updatedAt"), stringValue(value, "createdAt"), "")
+  };
+}
+
+function toReviewRunSummary(value: unknown): ReviewRunSummary | null {
+  const command = stringValue(value, "command");
+  const args = arrayValue(value, "args").filter((item): item is string => typeof item === "string");
+  if (command !== "review" && !args.includes("review")) {
+    return null;
+  }
+  const runId = valueOrEmpty(value, "runId");
+  if (runId === "") {
+    return null;
+  }
+
+  return {
+    runId,
+    status: firstNonEmptyString(stringValue(value, "status"), "unknown"),
+    startedAt: firstNonEmptyString(stringValue(value, "startedAt"), ""),
+    finishedAt: nullableString(value, "finishedAt"),
+    limit: reviewLimit(args),
+    reviewedFeatureCount: arrayValue(value, "claimedFeatureIds").length,
+    args
+  };
+}
+
+function reviewLimit(args: readonly string[]): number | null {
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+    if (arg === "--limit") {
+      const parsed = Number(args[index + 1]);
+      return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : null;
+    }
+    if (arg.startsWith("--limit=")) {
+      const parsed = Number(arg.slice("--limit=".length));
+      return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : null;
+    }
+  }
+  return null;
+}
+
+function compareReviewRunNewestFirst(left: ReviewRunSummary, right: ReviewRunSummary): number {
+  return timestamp(right.startedAt) - timestamp(left.startedAt) || right.runId.localeCompare(left.runId);
+}
+
+function rankFeatureMapItem(left: FeatureMapItem, right: FeatureMapItem): number {
+  return (
+    featureStatusRank(left.status) - featureStatusRank(right.status) ||
+    left.title.localeCompare(right.title) ||
+    left.featureId.localeCompare(right.featureId)
+  );
+}
+
+function featureStatusRank(status: string): number {
+  if (status === "error") {
+    return 0;
+  }
+  if (status === "pending") {
+    return 1;
+  }
+  if (status === "claimed") {
+    return 2;
+  }
+  return 3;
+}
+
+function isPendingReviewStatus(status: string): boolean {
+  return status === "pending" || status === "error";
+}
+
 function rankFinding(finding: RawFinding): number {
   const severity = { critical: 0, high: 1, medium: 2, low: 3 }[finding.severity] ?? 4;
   const status = finding.status === "open" ? 0 : 10;
   return status + severity;
+}
+
+function firstNonEmptyString(...values: string[]): string {
+  return values.find((value) => value.trim() !== "") ?? "";
 }
 
 function objectId(value: unknown, key: string): string {
@@ -192,6 +330,21 @@ function valueOrEmpty(value: unknown, key: string): string {
   return "";
 }
 
+function stringValue(value: unknown, key: string): string {
+  if (typeof value === "object" && value !== null && typeof (value as Record<string, unknown>)[key] === "string") {
+    return (value as Record<string, string>)[key];
+  }
+  return "";
+}
+
+function arrayValue(value: unknown, key: string): unknown[] {
+  if (typeof value !== "object" || value === null) {
+    return [];
+  }
+  const raw = (value as Record<string, unknown>)[key];
+  return Array.isArray(raw) ? raw : [];
+}
+
 function nullableString(value: unknown, key: string): string | null {
   if (typeof value !== "object" || value === null) {
     return null;
@@ -206,4 +359,9 @@ function nullableNumber(value: unknown, key: string): number | null {
   }
   const raw = (value as Record<string, unknown>)[key];
   return typeof raw === "number" ? raw : null;
+}
+
+function timestamp(value: string): number {
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : 0;
 }

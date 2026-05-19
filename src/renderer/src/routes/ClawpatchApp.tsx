@@ -13,6 +13,7 @@ import { DiffViewer } from "../components/DiffViewer";
 import { FindingDetailPanel } from "../components/FindingDetailPanel";
 import { FindingsTable } from "../components/FindingsTable";
 import { RepoSidebar } from "../components/RepoSidebar";
+import { ReviewCoveragePanel } from "../components/ReviewCoveragePanel";
 import {
   defaultFindingFilters,
   filterFindings,
@@ -35,6 +36,7 @@ export function ClawpatchApp() {
   const [commandLog, setCommandLog] = useState<LogEntry[]>([]);
   const [activeDrawer, setActiveDrawer] = useState<ActiveDrawer>(null);
   const [findingFilters, setFindingFilters] = useState(defaultFindingFilters);
+  const [isMapExpanded, setIsMapExpanded] = useState(false);
 
   const reposQuery = useQuery({
     queryKey: ["repos"],
@@ -67,6 +69,12 @@ export function ClawpatchApp() {
     () => getFindingFilterOptions(allFindings, clawpatchStatuses),
     [allFindings]
   );
+
+  const featureMapQuery = useQuery({
+    queryKey: ["features", selectedRepo?.id],
+    queryFn: () => window.clawpatch.features.map(selectedRepo!.id),
+    enabled: selectedRepo !== null
+  });
 
   const selectedFinding = useMemo(
     () => filteredFindings.find((finding) => finding.findingId === selectedFindingId) ?? filteredFindings[0] ?? null,
@@ -187,7 +195,7 @@ export function ClawpatchApp() {
               Report
             </button>
             <button disabled={selectedRepo === null || commandMutation.isPending} onClick={() => runCommand({ command: "review" })}>
-              Review
+              Review next
             </button>
             <button disabled={selectedRepo === null || commandMutation.isPending} onClick={() => runCommand({ command: "doctor" })}>
               Doctor
@@ -214,6 +222,17 @@ export function ClawpatchApp() {
 
         <div className={activeDrawer === null ? "workspace-body" : "workspace-body drawer-open"}>
           <div className="primary-workspace">
+            <ReviewCoveragePanel
+              snapshot={featureMapQuery.data ?? null}
+              isLoading={featureMapQuery.isLoading}
+              isBusy={commandMutation.isPending || triageMutation.isPending}
+              isExpanded={isMapExpanded}
+              onToggleExpanded={() => setIsMapExpanded((current) => !current)}
+              onRunMap={() => runCommand({ command: "map" })}
+              onReviewNext={() => runCommand({ command: "review" })}
+              onReviewAllPending={(limit) => runCommand({ command: "review", limit })}
+              onReviewFeature={(featureId) => runCommand({ command: "review", featureId })}
+            />
             <FindingsTable
               findings={filteredFindings}
               totalFindingCount={allFindings.length}
@@ -259,6 +278,7 @@ export function ClawpatchApp() {
 async function invalidateRepo(queryClient: ReturnType<typeof useQueryClient>, repoId: string | null): Promise<void> {
   await Promise.all([
     queryClient.invalidateQueries({ queryKey: ["repos"] }),
+    queryClient.invalidateQueries({ queryKey: ["features", repoId] }),
     queryClient.invalidateQueries({ queryKey: ["findings", repoId] }),
     queryClient.invalidateQueries({ queryKey: ["finding"] }),
     queryClient.invalidateQueries({ queryKey: ["diff", repoId] })

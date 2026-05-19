@@ -4,6 +4,7 @@ import {
   ClawpatchCommandRequestSchema,
   ClawpatchStatusSchema,
   CommandResultSchema,
+  FeatureMapSnapshotSchema,
   FindingDetailSchema,
   FindingListSchema,
   RepoListSchema,
@@ -14,6 +15,7 @@ import type { CommandStreamEvent } from "../../shared/types";
 import { RepoService } from "../services/repoService";
 import {
   COMMANDS_RUN_CHANNEL,
+  FEATURES_MAP_CHANNEL,
   FINDINGS_GET_CHANNEL,
   FINDINGS_LIST_CHANNEL,
   GIT_DIFF_CHANNEL,
@@ -81,6 +83,14 @@ export const installIpcHandlers = (publishCommandStream: (event: CommandStreamEv
         payload: FindingPayload,
         result: FindingDetailSchema,
         handler: ({ repoId, findingId }) => repos.getFinding(repoId, findingId)
+      })
+    );
+    yield* ipc.handle(
+      makeIpcMethod({
+        channel: FEATURES_MAP_CHANNEL,
+        payload: RepoIdPayload,
+        result: FeatureMapSnapshotSchema,
+        handler: ({ repoId }) => repos.readFeatureMap(repoId)
       })
     );
     yield* ipc.handle(

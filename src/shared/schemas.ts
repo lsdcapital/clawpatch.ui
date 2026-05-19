@@ -5,8 +5,13 @@ export const ClawpatchStatusSchema = Schema.Literals(clawpatchStatuses);
 
 export const ClawpatchCommandRequestSchema = Schema.Union([
   Schema.Struct({ command: Schema.Literal("status") }),
+  Schema.Struct({ command: Schema.Literal("map") }),
   Schema.Struct({ command: Schema.Literal("report") }),
-  Schema.Struct({ command: Schema.Literal("review") }),
+  Schema.Struct({
+    command: Schema.Literal("review"),
+    featureId: Schema.optionalKey(Schema.String),
+    limit: Schema.optionalKey(Schema.Number)
+  }),
   Schema.Struct({
     command: Schema.Literal("triage"),
     findingId: Schema.String,
@@ -82,6 +87,43 @@ export const FindingDetailSchema = Schema.Struct({
   feature: Schema.NullOr(Schema.Unknown),
   patchAttempts: Schema.Array(Schema.Unknown),
   history: Schema.Array(Schema.Unknown)
+});
+
+export const FeatureMapItemSchema = Schema.Struct({
+  featureId: Schema.String,
+  title: Schema.String,
+  status: Schema.String,
+  kind: Schema.String,
+  source: Schema.String,
+  ownedFileCount: Schema.Number,
+  contextFileCount: Schema.Number,
+  testCount: Schema.Number,
+  findingCount: Schema.Number,
+  updatedAt: Schema.String
+});
+
+export const ReviewRunSummarySchema = Schema.Struct({
+  runId: Schema.String,
+  status: Schema.String,
+  startedAt: Schema.String,
+  finishedAt: Schema.NullOr(Schema.String),
+  limit: Schema.NullOr(Schema.Number),
+  reviewedFeatureCount: Schema.Number,
+  args: Schema.Array(Schema.String)
+});
+
+export const ReviewCoverageSchema = Schema.Struct({
+  totalFeatures: Schema.Number,
+  pendingReviewCount: Schema.Number,
+  pendingReviewFeatureIds: Schema.Array(Schema.String),
+  latestReviewRun: Schema.NullOr(ReviewRunSummarySchema),
+  latestLimitedReviewRun: Schema.NullOr(ReviewRunSummarySchema),
+  hasLimitedReviewRemainder: Schema.Boolean
+});
+
+export const FeatureMapSnapshotSchema = Schema.Struct({
+  features: Schema.Array(FeatureMapItemSchema),
+  coverage: ReviewCoverageSchema
 });
 
 export const RepoSummarySchema = Schema.Struct({
