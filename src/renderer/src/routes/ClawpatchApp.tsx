@@ -279,19 +279,13 @@ export function ClawpatchApp() {
 
     const repo = selectedRepo;
     setActiveInspector("output");
-    void (async () => {
-      try {
-        if (note.trim() !== "" || status !== finding.status) {
-          await triageMutation.mutateAsync({ repo, finding, status, note });
-        }
-        await commandMutation.mutateAsync({
-          repo,
-          request: { command: "fix", findingId: finding.findingId },
-        });
-      } catch {
-        // The mutation callbacks already publish the command error to the output log.
-      }
-    })();
+    const shouldSaveGuidance = note.trim() !== "" || status !== finding.status;
+    commandMutation.mutate({
+      repo,
+      request: shouldSaveGuidance
+        ? { command: "fix", findingId: finding.findingId, status, note }
+        : { command: "fix", findingId: finding.findingId },
+    });
   };
 
   const inspectorMaxWidth = (): number => {
@@ -421,6 +415,12 @@ export function ClawpatchApp() {
           <div className="workspace-title">
             <h1>{selectedRepo?.name ?? "Clawpatch"}</h1>
             <p>{selectedRepo?.path ?? "Add a repository with .clawpatch state to begin."}</p>
+            {selectedRepo?.activeWorktreePath ? (
+              <div className="workspace-worktree" title={selectedRepo.activeWorktreePath}>
+                <span>worktree</span>
+                <code>{selectedRepo.activeWorktreePath}</code>
+              </div>
+            ) : null}
           </div>
           <div className="workspace-switcher" role="tablist" aria-label="Workspace">
             <button

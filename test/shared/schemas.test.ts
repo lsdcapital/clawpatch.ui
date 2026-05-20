@@ -27,6 +27,17 @@ describe("shared schemas", () => {
     expect(Schema.decodeUnknownSync(ClawpatchCommandRequestSchema)(request)).toEqual(request);
   });
 
+  it("decodes fix command requests with optional guidance", () => {
+    const request = {
+      command: "fix",
+      findingId: "f1",
+      status: "open",
+      note: "prefer the smaller patch",
+    };
+
+    expect(Schema.decodeUnknownSync(ClawpatchCommandRequestSchema)(request)).toEqual(request);
+  });
+
   it("decodes UI metadata with nullable status filters", () => {
     const metadata = {
       schemaVersion: 1,

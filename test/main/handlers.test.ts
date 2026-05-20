@@ -194,6 +194,7 @@ function makeRepoSummary(): RepoSummary {
     id: "repo-1",
     name: "repo",
     path: "/tmp/repo",
+    activeWorktreePath: null,
     isValid: true,
     hasClawpatch: true,
     findingCount: 0,

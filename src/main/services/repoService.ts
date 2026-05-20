@@ -19,7 +19,7 @@ import type {
   RepoSnapshot,
   RepoSummary,
 } from "../../shared/types";
-import { InvalidRepoPathError, RepoNotFoundError } from "../errors";
+import { CommandValidationError, InvalidRepoPathError, RepoNotFoundError } from "../errors";
 import { ClawpatchRunner, type ClawpatchRunnerError } from "./clawpatchRunner";
 import { ClawpatchStateService, type ClawpatchStateError } from "./clawpatchState";
 import { GitService } from "./gitService";
@@ -80,6 +80,8 @@ export const RepoServiceLive = (appDataDir: string) =>
       const path = yield* Path.Path;
       const registryPath = path.resolve(appDataDir, "repos.json");
       const registryMutationSemaphore = yield* Semaphore.make(1);
+      const activeWorktreePaths = new Map<string, string>();
+      const runningCommandPaths = new Map<string, string>();
 
       const readRegistry = Effect.fn("repoService.readRegistry")(function* () {
         const raw = yield* fs
@@ -172,7 +174,9 @@ export const RepoServiceLive = (appDataDir: string) =>
         repoPath: string,
         id: string,
       ) {
-        const hasClawpatch = yield* state.detect(repoPath);
+        const activeWorktreePath = activeWorktreePaths.get(id) ?? null;
+        const workspacePath = activeWorktreePath ?? repoPath;
+        const hasClawpatch = yield* state.detect(workspacePath);
         let isValid = false;
         let lastError: string | null = null;
         let findings: FindingListItem[] = [];
@@ -180,11 +184,12 @@ export const RepoServiceLive = (appDataDir: string) =>
         if (!hasClawpatch) {
           lastError = "No .clawpatch state found";
         } else {
-          const isCommandRunning = yield* runner.isRunning(repoPath);
+          const isCommandRunning =
+            runningCommandPaths.has(id) || (yield* runner.isRunning(workspacePath));
           if (isCommandRunning) {
             isValid = true;
           } else {
-            const status = yield* runner.run(repoPath, { command: "status" }).pipe(
+            const status = yield* runner.run(workspacePath, { command: "status" }).pipe(
               Effect.catch((error: unknown) =>
                 Effect.succeed({
                   exitCode: 1,
@@ -199,7 +204,7 @@ export const RepoServiceLive = (appDataDir: string) =>
               : status.stderr || status.stdout || "clawpatch status failed";
           }
           findings = yield* state
-            .readFindingList(repoPath)
+            .readFindingList(workspacePath)
             .pipe(Effect.catch(() => Effect.succeed([])));
         }
 
@@ -212,8 +217,64 @@ export const RepoServiceLive = (appDataDir: string) =>
           lastError,
           findingCount: findings.length,
           openFindingCount: findings.filter((item) => item.status === "open").length,
+          activeWorktreePath,
           updatedAt: new Date().toISOString(),
         } satisfies RepoSummary;
+      });
+
+      const workspacePathForRepo = (repo: Pick<RepoSummary, "id" | "path">): string =>
+        activeWorktreePaths.get(repo.id) ?? repo.path;
+
+      const runTrackedCommand = Effect.fn("repoService.runTrackedCommand")(function* (
+        repoIdValue: string,
+        commandPath: string,
+        request: ClawpatchCommandRequest,
+        onStream?: (event: CommandStreamEvent) => void,
+      ) {
+        runningCommandPaths.set(repoIdValue, commandPath);
+        return yield* runner
+          .run(commandPath, request, onStream)
+          .pipe(Effect.ensuring(Effect.sync(() => runningCommandPaths.delete(repoIdValue))));
+      });
+
+      const runFixInManagedWorktree = Effect.fn("repoService.runFixInManagedWorktree")(function* (
+        repo: Pick<RepoSummary, "id" | "path">,
+        request: Extract<ClawpatchCommandRequest, { command: "fix" }>,
+        onStream?: (event: CommandStreamEvent) => void,
+      ) {
+        const status = request.status;
+        const note = request.note ?? "";
+        if (status === undefined && note.trim() !== "") {
+          return yield* new CommandValidationError({
+            message: "Fix guidance note requires a finding status",
+          });
+        }
+
+        yield* git.requireCleanCheckout(repo.path);
+        const slug = sanitizeWorktreeFragment(request.findingId);
+        const worktreePath = path.join(appDataDir, "worktrees", repo.id, slug);
+        const branchName = `clawpatch/fix/${slug}`;
+        yield* git.createOrReuseWorktree({ repoPath: repo.path, worktreePath, branchName });
+
+        if (status !== undefined) {
+          yield* runTrackedCommand(repo.id, worktreePath, {
+            command: "triage",
+            findingId: request.findingId,
+            status,
+            note,
+          });
+        }
+
+        const result = yield* runTrackedCommand(
+          repo.id,
+          worktreePath,
+          { command: "fix", findingId: request.findingId },
+          onStream,
+        );
+        if (result.exitCode === 0) {
+          activeWorktreePaths.set(repo.id, worktreePath);
+        }
+        return result;
       });
 
       return RepoService.of({
@@ -249,12 +310,13 @@ export const RepoServiceLive = (appDataDir: string) =>
         }),
         refreshRepo: Effect.fn("repoService.refreshRepo")(function* (repoIdValue) {
           const repo = yield* requireRepo(repoIdValue);
-          const repoMetadata = yield* metadata.read(repo.id, repo.path);
+          const workspacePath = workspacePathForRepo(repo);
+          const repoMetadata = yield* metadata.read(repo.id, workspacePath);
           const [summary, diff] = yield* Effect.all([
             summarizeRepo(repo.path, repo.id),
-            git.readDiff(repo.path),
+            git.readDiff(workspacePath),
           ]);
-          const findings = yield* state.readFindingList(repo.path);
+          const findings = yield* state.readFindingList(workspacePath);
           return {
             repo: {
               ...summary,
@@ -263,7 +325,7 @@ export const RepoServiceLive = (appDataDir: string) =>
             },
             status:
               summary.lastError === null
-                ? (yield* runner.run(repo.path, { command: "status" })).parsedJson
+                ? (yield* runner.run(workspacePath, { command: "status" })).parsedJson
                 : null,
             findings,
             diff,
@@ -272,23 +334,28 @@ export const RepoServiceLive = (appDataDir: string) =>
         }),
         listFindings: Effect.fn("repoService.listFindings")(function* (repoIdValue) {
           const repo = yield* requireRepo(repoIdValue);
-          return yield* state.readFindingList(repo.path);
+          return yield* state.readFindingList(workspacePathForRepo(repo));
         }),
         readFeatureMap: Effect.fn("repoService.readFeatureMap")(function* (repoIdValue) {
           const repo = yield* requireRepo(repoIdValue);
-          return yield* state.readFeatureMap(repo.path);
+          return yield* state.readFeatureMap(workspacePathForRepo(repo));
         }),
         getFinding: Effect.fn("repoService.getFinding")(function* (repoIdValue, findingId) {
           const repo = yield* requireRepo(repoIdValue);
-          return yield* state.readFindingDetail(repo.path, findingId);
+          return yield* state.readFindingDetail(workspacePathForRepo(repo), findingId);
         }),
         runCommand: Effect.fn("repoService.runCommand")(function* (repoIdValue, request, onStream) {
           const repo = yield* requireRepo(repoIdValue);
-          return yield* runner.run(repo.path, request, onStream);
+          if (request.command === "fix") {
+            return yield* runFixInManagedWorktree(repo, request, onStream);
+          }
+          return yield* runTrackedCommand(repo.id, workspacePathForRepo(repo), request, onStream);
         }),
         interruptCommand: Effect.fn("repoService.interruptCommand")(function* (repoIdValue) {
           const repo = yield* requireRepo(repoIdValue);
-          return yield* runner.interrupt(repo.path);
+          return yield* runner.interrupt(
+            runningCommandPaths.get(repo.id) ?? workspacePathForRepo(repo),
+          );
         }),
         setTriage: Effect.fn("repoService.setTriage")(function* (
           repoIdValue,
@@ -297,15 +364,20 @@ export const RepoServiceLive = (appDataDir: string) =>
           note = "",
         ) {
           const repo = yield* requireRepo(repoIdValue);
-          return yield* runner.run(repo.path, { command: "triage", findingId, status, note });
+          return yield* runTrackedCommand(repo.id, workspacePathForRepo(repo), {
+            command: "triage",
+            findingId,
+            status,
+            note,
+          });
         }),
         readDiff: Effect.fn("repoService.readDiff")(function* (repoIdValue) {
           const repo = yield* requireRepo(repoIdValue);
-          return yield* git.readDiff(repo.path);
+          return yield* git.readDiff(workspacePathForRepo(repo));
         }),
         readGitStatus: Effect.fn("repoService.readGitStatus")(function* (repoIdValue) {
           const repo = yield* requireRepo(repoIdValue);
-          return yield* git.readStatus(repo.path);
+          return yield* git.readStatus(workspacePathForRepo(repo));
         }),
       });
     }),
@@ -323,4 +395,16 @@ function expandHomePath(inputPath: string, path: Path.Path): string {
 
 function repoId(repoPath: string): string {
   return createHash("sha256").update(repoPath).digest("hex").slice(0, 16);
+}
+
+function sanitizeWorktreeFragment(value: string): string {
+  const sanitized = value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^[._-]+|[._-]+$/g, "")
+    .slice(0, 80)
+    .replace(/[._-]+$/g, "");
+  return sanitized.length > 0 ? sanitized : "finding";
 }

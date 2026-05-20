@@ -468,14 +468,11 @@ describe("ClawpatchApp header actions", () => {
     expect(separator).toHaveAttribute("aria-valuenow", "720");
   });
 
-  it("saves the current note before running fix", async () => {
-    const calls: string[] = [];
+  it("passes current guidance when running fix", async () => {
     const run = vi.fn<Api["commands"]["run"]>(async (_repoId, request) => {
-      calls.push(`run:${request.command}`);
       return makeCommandResult(request.command);
     });
     const triageSet = vi.fn<Api["triage"]["set"]>(async () => {
-      calls.push("triage");
       return makeCommandResult("triage");
     });
     const finding = makeFixFinding();
@@ -493,38 +490,25 @@ describe("ClawpatchApp header actions", () => {
       expect(run).toHaveBeenCalledWith("repo-auth", {
         command: "fix",
         findingId: "fnd-bug",
+        status: "open",
+        note: "Prefer the existing parser helper.",
       }),
     );
-    expect(triageSet).toHaveBeenCalledWith(
-      "repo-auth",
-      "fnd-bug",
-      "open",
-      "Prefer the existing parser helper.",
-    );
-    expect(calls).toEqual(["triage", "run:fix"]);
+    expect(triageSet).not.toHaveBeenCalled();
   });
 
-  it("does not run fix when saving the note fails", async () => {
-    const run = vi.fn<Api["commands"]["run"]>(async (_repoId, request) =>
-      makeCommandResult(request.command),
+  it("shows an active worktree indicator when a fix worktree is active", async () => {
+    const worktreePath = "/tmp/clawpatch-ui/worktrees/repo-auth/fnd-bug";
+    window.clawpatch = makeApi(
+      vi.fn<Api["commands"]["run"]>(async () => makeCommandResult("map")),
+      { repoList: async () => [makeRepo({ activeWorktreePath: worktreePath })] },
     );
-    const triageSet = vi.fn<Api["triage"]["set"]>(async () => {
-      throw new Error("triage failed");
-    });
-    const finding = makeFixFinding();
-    window.clawpatch = makeApi(run, { findings: [finding], findingDetail: finding, triageSet });
 
     renderApp();
 
-    await screen.findByRole("heading", { name: "Null branch can throw" });
-    fireEvent.change(screen.getByLabelText("Note for triage and fix"), {
-      target: { value: "Try the smaller compatibility fix." },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "Run fix" }));
-
-    await waitFor(() => expect(triageSet).toHaveBeenCalledTimes(1));
-    await screen.findByText("[error] triage failed");
-    expect(run).not.toHaveBeenCalled();
+    await screen.findByRole("heading", { name: "auth" });
+    expect(screen.getByText("worktree")).toBeInTheDocument();
+    expect(screen.getByText(worktreePath)).toBeInTheDocument();
   });
 });
 
@@ -647,6 +631,7 @@ function makeRepo(overrides: Partial<RepoSummary> = {}): RepoSummary {
     id: "repo-auth",
     name,
     path: `/tmp/${name}`,
+    activeWorktreePath: null,
     hasClawpatch: true,
     isValid: true,
     lastError: null,
