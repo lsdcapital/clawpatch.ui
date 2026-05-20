@@ -175,6 +175,15 @@ function runClawpatchProcess(input: {
         forceKillAfter: "2 seconds",
       }),
     );
+    const argv = ["clawpatch", ...input.args];
+    input.onStream?.({
+      kind: "lifecycle",
+      runId: input.runId,
+      phase: "clawpatch:start",
+      message: `$ ${formatArgv(argv)}`,
+      cwd: input.repoPath,
+      argv,
+    });
     const interrupt = interruptChild(child);
     input.registerInterrupt(interrupt);
 
@@ -227,7 +236,7 @@ function collectOutput(
     Stream.decodeText(),
     Stream.tap((chunk) =>
       Effect.sync(() => {
-        onStream?.({ runId, stream: streamName, chunk });
+        onStream?.({ kind: "output", runId, stream: streamName, chunk });
       }),
     ),
     Stream.runFold(
@@ -266,4 +275,15 @@ function parseJsonOutput(stdout: string): unknown | null {
   } catch {
     return null;
   }
+}
+
+function formatArgv(argv: readonly string[]): string {
+  return argv.map(shellQuote).join(" ");
+}
+
+function shellQuote(value: string): string {
+  if (/^[A-Za-z0-9_/:=.,@%+-]+$/.test(value)) {
+    return value;
+  }
+  return `'${value.replaceAll("'", "'\\''")}'`;
 }

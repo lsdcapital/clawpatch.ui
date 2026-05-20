@@ -10,6 +10,7 @@ import {
   buildClawpatchArgs,
   makeClawpatchRunnerLayer,
 } from "../../src/main/services/clawpatchRunner";
+import type { CommandStreamEvent } from "../../src/shared/types";
 
 const encoder = new TextEncoder();
 
@@ -135,6 +136,49 @@ describe("buildClawpatchArgs", () => {
         status: "ignored" as never,
       }),
     ).toThrow("Unsupported triage status");
+  });
+
+  it("emits command start before process output", async () => {
+    const events: CommandStreamEvent[] = [];
+    const runtime = makeRunnerRuntime(() =>
+      Effect.succeed(
+        mockHandle({
+          stdout: "started\n",
+        }),
+      ),
+    );
+
+    await expect(
+      runtime.runPromise(
+        Effect.gen(function* () {
+          const runner = yield* ClawpatchRunner;
+          return yield* runner.run("/tmp/repo", { command: "fix", findingId: "fnd-1" }, (event) =>
+            events.push(event),
+          );
+        }),
+      ),
+    ).resolves.toMatchObject({ exitCode: 0, stdout: "started\n" });
+
+    const lifecycleIndex = events.findIndex((event) => event.kind === "lifecycle");
+    const stdoutIndex = events.findIndex(
+      (event) =>
+        event.kind === "output" && event.stream === "stdout" && event.chunk === "started\n",
+    );
+
+    expect(events[lifecycleIndex]).toMatchObject({
+      kind: "lifecycle",
+      phase: "clawpatch:start",
+      cwd: "/tmp/repo",
+      argv: ["clawpatch", "--json", "--no-color", "--no-input", "fix", "--finding", "fnd-1"],
+    });
+    expect(events[stdoutIndex]).toMatchObject({
+      kind: "output",
+      stream: "stdout",
+      chunk: "started\n",
+    });
+    expect(lifecycleIndex).toBeGreaterThanOrEqual(0);
+    expect(stdoutIndex).toBeGreaterThan(lifecycleIndex);
+    await runtime.dispose();
   });
 
   it("rejects overlapping command runs for the same repo", async () => {

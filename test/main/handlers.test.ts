@@ -3,8 +3,17 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as ManagedRuntime from "effect/ManagedRuntime";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { COMMANDS_INTERRUPT_CHANNEL, REPO_PICK_FOLDER_CHANNEL } from "../../src/shared/ipcChannels";
-import type { CommandResult, FeatureMapSnapshot, RepoSummary } from "../../src/shared/types";
+import {
+  COMMANDS_INTERRUPT_CHANNEL,
+  COMMANDS_RUN_CHANNEL,
+  REPO_PICK_FOLDER_CHANNEL,
+} from "../../src/shared/ipcChannels";
+import type {
+  CommandResult,
+  CommandStreamEvent,
+  FeatureMapSnapshot,
+  RepoSummary,
+} from "../../src/shared/types";
 import { RepoService, type RepoServiceShape } from "../../src/main/services/repoService";
 import { installIpcHandlers } from "../../src/main/ipc/handlers";
 import { EffectIpc, EffectIpcLive, type IpcMainLike } from "../../src/main/ipc/effectIpc";
@@ -102,6 +111,46 @@ describe("IPC handlers", () => {
       await runtime.dispose();
     }
   });
+
+  it("publishes lifecycle and output events from command IPC runs", async () => {
+    const lifecycleEvent: CommandStreamEvent = {
+      kind: "lifecycle",
+      runId: "run-1",
+      phase: "clawpatch:start",
+      message: "$ clawpatch status",
+      cwd: "/tmp/repo",
+      argv: ["clawpatch", "status"],
+    };
+    const outputEvent: CommandStreamEvent = {
+      kind: "output",
+      runId: "run-1",
+      stream: "stdout",
+      chunk: "{}\n",
+    };
+    const runCommand = vi.fn<RepoServiceShape["runCommand"]>((_repoId, _request, onStream) =>
+      Effect.sync(() => {
+        onStream?.(lifecycleEvent);
+        onStream?.(outputEvent);
+        return makeCommandResult();
+      }),
+    );
+    const publish = vi.fn();
+    const { registered, runtime } = await installHandlersForTest({ runCommand, publish });
+    const listener = registered.get(COMMANDS_RUN_CHANNEL);
+    if (listener === undefined) {
+      throw new Error("command run IPC handler was not registered");
+    }
+
+    try {
+      await expect(
+        listener({} as IpcMainInvokeEvent, { repoId: "repo-1", request: { command: "status" } }),
+      ).resolves.toMatchObject({ runId: "run-1" });
+      expect(publish).toHaveBeenCalledWith(lifecycleEvent);
+      expect(publish).toHaveBeenCalledWith(outputEvent);
+    } finally {
+      await runtime.dispose();
+    }
+  });
 });
 
 type RegisteredListener = (event: IpcMainInvokeEvent, raw: unknown) => unknown | Promise<unknown>;
@@ -113,6 +162,8 @@ async function installHandlersForTest(): Promise<{
 }>;
 async function installHandlersForTest(options: {
   readonly interruptCommand?: RepoServiceShape["interruptCommand"];
+  readonly publish?: (event: CommandStreamEvent) => void;
+  readonly runCommand?: RepoServiceShape["runCommand"];
 }): Promise<{
   readonly registered: Map<string, RegisteredListener>;
   readonly listener: RegisteredListener;
@@ -121,6 +172,8 @@ async function installHandlersForTest(options: {
 async function installHandlersForTest(
   options: {
     readonly interruptCommand?: RepoServiceShape["interruptCommand"];
+    readonly publish?: (event: CommandStreamEvent) => void;
+    readonly runCommand?: RepoServiceShape["runCommand"];
   } = {},
 ): Promise<{
   readonly registered: Map<string, RegisteredListener>;
@@ -142,7 +195,7 @@ async function installHandlersForTest(
     ),
   );
 
-  await runtime.runPromise(installIpcHandlers(() => undefined));
+  await runtime.runPromise(installIpcHandlers(options.publish ?? (() => undefined)));
   const listener = registered.get(REPO_PICK_FOLDER_CHANNEL);
   if (listener === undefined) {
     throw new Error("repo picker IPC handler was not registered");
@@ -153,6 +206,7 @@ async function installHandlersForTest(
 function makeRepoServiceLayer(
   options: {
     readonly interruptCommand?: RepoServiceShape["interruptCommand"];
+    readonly runCommand?: RepoServiceShape["runCommand"];
   } = {},
 ) {
   return Layer.succeed(
@@ -180,7 +234,7 @@ function makeRepoServiceLayer(
       listFindings: () => Effect.succeed([]),
       readFeatureMap: () => Effect.succeed(makeFeatureMapSnapshot()),
       getFinding: () => Effect.die("not implemented"),
-      runCommand: () => Effect.succeed(makeCommandResult()),
+      runCommand: options.runCommand ?? (() => Effect.succeed(makeCommandResult())),
       interruptCommand: options.interruptCommand ?? (() => Effect.succeed({ interrupted: false })),
       setTriage: () => Effect.succeed(makeCommandResult()),
       readDiff: () => Effect.succeed(""),

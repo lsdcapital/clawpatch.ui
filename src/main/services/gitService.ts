@@ -15,15 +15,34 @@ export interface GitStatusSummary {
   readonly branch: string | null;
 }
 
+export interface GitLifecycleEvent {
+  readonly phase: string;
+  readonly message: string;
+  readonly cwd: string;
+  readonly argv: readonly string[];
+}
+
 export interface GitServiceShape {
-  readonly readDiff: (repoPath: string) => Effect.Effect<string, CommandSpawnError>;
-  readonly readStatus: (repoPath: string) => Effect.Effect<GitStatusSummary, CommandSpawnError>;
-  readonly requireCleanCheckout: (repoPath: string) => Effect.Effect<void, CommandSpawnError>;
-  readonly createOrReuseWorktree: (input: {
-    readonly repoPath: string;
-    readonly worktreePath: string;
-    readonly branchName: string;
-  }) => Effect.Effect<string, CommandSpawnError>;
+  readonly readDiff: (
+    repoPath: string,
+    onLifecycle?: (event: GitLifecycleEvent) => void,
+  ) => Effect.Effect<string, CommandSpawnError>;
+  readonly readStatus: (
+    repoPath: string,
+    onLifecycle?: (event: GitLifecycleEvent) => void,
+  ) => Effect.Effect<GitStatusSummary, CommandSpawnError>;
+  readonly requireCleanCheckout: (
+    repoPath: string,
+    onLifecycle?: (event: GitLifecycleEvent) => void,
+  ) => Effect.Effect<void, CommandSpawnError>;
+  readonly createOrReuseWorktree: (
+    input: {
+      readonly repoPath: string;
+      readonly worktreePath: string;
+      readonly branchName: string;
+    },
+    onLifecycle?: (event: GitLifecycleEvent) => void,
+  ) => Effect.Effect<string, CommandSpawnError>;
 }
 
 export class GitService extends Context.Service<GitService, GitServiceShape>()(
@@ -38,40 +57,42 @@ export const GitServiceLive = Layer.effect(
     const path = yield* Path.Path;
 
     return GitService.of({
-      readDiff: Effect.fn("git.readDiff")(function* (repoPath) {
-        return yield* runGitOutput(spawner, repoPath, ["diff", "--no-color"]).pipe(
+      readDiff: Effect.fn("git.readDiff")(function* (repoPath, onLifecycle) {
+        return yield* runGitOutput(spawner, repoPath, ["diff", "--no-color"], onLifecycle).pipe(
           Effect.mapError((cause) => new CommandSpawnError({ repoPath, cause })),
         );
       }),
-      readStatus: Effect.fn("git.readStatus")(function* (repoPath) {
-        const output = yield* runGitOutput(spawner, repoPath, [
-          "status",
-          "--porcelain=v1",
-          "--branch",
-          "--untracked-files=all",
-        ]).pipe(Effect.mapError((cause) => new CommandSpawnError({ repoPath, cause })));
+      readStatus: Effect.fn("git.readStatus")(function* (repoPath, onLifecycle) {
+        const output = yield* runGitOutput(
+          spawner,
+          repoPath,
+          ["status", "--porcelain=v1", "--branch", "--untracked-files=all"],
+          onLifecycle,
+        ).pipe(Effect.mapError((cause) => new CommandSpawnError({ repoPath, cause })));
         return parseGitStatus(output);
       }),
-      requireCleanCheckout: Effect.fn("git.requireCleanCheckout")(function* (repoPath) {
-        const output = yield* runGitOutput(spawner, repoPath, [
-          "status",
-          "--porcelain=v1",
-          "--untracked-files=all",
-        ]).pipe(Effect.mapError((cause) => new CommandSpawnError({ repoPath, cause })));
-        if (output.trim() !== "") {
-          return yield* new CommandSpawnError({
+      requireCleanCheckout: Effect.fn("git.requireCleanCheckout")(
+        function* (repoPath, onLifecycle) {
+          const output = yield* runGitOutput(
+            spawner,
             repoPath,
-            cause: new Error(
-              "Registered checkout must be clean before running fix in a worktree. Commit, stash, or discard existing changes first.",
-            ),
-          });
-        }
-      }),
-      createOrReuseWorktree: Effect.fn("git.createOrReuseWorktree")(function* ({
-        repoPath,
-        worktreePath,
-        branchName,
-      }) {
+            ["status", "--porcelain=v1", "--untracked-files=all"],
+            onLifecycle,
+          ).pipe(Effect.mapError((cause) => new CommandSpawnError({ repoPath, cause })));
+          if (output.trim() !== "") {
+            return yield* new CommandSpawnError({
+              repoPath,
+              cause: new Error(
+                "Registered checkout must be clean before running fix in a worktree. Commit, stash, or discard existing changes first.",
+              ),
+            });
+          }
+        },
+      ),
+      createOrReuseWorktree: Effect.fn("git.createOrReuseWorktree")(function* (
+        { repoPath, worktreePath, branchName },
+        onLifecycle,
+      ) {
         const existingStats = yield* fs.stat(worktreePath).pipe(
           Effect.map((stats) => stats),
           Effect.catch(() => Effect.succeed(null)),
@@ -84,13 +105,16 @@ export const GitServiceLive = Layer.effect(
               `Expected worktree path exists but is not a directory: ${worktreePath}`,
             );
           }
-          yield* assertExistingWorktree(spawner, repoPath, worktreePath, branchName);
+          yield* assertExistingWorktree(spawner, repoPath, worktreePath, branchName, onLifecycle);
           return worktreePath;
         }
 
-        const branchExists = yield* localBranchExists(spawner, repoPath, branchName).pipe(
-          Effect.mapError((cause) => new CommandSpawnError({ repoPath, cause })),
-        );
+        const branchExists = yield* localBranchExists(
+          spawner,
+          repoPath,
+          branchName,
+          onLifecycle,
+        ).pipe(Effect.mapError((cause) => new CommandSpawnError({ repoPath, cause })));
         if (branchExists) {
           return yield* worktreeError(
             repoPath,
@@ -101,14 +125,12 @@ export const GitServiceLive = Layer.effect(
         yield* fs
           .makeDirectory(path.dirname(worktreePath), { recursive: true })
           .pipe(Effect.mapError((cause) => new CommandSpawnError({ repoPath, cause })));
-        yield* runGitOutput(spawner, repoPath, [
-          "worktree",
-          "add",
-          "-b",
-          branchName,
-          worktreePath,
-          "HEAD",
-        ]).pipe(Effect.mapError((cause) => new CommandSpawnError({ repoPath, cause })));
+        yield* runGitOutput(
+          spawner,
+          repoPath,
+          ["worktree", "add", "-b", branchName, worktreePath, "HEAD"],
+          onLifecycle,
+        ).pipe(Effect.mapError((cause) => new CommandSpawnError({ repoPath, cause })));
         return worktreePath;
       }),
     });
@@ -154,8 +176,9 @@ function runGitOutput(
   spawner: ChildProcessSpawner.ChildProcessSpawner["Service"],
   repoPath: string,
   args: readonly string[],
+  onLifecycle?: (event: GitLifecycleEvent) => void,
 ) {
-  return runGitResult(spawner, repoPath, args).pipe(
+  return runGitResult(spawner, repoPath, args, onLifecycle).pipe(
     Effect.flatMap(({ stdout, stderr, exitCode }) => {
       if (exitCode === 0) {
         return Effect.succeed(stdout || stderr);
@@ -169,8 +192,16 @@ function runGitResult(
   spawner: ChildProcessSpawner.ChildProcessSpawner["Service"],
   repoPath: string,
   args: readonly string[],
+  onLifecycle?: (event: GitLifecycleEvent) => void,
 ) {
   return Effect.gen(function* () {
+    const argv = ["git", ...args];
+    onLifecycle?.({
+      phase: "git:start",
+      message: `$ ${formatArgv(argv)}`,
+      cwd: repoPath,
+      argv,
+    });
     const child = yield* spawner.spawn(
       ChildProcess.make("git", args, { cwd: repoPath, shell: false }),
     );
@@ -202,13 +233,14 @@ function localBranchExists(
   spawner: ChildProcessSpawner.ChildProcessSpawner["Service"],
   repoPath: string,
   branchName: string,
+  onLifecycle?: (event: GitLifecycleEvent) => void,
 ): Effect.Effect<boolean, unknown> {
-  return runGitResult(spawner, repoPath, [
-    "show-ref",
-    "--verify",
-    "--quiet",
-    `refs/heads/${branchName}`,
-  ]).pipe(
+  return runGitResult(
+    spawner,
+    repoPath,
+    ["show-ref", "--verify", "--quiet", `refs/heads/${branchName}`],
+    onLifecycle,
+  ).pipe(
     Effect.flatMap(({ stdout, stderr, exitCode }) => {
       if (exitCode === 0) {
         return Effect.succeed(true);
@@ -226,12 +258,15 @@ function assertExistingWorktree(
   repoPath: string,
   worktreePath: string,
   branchName: string,
+  onLifecycle?: (event: GitLifecycleEvent) => void,
 ): Effect.Effect<void, CommandSpawnError> {
   return Effect.gen(function* () {
-    const isWorktree = yield* runGitOutput(spawner, worktreePath, [
-      "rev-parse",
-      "--is-inside-work-tree",
-    ]).pipe(
+    const isWorktree = yield* runGitOutput(
+      spawner,
+      worktreePath,
+      ["rev-parse", "--is-inside-work-tree"],
+      onLifecycle,
+    ).pipe(
       Effect.map((output) => output.trim() === "true"),
       Effect.catch(() => Effect.succeed(false)),
     );
@@ -242,10 +277,12 @@ function assertExistingWorktree(
       );
     }
 
-    const checkedOutBranch = yield* runGitOutput(spawner, worktreePath, [
-      "branch",
-      "--show-current",
-    ]).pipe(Effect.mapError((cause) => new CommandSpawnError({ repoPath, cause })));
+    const checkedOutBranch = yield* runGitOutput(
+      spawner,
+      worktreePath,
+      ["branch", "--show-current"],
+      onLifecycle,
+    ).pipe(Effect.mapError((cause) => new CommandSpawnError({ repoPath, cause })));
     if (checkedOutBranch.trim() !== branchName) {
       return yield* worktreeError(
         repoPath,
@@ -267,4 +304,15 @@ function collectOutput(stream: Stream.Stream<Uint8Array, unknown>): Effect.Effec
       (output, chunk) => output + chunk,
     ),
   );
+}
+
+function formatArgv(argv: readonly string[]): string {
+  return argv.map(shellQuote).join(" ");
+}
+
+function shellQuote(value: string): string {
+  if (/^[A-Za-z0-9_/:=.,@%+-]+$/.test(value)) {
+    return value;
+  }
+  return `'${value.replaceAll("'", "'\\''")}'`;
 }
