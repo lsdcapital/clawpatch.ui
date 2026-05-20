@@ -22,6 +22,7 @@ interface Props {
   isDetailLoading: boolean;
   isBusy: boolean;
   commandStateLabel?: string;
+  fixDisabledReason: string | null;
   onFiltersChange: (filters: FindingFilters) => void;
   onSortChange: (sort: FindingSort) => void;
   onSelectFinding: (findingId: string) => void;
@@ -45,6 +46,7 @@ export function FindingsSplitPanel({
   isDetailLoading,
   isBusy,
   commandStateLabel,
+  fixDisabledReason,
   onFiltersChange,
   onSortChange,
   onSelectFinding,
@@ -152,6 +154,7 @@ export function FindingsSplitPanel({
         isLoading={isDetailLoading}
         isBusy={isBusy}
         commandStateLabel={commandStateLabel}
+        fixDisabledReason={fixDisabledReason}
         onTriage={onTriage}
         onFix={onFix}
         onRevalidate={onRevalidate}

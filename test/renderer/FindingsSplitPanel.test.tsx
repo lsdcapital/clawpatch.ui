@@ -248,6 +248,7 @@ function renderSplitPanel({
       finding={finding}
       isDetailLoading={false}
       isBusy={false}
+      fixDisabledReason={null}
       onFiltersChange={vi.fn()}
       onSortChange={vi.fn()}
       onSelectFinding={vi.fn()}

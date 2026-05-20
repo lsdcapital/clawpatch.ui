@@ -88,10 +88,8 @@ describe("ClawpatchApp header actions", () => {
 
   it("polls the selected repository git status and updates the strip", async () => {
     vi.useFakeTimers();
-    const gitStatus = vi
-      .fn<Api["git"]["status"]>()
-      .mockResolvedValueOnce({ staged: 0, modified: 0, untracked: 0, branch: "main" })
-      .mockResolvedValueOnce({ staged: 0, modified: 1, untracked: 1, branch: "feature/status" });
+    let status = { staged: 0, modified: 0, untracked: 0, branch: "main" };
+    const gitStatus = vi.fn<Api["git"]["status"]>(async () => status);
     window.clawpatch = makeApi(
       vi.fn<Api["commands"]["run"]>(async () => makeCommandResult("map")),
       { gitStatus },
@@ -105,13 +103,12 @@ describe("ClawpatchApp header actions", () => {
     await vi.waitFor(() => expect(screen.getByText("branch main")).toBeInTheDocument());
     expect(screen.getByText("Working tree clean")).toBeInTheDocument();
     expect(gitStatus).toHaveBeenCalledWith("repo-auth", undefined);
-    expect(gitStatus).toHaveBeenCalledTimes(1);
 
+    status = { staged: 0, modified: 1, untracked: 1, branch: "feature/status" };
     await act(async () => {
       await vi.advanceTimersByTimeAsync(5_000);
     });
 
-    await vi.waitFor(() => expect(gitStatus).toHaveBeenCalledTimes(2));
     await vi.waitFor(() => expect(screen.getByText("branch feature/status")).toBeInTheDocument());
     expect(screen.getByText("1 modified · 1 untracked")).toBeInTheDocument();
   });
@@ -615,6 +612,7 @@ describe("ClawpatchApp header actions", () => {
     renderApp();
 
     await screen.findByRole("heading", { name: "Null branch can throw" });
+    await waitFor(() => expect(screen.getByRole("button", { name: "Run fix" })).not.toBeDisabled());
     fireEvent.change(screen.getByLabelText("Note for triage and fix"), {
       target: { value: "Prefer the existing parser helper." },
     });
@@ -631,6 +629,37 @@ describe("ClawpatchApp header actions", () => {
     expect(triageSet).not.toHaveBeenCalled();
     await screen.findByText(/\[exit 0\] clawpatch fix/);
     await screen.findByText(/\[exit 0\] clawpatch revalidate/);
+  });
+
+  it("disables fix when the registered checkout is dirty", async () => {
+    const run = vi.fn<Api["commands"]["run"]>(async (_repoId, request) =>
+      makeCommandResult(request.command),
+    );
+    const finding = makeFixFinding();
+    const gitStatus = vi.fn<Api["git"]["status"]>(async (_repoId, findingId) =>
+      findingId === undefined
+        ? { staged: 0, modified: 1, untracked: 0, branch: "main" }
+        : { staged: 0, modified: 0, untracked: 0, branch: "fix/fnd-bug" },
+    );
+    window.clawpatch = makeApi(run, { findings: [finding], findingDetail: finding, gitStatus });
+
+    renderApp();
+
+    await screen.findByRole("heading", { name: "Null branch can throw" });
+    await screen.findByText(
+      "Commit, stash, or discard registered checkout changes before running fix.",
+    );
+    const fixButton = screen.getByRole("button", { name: "Run fix" });
+    expect(fixButton).toBeDisabled();
+    expect(fixButton).toHaveAttribute(
+      "title",
+      "Commit, stash, or discard registered checkout changes before running fix.",
+    );
+    expect(screen.getByRole("button", { name: "Revalidate" })).not.toBeDisabled();
+
+    fireEvent.click(fixButton);
+
+    expect(run).not.toHaveBeenCalled();
   });
 
   it("shows an active worktree indicator when a fix worktree is active", async () => {

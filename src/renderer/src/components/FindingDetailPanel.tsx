@@ -13,6 +13,7 @@ interface Props {
   isLoading: boolean;
   isBusy: boolean;
   commandStateLabel?: string;
+  fixDisabledReason: string | null;
   onTriage: (status: ClawpatchStatus, note: string) => void;
   onFix: (status: ClawpatchStatus, note: string) => void;
   onRevalidate: () => void;
@@ -26,6 +27,7 @@ export function FindingDetailPanel({
   isLoading,
   isBusy,
   commandStateLabel,
+  fixDisabledReason,
   onTriage,
   onFix,
   onRevalidate,
@@ -102,6 +104,7 @@ export function FindingDetailPanel({
     event.preventDefault();
     saveTriageNote();
   };
+  const fixButtonDisabled = isBusy || finding.status === "fixed" || fixDisabledReason !== null;
 
   return (
     <div className="detail-pane">
@@ -224,9 +227,16 @@ export function FindingDetailPanel({
             {isBusy && commandStateLabel !== undefined ? (
               <span className="detail-command-state">{commandStateLabel} running</span>
             ) : null}
+            {fixDisabledReason !== null ? (
+              <span className="detail-action-reason" id="fix-disabled-reason">
+                {fixDisabledReason}
+              </span>
+            ) : null}
             <button
-              disabled={isBusy || finding.status === "fixed"}
+              aria-describedby={fixDisabledReason !== null ? "fix-disabled-reason" : undefined}
+              disabled={fixButtonDisabled}
               onClick={() => onFix(status, note)}
+              title={fixDisabledReason ?? undefined}
             >
               Run fix
             </button>
