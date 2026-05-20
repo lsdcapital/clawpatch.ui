@@ -1289,6 +1289,14 @@ button.table-row:hover:not(:disabled) {
   text-transform: uppercase;
 }
 
+.detail-action-reason {
+  color: var(--muted);
+  flex: 1 1 180px;
+  font-size: 11px;
+  line-height: 1.35;
+  min-width: 0;
+}
+
 .detail-actions button:nth-of-type(2) {
   background: var(--accent);
   border-color: var(--accent);

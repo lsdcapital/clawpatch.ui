@@ -137,6 +137,31 @@ export function ClawpatchApp() {
     refetchIntervalInBackground: false,
   });
 
+  const registeredCheckoutStatusQuery = useQuery({
+    queryKey: ["gitStatus", selectedRepo?.id, "registeredCheckout"],
+    queryFn: () => window.clawpatch.git.status(selectedRepo!.id),
+    enabled: selectedRepo !== null,
+    refetchInterval: GIT_STATUS_REFETCH_INTERVAL_MS,
+    refetchIntervalInBackground: false,
+  });
+
+  const fixDisabledReason = useMemo(() => {
+    if (selectedRepo === null) {
+      return null;
+    }
+    if (registeredCheckoutStatusQuery.isError) {
+      return "Unable to verify registered checkout status.";
+    }
+    const status = registeredCheckoutStatusQuery.data;
+    if (status === undefined) {
+      return "Checking registered checkout...";
+    }
+    const dirtyCount = status.staged + status.modified + status.untracked;
+    return dirtyCount > 0
+      ? "Commit, stash, or discard registered checkout changes before running fix."
+      : null;
+  }, [registeredCheckoutStatusQuery.data, registeredCheckoutStatusQuery.isError, selectedRepo]);
+
   useEffect(() => {
     return window.clawpatch.commands.onStream((event) => {
       setCommandLog((current) => [...current, { kind: "stream", event }]);
@@ -442,6 +467,7 @@ export function ClawpatchApp() {
               isDetailLoading={detailQuery.isLoading}
               isBusy={triageMutation.isPending || isSelectedFindingRunning}
               commandStateLabel={selectedFindingCommand?.request.command}
+              fixDisabledReason={fixDisabledReason}
               onInterrupt={() => {
                 if (selectedFinding !== null) {
                   interruptCommand(selectedFinding.findingId);
