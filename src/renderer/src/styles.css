@@ -756,13 +756,6 @@ button:disabled {
   min-width: 0;
 }
 
-.detail-pending-state {
-  color: var(--accent);
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-}
-
 .findings-workspace {
   display: grid;
   grid-template-columns: minmax(180px, var(--findings-list-width)) 8px minmax(0, 1fr);
@@ -953,7 +946,6 @@ button:disabled {
   grid-auto-rows: minmax(34px, max-content);
   min-height: 0;
   overflow: auto;
-  overflow-anchor: none;
 }
 
 .table-row {
@@ -1065,7 +1057,6 @@ button.table-row:hover:not(:disabled) {
   min-height: 0;
   min-width: 0;
   overflow: auto;
-  overflow-anchor: none;
   padding: 9px 10px 10px;
 }
 

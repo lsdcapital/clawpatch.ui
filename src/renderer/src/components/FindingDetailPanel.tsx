@@ -1,11 +1,5 @@
 import { ArrowUpIcon, ChevronDownIcon, ChevronRightIcon, SquareIcon } from "lucide-react";
-import {
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-  type KeyboardEvent as ReactKeyboardEvent,
-} from "react";
+import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import type {
   ClawpatchStatus,
   FindingDetail,
@@ -15,10 +9,8 @@ import type {
 import { clawpatchStatuses } from "../../../shared/types";
 
 interface Props {
-  selectedFindingId: string | null;
   finding: FindingDetail | null;
   isLoading: boolean;
-  isPending: boolean;
   isBusy: boolean;
   commandStateLabel?: string;
   fixDisabledReason: string | null;
@@ -31,10 +23,8 @@ interface Props {
 }
 
 export function FindingDetailPanel({
-  selectedFindingId,
   finding,
   isLoading,
-  isPending,
   isBusy,
   commandStateLabel,
   fixDisabledReason,
@@ -48,15 +38,7 @@ export function FindingDetailPanel({
   const [status, setStatus] = useState<ClawpatchStatus>("open");
   const [isStatusMenuOpen, setIsStatusMenuOpen] = useState(false);
   const [note, setNote] = useState("");
-  const detailBodyRef = useRef<HTMLDivElement>(null);
   const statusSelectorRef = useRef<HTMLDivElement>(null);
-
-  useLayoutEffect(() => {
-    const detailBody = detailBodyRef.current;
-    if (detailBody !== null) {
-      detailBody.scrollTop = 0;
-    }
-  }, [selectedFindingId]);
 
   useEffect(() => {
     if (finding !== null) {
@@ -65,12 +47,6 @@ export function FindingDetailPanel({
       setNote("");
     }
   }, [finding]);
-
-  useEffect(() => {
-    if (isPending) {
-      setIsStatusMenuOpen(false);
-    }
-  }, [isPending]);
 
   useEffect(() => {
     if (!isStatusMenuOpen) {
@@ -115,9 +91,8 @@ export function FindingDetailPanel({
   const history = finding.history ?? [];
   const patchAttempts = finding.patchAttempts ?? [];
   const noteHistory = history.filter((entry) => entry.note !== null && entry.note.trim() !== "");
-  const areActionsDisabled = isBusy || isPending;
   const saveTriageNote = (): void => {
-    if (!areActionsDisabled) {
+    if (!isBusy) {
       onTriage(status, note);
     }
   };
@@ -129,21 +104,17 @@ export function FindingDetailPanel({
     event.preventDefault();
     saveTriageNote();
   };
-  const fixButtonDisabled =
-    areActionsDisabled || finding.status === "fixed" || fixDisabledReason !== null;
+  const fixButtonDisabled = isBusy || finding.status === "fixed" || fixDisabledReason !== null;
 
   return (
-    <div className="detail-pane" aria-busy={isPending}>
+    <div className="detail-pane">
       <div className="panel-header detail-header">
         <h2>{finding.title}</h2>
         <div className="detail-header-meta">
-          {isPending ? (
-            <span className="detail-pending-state">Loading selected finding</span>
-          ) : null}
           <span>{finding.findingId}</span>
         </div>
       </div>
-      <div className="detail-body" ref={detailBodyRef}>
+      <div className="detail-body">
         <div className="meta-grid">
           <span>Status</span>
           <div className="detail-status-selector" ref={statusSelectorRef}>
@@ -152,7 +123,6 @@ export function FindingDetailPanel({
               aria-haspopup="menu"
               aria-label={`Finding status: ${status}`}
               className="detail-status-trigger"
-              disabled={areActionsDisabled}
               type="button"
               onClick={() => setIsStatusMenuOpen((isOpen) => !isOpen)}
             >
@@ -238,7 +208,6 @@ export function FindingDetailPanel({
           <div className="note-input">
             <textarea
               id="triage-note"
-              disabled={areActionsDisabled}
               value={note}
               onChange={(event) => setNote(event.currentTarget.value)}
               onKeyDown={handleNoteKeyDown}
@@ -246,7 +215,7 @@ export function FindingDetailPanel({
             <button
               aria-label="Save triage note"
               className="icon-button note-send-button"
-              disabled={areActionsDisabled}
+              disabled={isBusy}
               onClick={saveTriageNote}
               title="Save triage note"
               type="button"
@@ -271,14 +240,13 @@ export function FindingDetailPanel({
             >
               Run fix
             </button>
-            <button disabled={areActionsDisabled} onClick={onRevalidate}>
+            <button disabled={isBusy} onClick={onRevalidate}>
               Revalidate
             </button>
             {isBusy && onInterrupt !== undefined ? (
               <button
                 aria-label="Interrupt finding command"
                 className="icon-button danger"
-                disabled={isPending}
                 onClick={onInterrupt}
                 title="Interrupt finding command"
                 type="button"
