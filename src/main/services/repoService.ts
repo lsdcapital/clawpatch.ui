@@ -241,14 +241,78 @@ export const RepoServiceLive = (appDataDir: string) =>
         } satisfies RepoSummary;
       });
 
+      const discoverActiveWorktreesForRepo = Effect.fn(
+        "repoService.discoverActiveWorktreesForRepo",
+      )(function* (repoIdValue: string) {
+        const worktreesRoot = path.join(appDataDir, "worktrees", repoIdValue);
+        const names = yield* fs
+          .readDirectory(worktreesRoot)
+          .pipe(Effect.catch(() => Effect.succeed([])));
+        const entries = yield* Effect.all(
+          names.toSorted().map((name) =>
+            Effect.gen(function* () {
+              const slug = path.basename(name);
+              if (slug !== name || slug === "") {
+                return null;
+              }
+
+              const worktreePath = path.join(worktreesRoot, slug);
+              const stats = yield* fs
+                .stat(worktreePath)
+                .pipe(Effect.catch(() => Effect.succeed(null)));
+              if (stats?.type !== "Directory") {
+                return null;
+              }
+
+              const findings = yield* state
+                .readFindingList(worktreePath)
+                .pipe(Effect.catch(() => Effect.succeed([])));
+              const finding = findings.find(
+                (item) => sanitizeWorktreeFragment(item.findingId) === slug,
+              );
+              if (finding === undefined) {
+                return null;
+              }
+              return [finding.findingId, worktreePath] as const;
+            }),
+          ),
+          { concurrency: "unbounded" },
+        );
+
+        return new Map(
+          entries.filter((entry): entry is readonly [string, string] => entry !== null),
+        );
+      });
+
+      const hydrateDiscoveredWorktreesForRepo = Effect.fn(
+        "repoService.hydrateDiscoveredWorktreesForRepo",
+      )(function* (repoIdValue: string) {
+        const discovered = yield* discoverActiveWorktreesForRepo(repoIdValue);
+        if (discovered.size === 0) {
+          return;
+        }
+        yield* Ref.update(activeWorktreePaths, (paths) => {
+          const nextPaths = new Map(paths);
+          const repoWorktrees = new Map(nextPaths.get(repoIdValue));
+          for (const [findingId, worktreePath] of discovered) {
+            repoWorktrees.set(findingId, worktreePath);
+          }
+          nextPaths.set(repoIdValue, repoWorktrees);
+          return nextPaths;
+        });
+      });
+
       const activeWorktreesForRepo = Effect.fn("repoService.activeWorktreesForRepo")(function* (
         repoIdValue: string,
       ) {
+        yield* hydrateDiscoveredWorktreesForRepo(repoIdValue);
         const paths = yield* Ref.get(activeWorktreePaths);
-        return [...(paths.get(repoIdValue)?.entries() ?? [])].map(([findingId, path]) => ({
-          findingId,
-          path,
-        }));
+        return [...(paths.get(repoIdValue)?.entries() ?? [])]
+          .toSorted(([left], [right]) => left.localeCompare(right))
+          .map(([findingId, path]) => ({
+            findingId,
+            path,
+          }));
       });
 
       const activeWorktreePathForFinding = Effect.fn("repoService.activeWorktreePathForFinding")(
@@ -256,6 +320,7 @@ export const RepoServiceLive = (appDataDir: string) =>
           if (findingId === undefined) {
             return null;
           }
+          yield* hydrateDiscoveredWorktreesForRepo(repoIdValue);
           const paths = yield* Ref.get(activeWorktreePaths);
           return paths.get(repoIdValue)?.get(findingId) ?? null;
         },
@@ -325,11 +390,12 @@ export const RepoServiceLive = (appDataDir: string) =>
         const activeWorktrees = yield* activeWorktreesForRepo(repoIdValue);
 
         yield* Effect.all(
-          activeWorktrees.map(({ path: worktreePath }) =>
+          activeWorktrees.map(({ findingId, path: worktreePath }) =>
             state.readFindingList(worktreePath).pipe(
               Effect.tap((worktreeFindings) =>
                 Effect.sync(() => {
-                  for (const finding of worktreeFindings) {
+                  const finding = worktreeFindings.find((item) => item.findingId === findingId);
+                  if (finding !== undefined) {
                     byId.set(finding.findingId, finding);
                   }
                 }),
