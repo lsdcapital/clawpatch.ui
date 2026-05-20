@@ -22,8 +22,13 @@
   ],
   "contextFiles": [],
   "tests": [],
-  "tags": ["config"],
-  "trustBoundaries": ["process-exec", "filesystem"],
+  "tags": [
+    "config"
+  ],
+  "trustBoundaries": [
+    "process-exec",
+    "filesystem"
+  ],
   "status": "reviewed",
   "lock": null,
   "findingIds": [],
@@ -40,5 +45,5 @@
     }
   ],
   "createdAt": "2026-05-19T08:07:07.260Z",
-  "updatedAt": "2026-05-19T08:08:17.748Z"
+  "updatedAt": "2026-05-20T11:28:33.751Z"
 }

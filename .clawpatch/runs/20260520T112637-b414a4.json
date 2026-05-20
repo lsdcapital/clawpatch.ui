@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "runId": "20260520T112637-b414a4",
+  "command": "review",
+  "args": [
+    "--json",
+    "--no-color",
+    "--no-input",
+    "review",
+    "--limit",
+    "11"
+  ],
+  "rootPath": "/Users/steflsd/src/lsdcapital/clawpatch.ui",
+  "headSha": "bdc127fe82888de6f8067cd6d40af320e9a60a84",
+  "startedAt": "2026-05-20T11:26:38.025Z",
+  "finishedAt": "2026-05-20T11:28:11.221Z",
+  "status": "completed",
+  "claimedFeatureIds": [
+    "feat_config_97ea478330",
+    "feat_library_1e2f79284f",
+    "feat_library_648a355089",
+    "feat_library_64dbb3a8d6",
+    "feat_library_a1562e140a",
+    "feat_library_a20e6fdd04",
+    "feat_library_a6bdadf44a",
+    "feat_library_d62d371697",
+    "feat_release_4862937c51",
+    "feat_release_a235aa99b1",
+    "feat_test-suite_84ae84a25a"
+  ],
+  "findingIds": [
+    "fnd_sig-feat-config-97ea478330-f03c4_f467e80e7a",
+    "fnd_sig-feat-library-d62d371697-1e8a_3638fa7120",
+    "fnd_sig-feat-library-64dbb3a8d6-e74f_a2b923ee97",
+    "fnd_sig-feat-library-1e2f79284f-5b20_655f888ce3",
+    "fnd_sig-feat-library-a1562e140a-cc53_15be9fe2c5",
+    "fnd_sig-feat-library-a6bdadf44a-7c70_43cea84474",
+    "fnd_sig-feat-library-a20e6fdd04-d3b4_b9e005704e",
+    "fnd_sig-feat-library-a20e6fdd04-b658_ad13f39ffd"
+  ],
+  "patchAttemptIds": [],
+  "errors": []
+}

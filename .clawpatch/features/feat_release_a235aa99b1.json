@@ -1,17 +1,17 @@
 {
   "schemaVersion": 1,
-  "featureId": "feat_config_7528cb5b98",
-  "title": "Project config package.json",
-  "summary": "Build, release, or quality configuration in package.json.",
-  "kind": "config",
-  "source": "shared-infra-heuristic",
+  "featureId": "feat_release_a235aa99b1",
+  "title": "Package script typecheck",
+  "summary": "Package script 'typecheck': tsc --noEmit",
+  "kind": "release",
+  "source": "package-json-script",
   "confidence": "medium",
   "entrypoints": [
     {
       "path": "package.json",
-      "symbol": null,
+      "symbol": "typecheck",
       "route": null,
-      "command": null
+      "command": "typecheck"
     }
   ],
   "ownedFiles": [
@@ -23,7 +23,10 @@
   "contextFiles": [],
   "tests": [],
   "tags": [
-    "config"
+    "node",
+    "package-script",
+    "project:clawpatch-ui",
+    "project-root:."
   ],
   "trustBoundaries": [
     "process-exec",
@@ -35,15 +38,15 @@
   "patchAttemptIds": [],
   "analysisHistory": [
     {
-      "runId": "20260519T080804-8826e3",
+      "runId": "20260520T112637-b414a4",
       "kind": "review",
       "summary": "0 finding(s)",
       "provider": "codex",
       "model": null,
       "reasoningEffort": null,
-      "createdAt": "2026-05-19T08:08:25.893Z"
+      "createdAt": "2026-05-20T11:27:12.442Z"
     }
   ],
-  "createdAt": "2026-05-19T08:07:07.260Z",
+  "createdAt": "2026-05-20T11:25:49.042Z",
   "updatedAt": "2026-05-20T11:28:33.751Z"
 }

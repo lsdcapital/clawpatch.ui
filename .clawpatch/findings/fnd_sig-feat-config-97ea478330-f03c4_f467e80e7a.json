@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "findingId": "fnd_sig-feat-config-97ea478330-f03c4_f467e80e7a",
+  "featureId": "feat_config_97ea478330",
+  "title": "Build task caches only out/**, missing common package build outputs",
+  "category": "build-release",
+  "severity": "medium",
+  "confidence": "medium",
+  "triage": "risk",
+  "evidence": [
+    {
+      "path": "turbo.json",
+      "startLine": 5,
+      "endLine": 5,
+      "symbol": null,
+      "quote": "\"outputs\": [\"out/**\"]"
+    }
+  ],
+  "reasoning": "The global build task declares only out/** as cacheable output. In a TypeScript/JavaScript monorepo, many package build scripts emit to dist/**, build/**, .next/**, or other framework-specific directories. Turbo uses this list to restore build artifacts on cache hits; artifacts outside out/** will not be restored even when the build task is considered cached. That can make downstream release, package, or test steps run against missing or stale build products in packages whose build output is not out/.",
+  "reproduction": null,
+  "recommendation": "Broaden the build outputs to include the actual build artifact directories used by the workspace packages, or move package-specific output declarations into per-package turbo config if outputs vary. At minimum, verify each package build script and include every produced release artifact directory.",
+  "whyTestsDoNotAlreadyCoverThis": "No linked tests or CI validation are included for Turbo cache restore behavior or release artifact presence after a cached build.",
+  "suggestedRegressionTest": "Add a CI check that runs a clean build, removes generated artifacts, re-runs the Turbo build from cache, and verifies expected build artifacts exist for each package.",
+  "minimumFixScope": "Update turbo.json build.outputs to match the repository's real build output directories.",
+  "status": "open",
+  "history": [],
+  "signature": "sig_feat-config-97ea478330_f03c42f248",
+  "linkedPatchAttemptIds": [],
+  "createdByRunId": "20260520T112637-b414a4",
+  "createdAt": "2026-05-20T11:27:02.080Z",
+  "updatedAt": "2026-05-20T11:27:02.080Z"
+}

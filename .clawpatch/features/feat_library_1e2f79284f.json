@@ -1,15 +1,15 @@
 {
   "schemaVersion": 1,
-  "featureId": "feat_library_2985086c25",
-  "title": "Node package clawpatch-gui",
-  "summary": "Node package clawpatch-gui with package metadata and review context rooted at ..",
+  "featureId": "feat_library_1e2f79284f",
+  "title": "Node package clawpatch-ui",
+  "summary": "Node package clawpatch-ui with package metadata and review context rooted at ..",
   "kind": "library",
   "source": "node-package",
   "confidence": "medium",
   "entrypoints": [
     {
       "path": "package.json",
-      "symbol": "clawpatch-gui",
+      "symbol": "clawpatch-ui",
       "route": null,
       "command": null
     }
@@ -34,6 +34,10 @@
       "reason": "package context"
     },
     {
+      "path": "AGENTS.md",
+      "reason": "package context"
+    },
+    {
       "path": "out/main/index.js",
       "reason": "package entrypoint"
     },
@@ -54,6 +58,10 @@
       "reason": "package source overview"
     },
     {
+      "path": "src/main/logger.ts",
+      "reason": "package source overview"
+    },
+    {
       "path": "src/main/services/clawpatchRunner.ts",
       "reason": "package source overview"
     },
@@ -66,15 +74,35 @@
       "reason": "package source overview"
     },
     {
-      "path": "src/main/services/guiMetadata.ts",
-      "reason": "package source overview"
-    },
-    {
       "path": "src/main/services/repoService.ts",
       "reason": "package source overview"
     },
     {
+      "path": "src/main/services/uiMetadata.ts",
+      "reason": "package source overview"
+    },
+    {
+      "path": "src/main/shutdown.ts",
+      "reason": "package source overview"
+    },
+    {
+      "path": "src/main/windowState.ts",
+      "reason": "package source overview"
+    },
+    {
       "path": "src/preload/index.ts",
+      "reason": "package source overview"
+    },
+    {
+      "path": "src/renderer/src/appInfo.ts",
+      "reason": "package source overview"
+    },
+    {
+      "path": "src/renderer/src/clawpatchQueries.ts",
+      "reason": "package source overview"
+    },
+    {
+      "path": "src/renderer/src/commandLogEntries.ts",
       "reason": "package source overview"
     },
     {
@@ -86,7 +114,15 @@
       "reason": "package source overview"
     },
     {
+      "path": "src/renderer/src/components/DiffWorkerPoolProvider.tsx",
+      "reason": "package source overview"
+    },
+    {
       "path": "src/renderer/src/components/FindingDetailPanel.tsx",
+      "reason": "package source overview"
+    },
+    {
+      "path": "src/renderer/src/components/FindingsSplitPanel.tsx",
       "reason": "package source overview"
     },
     {
@@ -94,31 +130,11 @@
       "reason": "package source overview"
     },
     {
+      "path": "src/renderer/src/components/GitStatusStrip.tsx",
+      "reason": "package source overview"
+    },
+    {
       "path": "src/renderer/src/components/RepoSidebar.tsx",
-      "reason": "package source overview"
-    },
-    {
-      "path": "src/renderer/src/main.tsx",
-      "reason": "package source overview"
-    },
-    {
-      "path": "src/renderer/src/routes/ClawpatchApp.tsx",
-      "reason": "package source overview"
-    },
-    {
-      "path": "src/shared/constants.ts",
-      "reason": "package source overview"
-    },
-    {
-      "path": "src/shared/ipcChannels.ts",
-      "reason": "package source overview"
-    },
-    {
-      "path": "src/shared/schemas.ts",
-      "reason": "package source overview"
-    },
-    {
-      "path": "src/shared/types.ts",
       "reason": "package source overview"
     },
     {
@@ -134,7 +150,39 @@
       "reason": "package test"
     },
     {
+      "path": "test/main/gitService.test.ts",
+      "reason": "package test"
+    },
+    {
+      "path": "test/main/handlers.test.ts",
+      "reason": "package test"
+    },
+    {
+      "path": "test/main/logger.test.ts",
+      "reason": "package test"
+    },
+    {
       "path": "test/main/repoService.test.ts",
+      "reason": "package test"
+    },
+    {
+      "path": "test/main/shutdown.test.ts",
+      "reason": "package test"
+    },
+    {
+      "path": "test/main/uiMetadata.test.ts",
+      "reason": "package test"
+    },
+    {
+      "path": "test/main/windowState.test.ts",
+      "reason": "package test"
+    },
+    {
+      "path": "test/preload/index.test.ts",
+      "reason": "package test"
+    },
+    {
+      "path": "test/renderer/ClawpatchApp.test.tsx",
       "reason": "package test"
     }
   ],
@@ -142,28 +190,27 @@
   "tags": [
     "node",
     "package",
-    "project:clawpatch-gui",
+    "project:clawpatch-ui",
     "project-root:."
   ],
   "trustBoundaries": [],
-  "status": "skipped",
+  "status": "needs-fix",
   "lock": null,
   "findingIds": [
-    "fnd_sig-feat-library-2985086c25-3de3_ac2d29972d",
-    "fnd_sig-feat-library-2985086c25-6729_6710956cfd"
+    "fnd_sig-feat-library-1e2f79284f-5b20_655f888ce3"
   ],
   "patchAttemptIds": [],
   "analysisHistory": [
     {
-      "runId": "20260519T090731-6c235c",
+      "runId": "20260520T112637-b414a4",
       "kind": "review",
-      "summary": "2 finding(s)",
+      "summary": "1 finding(s)",
       "provider": "codex",
       "model": null,
       "reasoningEffort": null,
-      "createdAt": "2026-05-19T09:08:45.667Z"
+      "createdAt": "2026-05-20T11:27:30.433Z"
     }
   ],
-  "createdAt": "2026-05-19T08:07:07.260Z",
-  "updatedAt": "2026-05-20T11:28:33.805Z"
+  "createdAt": "2026-05-20T11:25:49.042Z",
+  "updatedAt": "2026-05-20T11:28:33.751Z"
 }

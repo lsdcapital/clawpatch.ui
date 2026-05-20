@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "findingId": "fnd_sig-feat-library-a20e6fdd04-d3b4_b9e005704e",
+  "featureId": "feat_library_a20e6fdd04",
+  "title": "Command output inserts artificial newlines between stream chunks",
+  "category": "bug",
+  "severity": "medium",
+  "confidence": "high",
+  "triage": "confirmed-bug",
+  "evidence": [
+    {
+      "path": "src/renderer/src/components/CommandPanel.tsx",
+      "startLine": 39,
+      "endLine": 41,
+      "symbol": "CommandPanel",
+      "quote": "return `${entryLabel(entry.event)}[${entry.event.stream}] ${entry.event.chunk}`;"
+    },
+    {
+      "path": "src/renderer/src/components/CommandPanel.tsx",
+      "startLine": 50,
+      "endLine": 51,
+      "symbol": "CommandPanel",
+      "quote": ".join(\"\\n\")"
+    }
+  ],
+  "reasoning": "Output events are rendered from arbitrary stream chunks, but the component maps every chunk to a separate line and then joins all entries with a newline. If a process emits stdout in chunks such as `hel` then `lo\\n`, the panel displays `hel\\nlo\\n` instead of `hello\\n`; if chunks already end with newlines, it also adds blank lines. That corrupts command output, which is especially risky for diagnostics and copy/paste from failing commands.",
+  "reproduction": null,
+  "recommendation": "Render stream output without adding separators between adjacent output chunks, or accumulate command output preserving chunk bytes and only add formatting around lifecycle/result/error records. If labels are required, add them only at stream boundaries or render metadata outside the raw output text.",
+  "whyTestsDoNotAlreadyCoverThis": "The included tests cover findings, split-panel resizing, filters, and review queue behavior, but none render CommandPanel or assert preservation of streamed command chunks.",
+  "suggestedRegressionTest": "Add a CommandPanel test with two stdout stream entries whose chunks are `hel` and `lo\\n`, then assert the pre text contains `hello\\n` and not `hel\\nlo`.",
+  "minimumFixScope": "src/renderer/src/components/CommandPanel.tsx plus a focused renderer test for streamed command output.",
+  "status": "open",
+  "history": [],
+  "signature": "sig_feat-library-a20e6fdd04_d3b40735b3",
+  "linkedPatchAttemptIds": [],
+  "createdByRunId": "20260520T112637-b414a4",
+  "createdAt": "2026-05-20T11:28:11.219Z",
+  "updatedAt": "2026-05-20T11:28:11.219Z"
+}

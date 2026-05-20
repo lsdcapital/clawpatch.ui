@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "findingId": "fnd_sig-feat-library-d62d371697-1e8a_3638fa7120",
+  "featureId": "feat_library_d62d371697",
+  "title": "Git status placeholder can show the previous finding's status after selection changes",
+  "category": "bug",
+  "severity": "low",
+  "confidence": "medium",
+  "triage": "risk",
+  "evidence": [
+    {
+      "path": "src/renderer/src/hooks/useFindingsWorkspace.ts",
+      "startLine": 72,
+      "endLine": 80,
+      "symbol": "useFindingsWorkspace",
+      "quote": "placeholderData: (previousData, previousQuery) =>\n      selectedRepo !== null && previousQuery?.queryKey[1] === selectedRepo.id\n        ? previousData\n        : undefined,"
+    }
+  ],
+  "reasoning": "The git status query key includes both the selected repo and selected finding, and the query function passes selectedFinding?.findingId. However placeholderData reuses previous data whenever the repo id matches, without checking that the previous query was for the same finding id. Switching between findings in the same repo can therefore display stale git status from the previously selected finding until the new query resolves, which can mislead status-dependent UI.",
+  "reproduction": null,
+  "recommendation": "Only reuse placeholder data when both the repo id and selected finding id match the previous query key, or remove placeholderData for this query if cross-finding stale status is not acceptable.",
+  "whyTestsDoNotAlreadyCoverThis": "No tests were included for this source group, and the issue depends on React Query placeholder behavior during selection changes.",
+  "suggestedRegressionTest": "Add a hook/component test that seeds status for finding A, switches to finding B in the same repo with a delayed status response, and asserts the UI does not expose finding A's status as placeholder data for finding B.",
+  "minimumFixScope": "Update the gitStatusQuery placeholderData predicate in src/renderer/src/hooks/useFindingsWorkspace.ts.",
+  "status": "open",
+  "history": [],
+  "signature": "sig_feat-library-d62d371697_1e8afe56b7",
+  "linkedPatchAttemptIds": [],
+  "createdByRunId": "20260520T112637-b414a4",
+  "createdAt": "2026-05-20T11:27:04.329Z",
+  "updatedAt": "2026-05-20T11:27:04.329Z"
+}

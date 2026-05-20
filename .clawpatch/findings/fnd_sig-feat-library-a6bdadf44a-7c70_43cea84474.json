@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "findingId": "fnd_sig-feat-library-a6bdadf44a-7c70_43cea84474",
+  "featureId": "feat_library_a6bdadf44a",
+  "title": "Command output interrupt can target a finding instead of a running repository command",
+  "category": "bug",
+  "severity": "medium",
+  "confidence": "medium",
+  "triage": "risk",
+  "evidence": [
+    {
+      "path": "src/renderer/src/routes/ClawpatchApp.tsx",
+      "startLine": 119,
+      "endLine": 122,
+      "symbol": "ClawpatchApp",
+      "quote": "commandRunner.interruptCommand(\n              selectedFindingCommand?.request.findingId ?? commandRunner.firstRunningFindingId,\n            )"
+    },
+    {
+      "path": "src/renderer/src/routes/ClawpatchApp.tsx",
+      "startLine": 136,
+      "endLine": 137,
+      "symbol": "ClawpatchApp",
+      "quote": "isBusy={commandRunner.isTriagePending || isSelectedFindingRunning}\n              commandStateLabel={selectedFindingCommand?.request.command}"
+    },
+    {
+      "path": "test/renderer/ClawpatchApp.test.tsx",
+      "startLine": 562,
+      "endLine": 570,
+      "symbol": "ClawpatchApp header actions",
+      "quote": "expect(screen.queryByRole(\"button\", { name: \"Interrupt command\" })).not.toBeInTheDocument();\n\n    fireEvent.click(screen.getByRole(\"button\", { name: \"More commands\" }));\n    fireEvent.click(screen.getByRole(\"menuitem\", { name: \"Status\" }));\n\n    await waitFor(() => expect(run).toHaveBeenCalledWith(\"repo-auth\", { command: \"status\" }));\n    expect(screen.getByText(\"Command starting...\")).toBeInTheDocument();\n    expect(screen.queryByText(\"No commands run yet.\")).not.toBeInTheDocument();\n    fireEvent.click(screen.getByRole(\"button\", { name: \"Interrupt command\" }));"
+    }
+  ],
+  "reasoning": "The shared command output interrupt always passes the selected running finding id, or any first running finding id, before falling back to undefined. At the same time, the findings panel busy state excludes running repository commands, so a finding command can be started while a repository command is still running. In that mixed state, clicking the command output interrupt button sends a finding-scoped interrupt even if the repository command is the command the user needs to stop, leaving the repository command without a working global interrupt from that panel.",
+  "reproduction": null,
+  "recommendation": "Track the command represented by the shared command output interrupt explicitly, or prioritize an active repository command when the command output panel's generic interrupt is clicked. If concurrent repo and finding commands are intentionally supported, expose separate interrupt controls or make the target unambiguous.",
+  "whyTestsDoNotAlreadyCoverThis": "Existing tests cover repo-only interruption from command output and finding-only interruption from the finding detail panel, but not the simultaneous repo-command plus finding-command state where the fallback order changes the interrupt target.",
+  "suggestedRegressionTest": "Start a long-running repository command, then start a finding fix while it remains pending. Click the command output interrupt button and assert the interrupt call uses the repository command target, or assert the UI exposes distinct interrupt targets if that is the intended behavior.",
+  "minimumFixScope": "Update ClawpatchApp/useCommandRunner interrupt target selection for the shared command output action and add a focused ClawpatchApp regression test for concurrent repo and finding commands.",
+  "status": "open",
+  "history": [],
+  "signature": "sig_feat-library-a6bdadf44a_7c708ff013",
+  "linkedPatchAttemptIds": [],
+  "createdByRunId": "20260520T112637-b414a4",
+  "createdAt": "2026-05-20T11:27:53.867Z",
+  "updatedAt": "2026-05-20T11:27:53.867Z"
+}

@@ -1,23 +1,23 @@
 {
   "schemaVersion": 1,
-  "featureId": "feat_library_93c42377fe",
-  "title": "Node source src/preload",
-  "summary": "Node/TypeScript source file src/preload/index.ts.",
+  "featureId": "feat_library_a6bdadf44a",
+  "title": "Node source src/renderer/src/routes",
+  "summary": "Node/TypeScript source file src/renderer/src/routes/ClawpatchApp.tsx.",
   "kind": "library",
   "source": "node-source-group",
   "confidence": "medium",
   "entrypoints": [
     {
       "path": "package.json",
-      "symbol": "src/preload",
+      "symbol": "src/renderer/src/routes",
       "route": null,
       "command": null
     }
   ],
   "ownedFiles": [
     {
-      "path": "src/preload/index.ts",
-      "reason": "source group src/preload"
+      "path": "src/renderer/src/routes/ClawpatchApp.tsx",
+      "reason": "source group src/renderer/src/routes"
     }
   ],
   "contextFiles": [
@@ -26,13 +26,13 @@
       "reason": "package manifest"
     },
     {
-      "path": "test/preload/index.test.ts",
+      "path": "test/renderer/ClawpatchApp.test.tsx",
       "reason": "associated test"
     }
   ],
   "tests": [
     {
-      "path": "test/preload/index.test.ts",
+      "path": "test/renderer/ClawpatchApp.test.tsx",
       "command": "pnpm test"
     }
   ],
@@ -47,20 +47,20 @@
   "status": "needs-fix",
   "lock": null,
   "findingIds": [
-    "fnd_sig-feat-library-93c42377fe-a456_90f7067123"
+    "fnd_sig-feat-library-a6bdadf44a-7c70_43cea84474"
   ],
   "patchAttemptIds": [],
   "analysisHistory": [
     {
-      "runId": "20260519T113652-408557",
+      "runId": "20260520T112637-b414a4",
       "kind": "review",
       "summary": "1 finding(s)",
       "provider": "codex",
       "model": null,
       "reasoningEffort": null,
-      "createdAt": "2026-05-19T11:37:33.819Z"
+      "createdAt": "2026-05-20T11:27:53.868Z"
     }
   ],
-  "createdAt": "2026-05-19T08:07:07.260Z",
+  "createdAt": "2026-05-20T11:25:49.042Z",
   "updatedAt": "2026-05-20T11:28:33.751Z"
 }

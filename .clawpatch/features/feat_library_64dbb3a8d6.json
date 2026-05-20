@@ -1,0 +1,106 @@
+{
+  "schemaVersion": 1,
+  "featureId": "feat_library_64dbb3a8d6",
+  "title": "Node source src/renderer/src",
+  "summary": "Node/TypeScript source group src/renderer/src with 7 files.",
+  "kind": "library",
+  "source": "node-source-group",
+  "confidence": "medium",
+  "entrypoints": [
+    {
+      "path": "package.json",
+      "symbol": "src/renderer/src",
+      "route": null,
+      "command": null
+    }
+  ],
+  "ownedFiles": [
+    {
+      "path": "src/renderer/src/appInfo.ts",
+      "reason": "source group src/renderer/src"
+    },
+    {
+      "path": "src/renderer/src/clawpatchQueries.ts",
+      "reason": "source group src/renderer/src"
+    },
+    {
+      "path": "src/renderer/src/commandLogEntries.ts",
+      "reason": "source group src/renderer/src"
+    },
+    {
+      "path": "src/renderer/src/findingsFilters.ts",
+      "reason": "source group src/renderer/src"
+    },
+    {
+      "path": "src/renderer/src/main.tsx",
+      "reason": "source group src/renderer/src"
+    },
+    {
+      "path": "src/renderer/src/reviewQueueFilters.ts",
+      "reason": "source group src/renderer/src"
+    },
+    {
+      "path": "src/renderer/src/workspaceTypes.ts",
+      "reason": "source group src/renderer/src"
+    }
+  ],
+  "contextFiles": [
+    {
+      "path": "package.json",
+      "reason": "package manifest"
+    },
+    {
+      "path": "test/renderer/clawpatchQueries.test.ts",
+      "reason": "associated test"
+    },
+    {
+      "path": "test/renderer/commandLogEntries.test.ts",
+      "reason": "associated test"
+    },
+    {
+      "path": "test/renderer/findingsFilters.test.ts",
+      "reason": "associated test"
+    }
+  ],
+  "tests": [
+    {
+      "path": "test/renderer/clawpatchQueries.test.ts",
+      "command": "pnpm test"
+    },
+    {
+      "path": "test/renderer/commandLogEntries.test.ts",
+      "command": "pnpm test"
+    },
+    {
+      "path": "test/renderer/findingsFilters.test.ts",
+      "command": "pnpm test"
+    }
+  ],
+  "tags": [
+    "node",
+    "typescript",
+    "source-group",
+    "project:clawpatch-ui",
+    "project-root:."
+  ],
+  "trustBoundaries": [],
+  "status": "needs-fix",
+  "lock": null,
+  "findingIds": [
+    "fnd_sig-feat-library-64dbb3a8d6-e74f_a2b923ee97"
+  ],
+  "patchAttemptIds": [],
+  "analysisHistory": [
+    {
+      "runId": "20260520T112637-b414a4",
+      "kind": "review",
+      "summary": "1 finding(s)",
+      "provider": "codex",
+      "model": null,
+      "reasoningEffort": null,
+      "createdAt": "2026-05-20T11:27:04.930Z"
+    }
+  ],
+  "createdAt": "2026-05-20T11:25:49.042Z",
+  "updatedAt": "2026-05-20T11:28:33.751Z"
+}

@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 1,
+  "findingId": "fnd_sig-feat-library-a1562e140a-cc53_15be9fe2c5",
+  "featureId": "feat_library_a1562e140a",
+  "title": "Managed worktree paths can collide for distinct finding IDs",
+  "category": "data-loss",
+  "severity": "high",
+  "confidence": "high",
+  "triage": "confirmed-bug",
+  "evidence": [
+    {
+      "path": "src/main/services/repoService.ts",
+      "startLine": 372,
+      "endLine": 380,
+      "symbol": "managedWorktreeForFinding",
+      "quote": "const slug = sanitizeWorktreeFragment(findingId);"
+    },
+    {
+      "path": "src/main/services/repoService.ts",
+      "startLine": 842,
+      "endLine": 851,
+      "symbol": "sanitizeWorktreeFragment",
+      "quote": "replace(/[^a-z0-9._-]+/g, \"-\")"
+    },
+    {
+      "path": "src/main/services/repoService.ts",
+      "startLine": 457,
+      "endLine": 474,
+      "symbol": "runFindingCommandLocked",
+      "quote": "const key = findingCommandKey(repoIdValue, findingId);"
+    },
+    {
+      "path": "src/main/services/repoService.ts",
+      "startLine": 838,
+      "endLine": 840,
+      "symbol": "findingCommandKey",
+      "quote": "return `${repoIdValue}\\0${findingId}`;"
+    },
+    {
+      "path": "test/main/repoService.test.ts",
+      "startLine": 454,
+      "endLine": 533,
+      "symbol": null,
+      "quote": "runs fixes for different findings concurrently in separate worktrees"
+    }
+  ],
+  "reasoning": "The managed worktree path and branch name are derived from a lossy sanitized finding ID, but the running-command lock is keyed by the raw finding ID. Distinct IDs such as `a/b`, `a:b`, `A B`, or long IDs sharing the first 80 sanitized characters can resolve to the same slug, path, and branch while still bypassing the per-finding lock. Two fix or revalidate commands can then operate on the same managed worktree concurrently, or a later command can reuse the wrong worktree for another finding, risking mixed patches and incorrect triage/revalidation state.",
+  "reproduction": "Run two `repoService.runCommand(repoId, { command: \"fix\", findingId: \"a/b\" })` and `repoService.runCommand(repoId, { command: \"fix\", findingId: \"a:b\" })` calls concurrently. Both compute the same managed worktree slug `a-b`, but `runFindingCommandLocked` treats them as different locks because it uses the original IDs.",
+  "recommendation": "Make the managed worktree fragment collision-resistant, for example by appending a short hash of the original finding ID to the sanitized prefix. Also consider locking by the resolved worktree path or branch name so any future naming collision is still serialized or rejected.",
+  "whyTestsDoNotAlreadyCoverThis": "The existing concurrency test only uses `fnd-1` and `fnd-2`, which sanitize to different slugs, so it proves independent worktrees for non-colliding IDs but does not exercise lossy sanitization collisions.",
+  "suggestedRegressionTest": "Add a RepoService test that starts fixes for two distinct finding IDs that sanitize to the same slug, such as `fnd/a` and `fnd:a`, and asserts they get different worktree paths and branch names, or that the second command is rejected before sharing a worktree.",
+  "minimumFixScope": "Update `managedWorktreeForFinding`/`sanitizeWorktreeFragment` naming and add collision-focused RepoService coverage.",
+  "status": "open",
+  "history": [],
+  "signature": "sig_feat-library-a1562e140a_cc53bda324",
+  "linkedPatchAttemptIds": [],
+  "createdByRunId": "20260520T112637-b414a4",
+  "createdAt": "2026-05-20T11:27:31.330Z",
+  "updatedAt": "2026-05-20T11:27:31.330Z"
+}

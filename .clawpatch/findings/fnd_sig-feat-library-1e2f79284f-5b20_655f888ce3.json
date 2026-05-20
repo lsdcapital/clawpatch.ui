@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "findingId": "fnd_sig-feat-library-1e2f79284f-5b20_655f888ce3",
+  "featureId": "feat_library_1e2f79284f",
+  "title": "Renderer is launched without Electron sandbox",
+  "category": "security",
+  "severity": "medium",
+  "confidence": "high",
+  "triage": "confirmed-bug",
+  "evidence": [
+    {
+      "path": "src/main/index.ts",
+      "startLine": 70,
+      "endLine": 76,
+      "symbol": "createWindow",
+      "quote": "webPreferences: {\n      preload: join(import.meta.dirname, \"../preload/index.mjs\"),\n      contextIsolation: true,\n      nodeIntegration: false,\n      sandbox: false,\n    }"
+    }
+  ],
+  "reasoning": "The main window correctly disables nodeIntegration and enables contextIsolation, but explicitly disables Electron's renderer sandbox. This app renders local repository-derived data such as finding titles, reasoning, evidence quotes, command output, and diffs. If a renderer XSS or dependency rendering bug occurs, disabling the sandbox removes an important containment layer and increases the impact of compromised renderer code. The preload API appears to be a narrow contextBridge surface, so this configuration should generally be compatible with sandboxing unless a preload dependency requires unsandboxed Node behavior.",
+  "reproduction": null,
+  "recommendation": "Set `sandbox: true` for the BrowserWindow and adjust the preload script to use only sandbox-compatible Electron preload APIs. Keep all filesystem/process operations behind IPC handlers in the main process.",
+  "whyTestsDoNotAlreadyCoverThis": "The included tests exercise service, IPC, runner, state, preload, and renderer behavior, but they do not assert BrowserWindow security options or Electron fuses/runtime hardening.",
+  "suggestedRegressionTest": "Add a main-process unit test around window creation options, using a BrowserWindow mock, that asserts `contextIsolation: true`, `nodeIntegration: false`, and `sandbox: true`.",
+  "minimumFixScope": "Update the BrowserWindow `webPreferences` in `src/main/index.ts` and verify the preload test suite still passes under the sandbox-compatible API surface.",
+  "status": "open",
+  "history": [],
+  "signature": "sig_feat-library-1e2f79284f_5b20372aae",
+  "linkedPatchAttemptIds": [],
+  "createdByRunId": "20260520T112637-b414a4",
+  "createdAt": "2026-05-20T11:27:30.432Z",
+  "updatedAt": "2026-05-20T11:27:30.432Z"
+}

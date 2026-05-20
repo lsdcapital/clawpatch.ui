@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "featureId": "feat_library_a1562e140a",
   "title": "Node source src/main",
-  "summary": "Node/TypeScript source group src/main with 9 files.",
+  "summary": "Node/TypeScript source group src/main with 12 files.",
   "kind": "library",
   "source": "node-source-group",
   "confidence": "medium",
@@ -32,6 +32,10 @@
       "reason": "source group src/main"
     },
     {
+      "path": "src/main/logger.ts",
+      "reason": "source group src/main"
+    },
+    {
       "path": "src/main/services/clawpatchRunner.ts",
       "reason": "source group src/main"
     },
@@ -44,11 +48,19 @@
       "reason": "source group src/main"
     },
     {
-      "path": "src/main/services/guiMetadata.ts",
+      "path": "src/main/services/repoService.ts",
       "reason": "source group src/main"
     },
     {
-      "path": "src/main/services/repoService.ts",
+      "path": "src/main/services/uiMetadata.ts",
+      "reason": "source group src/main"
+    },
+    {
+      "path": "src/main/shutdown.ts",
+      "reason": "source group src/main"
+    },
+    {
+      "path": "src/main/windowState.ts",
       "reason": "source group src/main"
     }
   ],
@@ -70,7 +82,23 @@
       "reason": "associated test"
     },
     {
+      "path": "test/main/gitService.test.ts",
+      "reason": "associated test"
+    },
+    {
+      "path": "test/main/handlers.test.ts",
+      "reason": "associated test"
+    },
+    {
+      "path": "test/main/logger.test.ts",
+      "reason": "associated test"
+    },
+    {
       "path": "test/main/repoService.test.ts",
+      "reason": "associated test"
+    },
+    {
+      "path": "test/main/shutdown.test.ts",
       "reason": "associated test"
     }
   ],
@@ -88,7 +116,23 @@
       "command": "pnpm test"
     },
     {
+      "path": "test/main/gitService.test.ts",
+      "command": "pnpm test"
+    },
+    {
+      "path": "test/main/handlers.test.ts",
+      "command": "pnpm test"
+    },
+    {
+      "path": "test/main/logger.test.ts",
+      "command": "pnpm test"
+    },
+    {
       "path": "test/main/repoService.test.ts",
+      "command": "pnpm test"
+    },
+    {
+      "path": "test/main/shutdown.test.ts",
       "command": "pnpm test"
     }
   ],
@@ -96,14 +140,15 @@
     "node",
     "typescript",
     "source-group",
-    "project:clawpatch-gui",
+    "project:clawpatch-ui",
     "project-root:."
   ],
   "trustBoundaries": [],
-  "status": "fixed",
+  "status": "needs-fix",
   "lock": null,
   "findingIds": [
-    "fnd_sig-feat-library-a1562e140a-b3c0_221ed375d8"
+    "fnd_sig-feat-library-a1562e140a-b3c0_221ed375d8",
+    "fnd_sig-feat-library-a1562e140a-cc53_15be9fe2c5"
   ],
   "patchAttemptIds": [],
   "analysisHistory": [
@@ -115,8 +160,17 @@
       "model": null,
       "reasoningEffort": null,
       "createdAt": "2026-05-19T11:37:27.434Z"
+    },
+    {
+      "runId": "20260520T112637-b414a4",
+      "kind": "review",
+      "summary": "1 finding(s)",
+      "provider": "codex",
+      "model": null,
+      "reasoningEffort": null,
+      "createdAt": "2026-05-20T11:27:31.331Z"
     }
   ],
   "createdAt": "2026-05-19T08:07:07.260Z",
-  "updatedAt": "2026-05-19T15:48:00.971Z"
+  "updatedAt": "2026-05-20T11:28:33.751Z"
 }

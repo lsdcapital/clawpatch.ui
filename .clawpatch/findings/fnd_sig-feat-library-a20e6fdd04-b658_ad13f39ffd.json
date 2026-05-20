@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "findingId": "fnd_sig-feat-library-a20e6fdd04-b658_ad13f39ffd",
+  "featureId": "feat_library_a20e6fdd04",
+  "title": "Diff file path normalization collapses real top-level a/ and b/ paths",
+  "category": "bug",
+  "severity": "low",
+  "confidence": "medium",
+  "triage": "risk",
+  "evidence": [
+    {
+      "path": "src/renderer/src/components/DiffViewer.tsx",
+      "startLine": 27,
+      "endLine": 32,
+      "symbol": "DiffViewer",
+      "quote": "const targetPath = stripDiffPathPrefix(scrollToFilePath);"
+    },
+    {
+      "path": "src/renderer/src/components/DiffViewer.tsx",
+      "startLine": 86,
+      "endLine": 92,
+      "symbol": "DiffViewer",
+      "quote": "const filePath = resolveFileDiffPath(fileDiff);"
+    },
+    {
+      "path": "src/renderer/src/components/DiffViewer.tsx",
+      "startLine": 132,
+      "endLine": 137,
+      "symbol": "stripDiffPathPrefix",
+      "quote": "if (normalized.startsWith(\"a/\") || normalized.startsWith(\"b/\")) { return normalized.slice(2); }"
+    }
+  ],
+  "reasoning": "The same helper strips `a/` or `b/` from both parsed diff names and application-level file paths passed via `scrollToFilePath`. For a legitimate repository path like `a/config.ts` or `b/config.ts`, this normalizes it to `config.ts`. That can make jump-to-file fail or scroll to the wrong diff when both `config.ts` and `a/config.ts` are present, and it can also make rendered `data-diff-file-path` values ambiguous. Diff prefix stripping should only happen on raw git header paths known to include the synthetic `a/` or `b/` side prefix, not on already-normalized repo paths.",
+  "reproduction": null,
+  "recommendation": "Keep application file paths unchanged, and normalize only raw diff header paths with side-prefix context. If `@pierre/diffs` already returns repo-relative names, remove `stripDiffPathPrefix` from `resolveFileDiffPath` and `scrollToFilePath`; otherwise track whether the value came from an `a/` or `b/` header before stripping.",
+  "whyTestsDoNotAlreadyCoverThis": "The included tests exercise fix-attempt file buttons but do not render DiffViewer or verify jumping to paths under real top-level `a/` or `b/` directories.",
+  "suggestedRegressionTest": "Add a DiffViewer/extract path test using a diff containing both `foo.ts` and `a/foo.ts`, then trigger a jump to `a/foo.ts` and assert the matching rendered file wrapper is targeted distinctly from `foo.ts`.",
+  "minimumFixScope": "src/renderer/src/components/DiffViewer.tsx and a focused renderer/unit test for diff path normalization.",
+  "status": "open",
+  "history": [],
+  "signature": "sig_feat-library-a20e6fdd04_b658586425",
+  "linkedPatchAttemptIds": [],
+  "createdByRunId": "20260520T112637-b414a4",
+  "createdAt": "2026-05-20T11:28:11.219Z",
+  "updatedAt": "2026-05-20T11:28:11.219Z"
+}

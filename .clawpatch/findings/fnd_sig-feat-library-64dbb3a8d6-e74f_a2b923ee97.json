@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "findingId": "fnd_sig-feat-library-64dbb3a8d6-e74f_a2b923ee97",
+  "featureId": "feat_library_64dbb3a8d6",
+  "title": "Related command log entries can display an argument instead of the command",
+  "category": "bug",
+  "severity": "low",
+  "confidence": "medium",
+  "triage": "risk",
+  "evidence": [
+    {
+      "path": "src/renderer/src/commandLogEntries.ts",
+      "startLine": 14,
+      "endLine": 18,
+      "symbol": "commandResultLogEntries",
+      "quote": "command:\n        relatedResult.args.at(-2) === \"revalidate\"\n          ? \"revalidate\"\n          : (relatedResult.args.at(-1) ?? request.command),"
+    },
+    {
+      "path": "test/renderer/commandLogEntries.test.ts",
+      "startLine": 8,
+      "endLine": 20,
+      "symbol": null,
+      "quote": null
+    }
+  ],
+  "reasoning": "`CommandResult` already carries a `command` field, but related result log entries derive the displayed command from argv positions. That works for the tested `['clawpatch','revalidate','--finding']` shape, but for normal commands with operands or flags after the subcommand, the last argv element can be a finding id, path, limit, or option value. The log entry would then show that argument as the command, even though `relatedResult.command` has the intended semantic value.",
+  "reproduction": "A related result such as `{ command: 'fix', args: ['clawpatch','fix','fnd-123'], ... }` is logged with `command: 'fnd-123'` because `args.at(-1)` is used.",
+  "recommendation": "Use `relatedResult.command` as the primary source for related result log entries, keeping only narrowly needed fallback logic for legacy results where `command` is unavailable.",
+  "whyTestsDoNotAlreadyCoverThis": "The existing test only covers the special revalidate argv shape where the heuristic succeeds; it does not cover a related result whose command has a trailing operand or option value.",
+  "suggestedRegressionTest": "Add a `commandResultLogEntries` test with a related result like `makeCommandResult('fix', undefined, ['clawpatch', 'fix', 'fnd-bug'])` and assert the related log entry command is `fix`, not `fnd-bug`.",
+  "minimumFixScope": "Update `commandResultLogEntries` command selection for related results and extend `test/renderer/commandLogEntries.test.ts`.",
+  "status": "open",
+  "history": [],
+  "signature": "sig_feat-library-64dbb3a8d6_e74f09df0e",
+  "linkedPatchAttemptIds": [],
+  "createdByRunId": "20260520T112637-b414a4",
+  "createdAt": "2026-05-20T11:27:04.930Z",
+  "updatedAt": "2026-05-20T11:27:04.930Z"
+}

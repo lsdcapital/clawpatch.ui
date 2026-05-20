@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "featureId": "feat_library_648a355089",
   "title": "Node source src/shared",
-  "summary": "Node/TypeScript source group src/shared with 4 files.",
+  "summary": "Node/TypeScript source group src/shared with 5 files.",
   "kind": "library",
   "source": "node-source-group",
   "confidence": "medium",
@@ -15,6 +15,10 @@
     }
   ],
   "ownedFiles": [
+    {
+      "path": "src/shared/appMetadata.ts",
+      "reason": "source group src/shared"
+    },
     {
       "path": "src/shared/constants.ts",
       "reason": "source group src/shared"
@@ -36,18 +40,27 @@
     {
       "path": "package.json",
       "reason": "package manifest"
+    },
+    {
+      "path": "test/shared/schemas.test.ts",
+      "reason": "associated test"
     }
   ],
-  "tests": [],
+  "tests": [
+    {
+      "path": "test/shared/schemas.test.ts",
+      "command": "pnpm test"
+    }
+  ],
   "tags": [
     "node",
     "typescript",
     "source-group",
-    "project:clawpatch-gui",
+    "project:clawpatch-ui",
     "project-root:."
   ],
   "trustBoundaries": [],
-  "status": "fixed",
+  "status": "reviewed",
   "lock": null,
   "findingIds": [
     "fnd_sig-feat-library-648a355089-277b_16b9c723a8"
@@ -62,8 +75,17 @@
       "model": null,
       "reasoningEffort": null,
       "createdAt": "2026-05-19T11:37:17.746Z"
+    },
+    {
+      "runId": "20260520T112637-b414a4",
+      "kind": "review",
+      "summary": "0 finding(s)",
+      "provider": "codex",
+      "model": null,
+      "reasoningEffort": null,
+      "createdAt": "2026-05-20T11:27:32.889Z"
     }
   ],
   "createdAt": "2026-05-19T08:07:07.260Z",
-  "updatedAt": "2026-05-19T15:46:18.512Z"
+  "updatedAt": "2026-05-20T11:28:33.751Z"
 }
