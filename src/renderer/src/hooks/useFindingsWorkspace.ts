@@ -61,7 +61,15 @@ export function useFindingsWorkspace({ selectedRepo }: { selectedRepo: RepoSumma
     queryKey: clawpatchQueryKeys.finding(selectedRepo?.id, selectedFinding?.findingId),
     queryFn: () => window.clawpatch.findings.get(selectedRepo!.id, selectedFinding!.findingId),
     enabled: selectedRepo !== null && selectedFinding !== null,
+    placeholderData: (previousData, previousQuery) =>
+      selectedFinding !== null && previousQuery?.queryKey[1] === selectedRepo?.id
+        ? previousData
+        : undefined,
   });
+  const isSelectedDetailPending =
+    selectedFinding !== null &&
+    detailQuery.data !== undefined &&
+    detailQuery.data.findingId !== selectedFinding.findingId;
 
   const gitStatusQuery = useQuery({
     queryKey: clawpatchQueryKeys.gitStatus(selectedRepo?.id, selectedFinding?.findingId),
@@ -105,6 +113,7 @@ export function useFindingsWorkspace({ selectedRepo }: { selectedRepo: RepoSumma
     findingsQuery,
     fixDisabledReason,
     gitStatusQuery,
+    isSelectedDetailPending,
     selectedFinding,
     setFindingFilters,
     setFindingSort,

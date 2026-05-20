@@ -404,6 +404,56 @@ describe("ClawpatchApp header actions", () => {
     expect(screen.getByRole("complementary", { name: "Command output" })).toBeInTheDocument();
   });
 
+  it("keeps the previous finding detail mounted while the newly selected detail loads", async () => {
+    const highRiskFinding = makeFinding();
+    const lowerRiskFinding = makeFixFinding();
+    let resolveLowerRiskFinding: ((finding: FindingDetail) => void) | undefined;
+    const findingGet = vi.fn<Api["findings"]["get"]>(async (_repoId, findingId) => {
+      if (findingId === highRiskFinding.findingId) {
+        return highRiskFinding;
+      }
+      if (findingId === lowerRiskFinding.findingId) {
+        return new Promise<FindingDetail>((resolve) => {
+          resolveLowerRiskFinding = resolve;
+        });
+      }
+      throw new Error(`Missing finding ${findingId}`);
+    });
+    window.clawpatch = makeApi(
+      vi.fn<Api["commands"]["run"]>(async () => makeCommandResult("map")),
+      {
+        findings: [highRiskFinding, lowerRiskFinding],
+        findingGet,
+      },
+    );
+
+    renderApp();
+
+    await screen.findByRole("heading", { name: "Token is logged in debug output" });
+    fireEvent.click(screen.getByText("Null branch can throw"));
+
+    await waitFor(() => expect(findingGet).toHaveBeenCalledWith("repo-auth", "fnd-bug"));
+    const previousDetailHeading = screen.getByRole("heading", {
+      name: "Token is logged in debug output",
+    });
+    expect(previousDetailHeading.closest(".detail-pane")).toHaveAttribute("aria-busy", "true");
+    expect(screen.getByText("Loading selected finding")).toBeInTheDocument();
+    expect(screen.queryByText("Loading finding")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Finding status: open" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Save triage note" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Revalidate" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Run fix" })).toBeDisabled();
+    expect(screen.getByText("Null branch can throw").closest("button")).toHaveClass("selected");
+
+    await act(async () => {
+      resolveLowerRiskFinding?.(lowerRiskFinding);
+    });
+
+    await screen.findByRole("heading", { name: "Null branch can throw" });
+    expect(screen.queryByText("Loading selected finding")).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole("button", { name: "Run fix" })).not.toBeDisabled());
+  });
+
   it("keeps other finding fix controls available while one finding is running", async () => {
     const highRiskFinding = makeFinding();
     const lowerRiskFinding = makeFixFinding();

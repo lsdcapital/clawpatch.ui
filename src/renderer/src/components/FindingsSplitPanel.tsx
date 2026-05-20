@@ -20,6 +20,7 @@ interface Props {
   sort: FindingSort;
   finding: FindingDetail | null;
   isDetailLoading: boolean;
+  isDetailPending: boolean;
   isBusy: boolean;
   commandStateLabel?: string;
   fixDisabledReason: string | null;
@@ -44,6 +45,7 @@ export function FindingsSplitPanel({
   sort,
   finding,
   isDetailLoading,
+  isDetailPending,
   isBusy,
   commandStateLabel,
   fixDisabledReason,
@@ -152,6 +154,7 @@ export function FindingsSplitPanel({
       <FindingDetailPanel
         finding={finding}
         isLoading={isDetailLoading}
+        isPending={isDetailPending}
         isBusy={isBusy}
         commandStateLabel={commandStateLabel}
         fixDisabledReason={fixDisabledReason}
