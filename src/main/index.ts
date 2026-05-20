@@ -1,8 +1,7 @@
 import { app, BrowserWindow, ipcMain, Menu, screen, type Rectangle } from "electron";
 import { join } from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
-import * as Cause from "effect/Cause";
-import * as Effect from "effect/Effect";
+import type * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as ManagedRuntime from "effect/ManagedRuntime";
 import { APP_DISPLAY_NAME, APP_ID } from "../shared/appMetadata";
@@ -243,22 +242,20 @@ function installWindowStatePersistence(window: BrowserWindow, userDataPath: stri
     if (runtime === null) {
       return;
     }
-    void runtime.runPromise(
-      writeWindowState(
-        userDataPath,
-        makeWindowStateFile(
-          toWindowBounds(window.getNormalBounds()),
-          window.isMaximized(),
-          window.isFullScreen(),
+    void runtime
+      .runPromise(
+        writeWindowState(
+          userDataPath,
+          makeWindowStateFile(
+            toWindowBounds(window.getNormalBounds()),
+            window.isMaximized(),
+            window.isFullScreen(),
+          ),
         ),
-      ).pipe(
-        Effect.catchCause((cause) =>
-          Effect.sync(() => {
-            windowLogger.error({ err: Cause.squash(cause) }, "Unable to write window state");
-          }),
-        ),
-      ),
-    );
+      )
+      .catch((error: unknown) => {
+        windowLogger.error({ err: error }, "Unable to write window state");
+      });
   };
 
   const saveSoon = (): void => {

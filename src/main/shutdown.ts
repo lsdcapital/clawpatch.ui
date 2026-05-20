@@ -1,4 +1,3 @@
-import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
 import { ClawpatchRunner } from "./services/clawpatchRunner";
 
@@ -17,18 +16,16 @@ export async function cleanupAppRuntime(
   runtime: AppRuntimeCleanup<ClawpatchRunner>,
   logError: ShutdownLogger = (message, error) => console.error(message, error),
 ): Promise<void> {
-  await runtime.runPromise(
-    Effect.gen(function* () {
-      const runner = yield* ClawpatchRunner;
-      yield* runner.interruptAll();
-    }).pipe(
-      Effect.catchCause((cause) =>
-        Effect.sync(() => {
-          logError("Unable to interrupt running Clawpatch commands", Cause.squash(cause));
-        }),
-      ),
-    ),
-  );
+  try {
+    await runtime.runPromise(
+      Effect.gen(function* () {
+        const runner = yield* ClawpatchRunner;
+        yield* runner.interruptAll();
+      }),
+    );
+  } catch (error) {
+    logError("Unable to interrupt running Clawpatch commands", error);
+  }
 
   try {
     await runtime.dispose();
