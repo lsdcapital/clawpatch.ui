@@ -1277,6 +1277,25 @@ button.table-row:hover:not(:disabled) {
   border-color: var(--primary-hover);
 }
 
+.detail-action-message {
+  font-size: 12px;
+  line-height: 1.4;
+  margin: 0;
+}
+
+.detail-action-message.error {
+  color: var(--danger);
+}
+
+.detail-action-message.success {
+  color: var(--success);
+}
+
+.detail-action-message a {
+  color: inherit;
+  font-weight: 700;
+}
+
 .command-panel pre {
   flex: 1;
   color: var(--text-code);

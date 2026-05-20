@@ -11,4 +11,5 @@ export const COMMANDS_INTERRUPT_CHANNEL = "commands:interrupt";
 export const COMMANDS_STREAM_CHANNEL = "commands:stream";
 export const GIT_DIFF_CHANNEL = "git:diff";
 export const GIT_STATUS_CHANNEL = "git:status";
+export const GIT_PUBLISH_FIX_CHANNEL = "git:publish-fix";
 export const TERMINAL_OPEN_CHANNEL = "terminal:open";

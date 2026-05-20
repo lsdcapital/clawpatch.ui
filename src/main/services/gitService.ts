@@ -28,6 +28,15 @@ export interface GitLifecycleEvent {
   readonly argv: readonly string[];
 }
 
+export interface GitPublishFixResult {
+  readonly worktreePath: string;
+  readonly branchName: string;
+  readonly baseBranch: string;
+  readonly commitSha: string;
+  readonly remoteName: string;
+  readonly prUrl: string;
+}
+
 export interface GitServiceShape {
   readonly readDiff: (
     repoPath: string,
@@ -50,6 +59,16 @@ export interface GitServiceShape {
     },
     onLifecycle?: (event: GitLifecycleEvent) => void,
   ) => Effect.Effect<string, CommandSpawnError>;
+  readonly publishFix: (
+    input: {
+      readonly repoPath: string;
+      readonly worktreePath: string;
+      readonly branchName: string;
+      readonly baseBranch: string | null;
+      readonly commitMessage: string;
+    },
+    onLifecycle?: (event: GitLifecycleEvent) => void,
+  ) => Effect.Effect<GitPublishFixResult, CommandSpawnError>;
 }
 
 export class GitService extends Context.Service<GitService, GitServiceShape>()(
@@ -152,6 +171,77 @@ export const GitServiceLive = Layer.effect(
           onLifecycle,
         ).pipe(Effect.mapError((cause) => new CommandSpawnError({ repoPath, cause })));
         return worktreePath;
+      }),
+      publishFix: Effect.fn("git.publishFix")(function* (
+        { repoPath, worktreePath, branchName, baseBranch, commitMessage },
+        onLifecycle,
+      ) {
+        yield* assertExistingWorktree(spawner, repoPath, worktreePath, branchName, onLifecycle);
+
+        const resolvedBaseBranch = yield* resolvePublishBaseBranch(
+          spawner,
+          repoPath,
+          baseBranch,
+          onLifecycle,
+        ).pipe(Effect.mapError((cause) => new CommandSpawnError({ repoPath, cause })));
+        const remoteUrl = yield* readRequiredRemoteUrl(
+          spawner,
+          repoPath,
+          DEFAULT_TARGET_REMOTE,
+          onLifecycle,
+        ).pipe(Effect.mapError((cause) => new CommandSpawnError({ repoPath, cause })));
+        const githubUrl = parseGitHubRemoteUrl(remoteUrl);
+        if (githubUrl === null) {
+          return yield* worktreeError(repoPath, "Publish PR supports GitHub origin remotes only.");
+        }
+
+        const statusOutput = yield* runGitOutput(
+          spawner,
+          worktreePath,
+          ["status", "--porcelain=v1", "--untracked-files=all"],
+          onLifecycle,
+        ).pipe(Effect.mapError((cause) => new CommandSpawnError({ repoPath, cause })));
+        if (statusOutput.trim() !== "") {
+          yield* runGitOutput(spawner, worktreePath, ["add", "-A"], onLifecycle).pipe(
+            Effect.mapError((cause) => new CommandSpawnError({ repoPath, cause })),
+          );
+          yield* runGitOutput(
+            spawner,
+            worktreePath,
+            ["commit", "-m", commitMessage],
+            onLifecycle,
+          ).pipe(Effect.mapError((cause) => new CommandSpawnError({ repoPath, cause })));
+        }
+
+        const hasPublishableCommit = yield* branchHasPublishableCommit(
+          spawner,
+          worktreePath,
+          resolvedBaseBranch,
+          onLifecycle,
+        ).pipe(Effect.mapError((cause) => new CommandSpawnError({ repoPath, cause })));
+        if (!hasPublishableCommit) {
+          return yield* worktreeError(repoPath, "No fix changes to publish.");
+        }
+
+        yield* runGitOutput(
+          spawner,
+          worktreePath,
+          ["push", "-u", DEFAULT_TARGET_REMOTE, branchName],
+          onLifecycle,
+        ).pipe(Effect.mapError((cause) => new CommandSpawnError({ repoPath, cause })));
+        const commitSha = yield* runGitOutput(spawner, worktreePath, ["rev-parse", "HEAD"]).pipe(
+          Effect.map((output) => output.trim()),
+          Effect.mapError((cause) => new CommandSpawnError({ repoPath, cause })),
+        );
+
+        return {
+          worktreePath,
+          branchName,
+          baseBranch: resolvedBaseBranch,
+          commitSha,
+          remoteName: DEFAULT_TARGET_REMOTE,
+          prUrl: `${githubUrl}/compare/${encodeCompareRef(resolvedBaseBranch)}...${encodeCompareRef(branchName)}?expand=1`,
+        };
       }),
     });
   }),
@@ -365,6 +455,94 @@ function remoteExists(
   );
 }
 
+function readRequiredRemoteUrl(
+  spawner: ChildProcessSpawner.ChildProcessSpawner["Service"],
+  repoPath: string,
+  remoteName: string,
+  onLifecycle?: (event: GitLifecycleEvent) => void,
+): Effect.Effect<string, unknown> {
+  return runGitResult(spawner, repoPath, ["remote", "get-url", remoteName], onLifecycle).pipe(
+    Effect.flatMap(({ stdout, stderr, exitCode }) => {
+      if (exitCode === 0) {
+        return Effect.succeed(stdout.trim());
+      }
+      if (exitCode === 2) {
+        return Effect.fail(new Error(`Remote ${remoteName} is required before publishing a PR.`));
+      }
+      return Effect.fail(new Error(stderr || stdout || `Unable to inspect remote ${remoteName}`));
+    }),
+  );
+}
+
+function resolvePublishBaseBranch(
+  spawner: ChildProcessSpawner.ChildProcessSpawner["Service"],
+  repoPath: string,
+  preferredBaseBranch: string | null,
+  onLifecycle?: (event: GitLifecycleEvent) => void,
+): Effect.Effect<string, unknown> {
+  return Effect.gen(function* () {
+    if (
+      preferredBaseBranch !== null &&
+      preferredBaseBranch.trim() !== "" &&
+      preferredBaseBranch !== "HEAD"
+    ) {
+      return preferredBaseBranch.trim();
+    }
+
+    const originHead = yield* runGitOutput(
+      spawner,
+      repoPath,
+      ["symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD"],
+      onLifecycle,
+    ).pipe(
+      Effect.map((output) => output.trim()),
+      Effect.catch(() => Effect.succeed("")),
+    );
+    if (originHead.startsWith(`${DEFAULT_TARGET_REMOTE}/`)) {
+      return originHead.slice(DEFAULT_TARGET_REMOTE.length + 1);
+    }
+    return DEFAULT_TARGET_BRANCH;
+  });
+}
+
+function branchHasPublishableCommit(
+  spawner: ChildProcessSpawner.ChildProcessSpawner["Service"],
+  worktreePath: string,
+  baseBranch: string,
+  onLifecycle?: (event: GitLifecycleEvent) => void,
+): Effect.Effect<boolean, unknown> {
+  return countCommitsAhead(
+    spawner,
+    worktreePath,
+    `${DEFAULT_TARGET_REMOTE}/${baseBranch}`,
+    onLifecycle,
+  ).pipe(
+    Effect.catch(() => countCommitsAhead(spawner, worktreePath, baseBranch, onLifecycle)),
+    Effect.map((count) => count > 0),
+  );
+}
+
+function countCommitsAhead(
+  spawner: ChildProcessSpawner.ChildProcessSpawner["Service"],
+  worktreePath: string,
+  baseRef: string,
+  onLifecycle?: (event: GitLifecycleEvent) => void,
+): Effect.Effect<number, unknown> {
+  return runGitOutput(
+    spawner,
+    worktreePath,
+    ["rev-list", "--count", `${baseRef}..HEAD`],
+    onLifecycle,
+  ).pipe(
+    Effect.map((output) => Number.parseInt(output.trim(), 10)),
+    Effect.flatMap((count) =>
+      Number.isFinite(count)
+        ? Effect.succeed(count)
+        : Effect.fail(new Error(`Unable to count commits ahead of ${baseRef}`)),
+    ),
+  );
+}
+
 function requireCommit(
   spawner: ChildProcessSpawner.ChildProcessSpawner["Service"],
   repoPath: string,
@@ -440,6 +618,30 @@ function assertExistingWorktree(
 
 function worktreeError(repoPath: string, message: string): Effect.Effect<never, CommandSpawnError> {
   return new CommandSpawnError({ repoPath, cause: new Error(message) });
+}
+
+function parseGitHubRemoteUrl(remoteUrl: string): string | null {
+  const value = remoteUrl.trim().replace(/\.git$/, "");
+  const httpsMatch = /^https:\/\/github\.com\/([^/\s]+)\/([^/\s]+)$/.exec(value);
+  if (httpsMatch !== null) {
+    return `https://github.com/${httpsMatch[1]}/${httpsMatch[2]}`;
+  }
+
+  const sshMatch = /^git@github\.com:([^/\s]+)\/([^/\s]+)$/.exec(value);
+  if (sshMatch !== null) {
+    return `https://github.com/${sshMatch[1]}/${sshMatch[2]}`;
+  }
+
+  const sshUrlMatch = /^ssh:\/\/git@github\.com\/([^/\s]+)\/([^/\s]+)$/.exec(value);
+  if (sshUrlMatch !== null) {
+    return `https://github.com/${sshUrlMatch[1]}/${sshUrlMatch[2]}`;
+  }
+
+  return null;
+}
+
+function encodeCompareRef(ref: string): string {
+  return encodeURIComponent(ref).replaceAll("%2F", "/");
 }
 
 function collectOutput(stream: Stream.Stream<Uint8Array, unknown>): Effect.Effect<string, unknown> {

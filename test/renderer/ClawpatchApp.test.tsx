@@ -1028,6 +1028,108 @@ describe("ClawpatchApp header actions", () => {
     expect(screen.queryByText("worktree")).not.toBeInTheDocument();
     expect(screen.queryByText(worktreePath)).not.toBeInTheDocument();
   });
+
+  it("shows Publish PR for findings with managed worktrees and opens the PR result", async () => {
+    const finding = makeFixFinding();
+    const worktreePath = "/tmp/clawpatch-ui/worktrees/repo-auth/fnd-bug";
+    const publishFix = vi.fn<Api["git"]["publishFix"]>(async () => ({
+      worktreePath,
+      branchName: "clawpatch/fix/fnd-bug",
+      baseBranch: "main",
+      commitSha: "abc123",
+      remoteName: "origin",
+      prUrl: "https://github.com/acme/repo/compare/main...clawpatch/fix/fnd-bug?expand=1",
+    }));
+    window.clawpatch = makeApi(
+      vi.fn<Api["commands"]["run"]>(async () => makeCommandResult("map")),
+      {
+        findings: [finding],
+        findingDetail: finding,
+        publishFix,
+        repoList: async () => [
+          makeRepo({
+            activeWorktreePath: worktreePath,
+            activeWorktrees: [{ findingId: "fnd-bug", path: worktreePath }],
+          }),
+        ],
+      },
+    );
+
+    renderApp();
+
+    await screen.findByRole("heading", { name: "Null branch can throw" });
+    fireEvent.click(screen.getByRole("button", { name: "Publish PR" }));
+
+    await screen.findByText(/PR draft opened for/);
+    expect(publishFix).toHaveBeenCalledWith("repo-auth", "fnd-bug");
+    expect(screen.getByRole("link", { name: "Open PR" })).toHaveAttribute(
+      "href",
+      "https://github.com/acme/repo/compare/main...clawpatch/fix/fnd-bug?expand=1",
+    );
+  });
+
+  it("disables Publish PR while a finding command is running", async () => {
+    let resolveRun: ((result: CommandResult) => void) | undefined;
+    const finding = makeFixFinding();
+    const worktreePath = "/tmp/clawpatch-ui/worktrees/repo-auth/fnd-bug";
+    window.clawpatch = makeApi(
+      vi.fn<Api["commands"]["run"]>(
+        async (_repoId, request) =>
+          new Promise<CommandResult>((resolve) => {
+            resolveRun = () => resolve(makeCommandResult(request.command));
+          }),
+      ),
+      {
+        findings: [finding],
+        findingDetail: finding,
+        repoList: async () => [
+          makeRepo({
+            activeWorktreePath: worktreePath,
+            activeWorktrees: [{ findingId: "fnd-bug", path: worktreePath }],
+          }),
+        ],
+      },
+    );
+
+    renderApp();
+
+    await screen.findByRole("heading", { name: "Null branch can throw" });
+    fireEvent.click(screen.getByRole("button", { name: "Run fix" }));
+    await screen.findByText("fix running");
+    expect(screen.getByRole("button", { name: "Publish PR" })).toBeDisabled();
+
+    resolveRun?.(makeCommandResult("fix"));
+  });
+
+  it("renders Publish PR errors", async () => {
+    const finding = makeFixFinding();
+    const worktreePath = "/tmp/clawpatch-ui/worktrees/repo-auth/fnd-bug";
+    window.clawpatch = makeApi(
+      vi.fn<Api["commands"]["run"]>(async () => makeCommandResult("map")),
+      {
+        findings: [finding],
+        findingDetail: finding,
+        publishFix: async () => {
+          throw new Error("Remote origin is required before publishing a PR.");
+        },
+        repoList: async () => [
+          makeRepo({
+            activeWorktreePath: worktreePath,
+            activeWorktrees: [{ findingId: "fnd-bug", path: worktreePath }],
+          }),
+        ],
+      },
+    );
+
+    renderApp();
+
+    await screen.findByRole("heading", { name: "Null branch can throw" });
+    fireEvent.click(screen.getByRole("button", { name: "Publish PR" }));
+
+    expect(
+      await screen.findByText("Remote origin is required before publishing a PR."),
+    ).toBeInTheDocument();
+  });
 });
 
 function renderApp() {
@@ -1065,6 +1167,7 @@ function makeApi(
     findingDetail?: FindingDetail;
     interrupt?: Api["commands"]["interrupt"];
     gitDiff?: Api["git"]["diff"];
+    publishFix?: Api["git"]["publishFix"];
     gitStatus?: Api["git"]["status"];
     onStream?: Api["commands"]["onStream"];
     pickFolder?: Api["repo"]["pickFolder"];
@@ -1115,6 +1218,16 @@ function makeApi(
     },
     git: {
       diff: options.gitDiff ?? (async () => ""),
+      publishFix:
+        options.publishFix ??
+        (async () => ({
+          worktreePath: "/tmp/worktree",
+          branchName: "clawpatch/fix/fnd-bug",
+          baseBranch: "main",
+          commitSha: "abc123",
+          remoteName: "origin",
+          prUrl: "https://github.com/acme/repo/compare/main...clawpatch/fix/fnd-bug?expand=1",
+        })),
       status:
         options.gitStatus ?? (async () => ({ staged: 0, modified: 0, untracked: 0, branch: null })),
     },

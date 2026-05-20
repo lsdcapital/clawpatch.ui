@@ -1,4 +1,4 @@
-import { BrowserWindow, dialog, type OpenDialogOptions } from "electron";
+import { BrowserWindow, dialog, shell, type OpenDialogOptions } from "electron";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import {
@@ -10,13 +10,14 @@ import {
   FindingDetailSchema,
   FindingListSchema,
   GitStatusSummarySchema,
+  PublishFixResultSchema,
   RepoListSchema,
   RepoSnapshotSchema,
   RepoSummarySchema,
   TerminalOpenResultSchema,
 } from "../../shared/schemas";
 import type { CommandStreamEvent } from "../../shared/types";
-import { DialogOpenError } from "../errors";
+import { CommandSpawnError, DialogOpenError } from "../errors";
 import { RepoService } from "../services/repoService";
 import {
   COMMANDS_INTERRUPT_CHANNEL,
@@ -25,6 +26,7 @@ import {
   FINDINGS_GET_CHANNEL,
   FINDINGS_LIST_CHANNEL,
   GIT_DIFF_CHANNEL,
+  GIT_PUBLISH_FIX_CHANNEL,
   GIT_STATUS_CHANNEL,
   REPO_ADD_CHANNEL,
   REPO_LIST_CHANNEL,
@@ -154,6 +156,22 @@ export const installIpcHandlers = (publishCommandStream: (event: CommandStreamEv
         payload: RepoFindingPayload,
         result: GitStatusSummarySchema,
         handler: ({ repoId, findingId }) => repos.readGitStatus(repoId, findingId),
+      }),
+    );
+    yield* ipc.handle(
+      makeIpcMethod({
+        channel: GIT_PUBLISH_FIX_CHANNEL,
+        payload: FindingPayload,
+        result: PublishFixResultSchema,
+        handler: ({ repoId, findingId }) =>
+          repos.publishFix(repoId, findingId).pipe(
+            Effect.tap((result) =>
+              Effect.tryPromise({
+                try: () => shell.openExternal(result.prUrl),
+                catch: (cause) => new CommandSpawnError({ repoPath: result.worktreePath, cause }),
+              }),
+            ),
+          ),
       }),
     );
     yield* ipc.handle(

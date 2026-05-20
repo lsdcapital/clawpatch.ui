@@ -17,18 +17,24 @@ import type {
   FindingDetail,
   FindingListItem,
   GitStatusSummary,
+  PublishFixResult,
   RepoSnapshot,
   RepoSummary,
   TerminalOpenResult,
 } from "../../shared/types";
 import {
   CommandAlreadyRunningError,
+  CommandSpawnError,
   CommandValidationError,
   InvalidRepoPathError,
   RepoNotFoundError,
 } from "../errors";
 import { ClawpatchRunner, type ClawpatchRunnerError } from "./clawpatchRunner";
-import { ClawpatchStateService, type ClawpatchStateError } from "./clawpatchState";
+import {
+  ClawpatchStateService,
+  type ClawpatchStateError,
+  type ClawpatchStateServiceShape,
+} from "./clawpatchState";
 import { GitService, type GitLifecycleEvent } from "./gitService";
 import { TerminalLauncher, type TerminalLauncherError } from "./terminalLauncher";
 import { UiMetadataService, type UiMetadataError } from "./uiMetadata";
@@ -46,6 +52,7 @@ export type RepoServiceError =
   | InvalidRepoPathError
   | RepoNotFoundError
   | CommandValidationError
+  | CommandSpawnError
   | ClawpatchRunnerError
   | ClawpatchStateError
   | TerminalLauncherError
@@ -84,6 +91,10 @@ export interface RepoServiceShape {
     repoId: string,
     findingId?: string,
   ) => Effect.Effect<GitStatusSummary, RepoServiceError>;
+  readonly publishFix: (
+    repoId: string,
+    findingId: string,
+  ) => Effect.Effect<PublishFixResult, RepoServiceError>;
   readonly openTerminal: (
     repoId: string,
     findingId?: string,
@@ -464,11 +475,13 @@ export const RepoServiceLive = (appDataDir: string) =>
         );
       });
 
-      const runFindingCommandLocked = Effect.fn("repoService.runFindingCommandLocked")(function* (
+      const runFindingCommandLocked = Effect.fn("repoService.runFindingCommandLocked")(function* <
+        A,
+      >(
         repoIdValue: string,
         findingId: string,
         commandPath: string,
-        effect: Effect.Effect<CommandResult, RepoServiceError>,
+        effect: Effect.Effect<A, RepoServiceError>,
       ) {
         const key = findingCommandKey(repoIdValue, findingId);
         const claimed = yield* Ref.modify(runningFindingCommandPaths, (paths) => {
@@ -490,6 +503,38 @@ export const RepoServiceLive = (appDataDir: string) =>
               return nextPaths;
             }),
           ),
+        );
+      });
+
+      const publishFixWorktree = Effect.fn("repoService.publishFixWorktree")(function* (
+        repo: Pick<RepoSummary, "id" | "path">,
+        findingId: string,
+      ) {
+        const activeWorktreePath = yield* activeWorktreePathForFinding(repo.id, findingId);
+        if (activeWorktreePath === null) {
+          return yield* new CommandValidationError({
+            message: "Run fix before publishing a PR for this finding.",
+          });
+        }
+
+        const { branchName } = managedWorktreeForFinding(repo, findingId);
+        return yield* runFindingCommandLocked(
+          repo.id,
+          findingId,
+          activeWorktreePath,
+          Effect.gen(function* () {
+            const [findingTitle, registeredStatus] = yield* Effect.all([
+              readFindingTitleForCommit(state, activeWorktreePath, repo.path, findingId),
+              git.readStatus(repo.path),
+            ]);
+            return yield* git.publishFix({
+              repoPath: repo.path,
+              worktreePath: activeWorktreePath,
+              branchName,
+              baseBranch: registeredStatus.branch,
+              commitMessage: `Fix ${sanitizeCommitSubject(findingTitle)}`,
+            });
+          }),
         );
       });
 
@@ -774,6 +819,10 @@ export const RepoServiceLive = (appDataDir: string) =>
             (yield* activeWorktreePathForFinding(repo.id, findingId)) ?? repo.path,
           );
         }),
+        publishFix: Effect.fn("repoService.publishFix")(function* (repoIdValue, findingId) {
+          const repo = yield* requireRepo(repoIdValue);
+          return yield* publishFixWorktree(repo, findingId);
+        }),
         openTerminal: Effect.fn("repoService.openTerminal")(function* (repoIdValue, findingId) {
           const repo = yield* requireRepo(repoIdValue);
           return yield* terminal.open(
@@ -865,4 +914,21 @@ function sanitizeWorktreeFragment(value: string): string {
     .slice(0, 80)
     .replace(/[._-]+$/g, "");
   return sanitized.length > 0 ? sanitized : "finding";
+}
+
+function readFindingTitleForCommit(
+  state: ClawpatchStateServiceShape,
+  worktreePath: string,
+  repoPath: string,
+  findingId: string,
+): Effect.Effect<string, never> {
+  return state.readFindingDetail(worktreePath, findingId).pipe(
+    Effect.catch(() => state.readFindingDetail(repoPath, findingId)),
+    Effect.map((finding) => finding.title),
+    Effect.catch(() => Effect.succeed(findingId)),
+  );
+}
+
+function sanitizeCommitSubject(value: string): string {
+  return value.replaceAll(/\s+/g, " ").trim() || "finding";
 }

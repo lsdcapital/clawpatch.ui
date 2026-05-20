@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   COMMANDS_INTERRUPT_CHANNEL,
   COMMANDS_STREAM_CHANNEL,
+  GIT_PUBLISH_FIX_CHANNEL,
   TERMINAL_OPEN_CHANNEL,
 } from "../../src/shared/ipcChannels";
 import type { Api } from "../../src/shared/types";
@@ -45,6 +46,32 @@ describe("preload api", () => {
 
     await expect(api.commands.interrupt("repo-1")).resolves.toEqual({ interrupted: true });
     expect(invokeMock).toHaveBeenCalledWith(COMMANDS_INTERRUPT_CHANNEL, { repoId: "repo-1" });
+  });
+
+  it("exposes fix publishing over IPC", async () => {
+    invokeMock.mockResolvedValue({
+      worktreePath: "/tmp/worktree",
+      branchName: "clawpatch/fix/fnd-1",
+      baseBranch: "main",
+      commitSha: "abc123",
+      remoteName: "origin",
+      prUrl: "https://github.com/acme/repo/compare/main...clawpatch/fix/fnd-1?expand=1",
+    });
+
+    await import("../../src/preload/index");
+
+    const api = exposeInMainWorldMock.mock.calls[0]?.[1] as Api | undefined;
+    if (api === undefined) {
+      throw new Error("preload api was not exposed");
+    }
+
+    await expect(api.git.publishFix("repo-1", "fnd-1")).resolves.toMatchObject({
+      branchName: "clawpatch/fix/fnd-1",
+    });
+    expect(invokeMock).toHaveBeenCalledWith(GIT_PUBLISH_FIX_CHANNEL, {
+      repoId: "repo-1",
+      findingId: "fnd-1",
+    });
   });
 
   it("exposes terminal open over IPC", async () => {

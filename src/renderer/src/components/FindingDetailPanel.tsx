@@ -5,6 +5,7 @@ import type {
   FindingDetail,
   PatchAttempt,
   PatchCommandRun,
+  PublishFixResult,
 } from "../../../shared/types";
 import { clawpatchStatuses } from "../../../shared/types";
 
@@ -14,9 +15,13 @@ interface Props {
   isBusy: boolean;
   commandStateLabel?: string;
   fixDisabledReason: string | null;
+  canPublishFix: boolean;
+  publishFixResult: PublishFixResult | null;
+  publishFixError: Error | null;
   onTriage: (status: ClawpatchStatus, note: string) => void;
   onFix: (status: ClawpatchStatus, note: string) => void;
   onRevalidate: () => void;
+  onPublishFix: () => void;
   onInterrupt?: () => void;
   onOpenDiffFile?: (filePath: string) => void;
   filesInDiff?: ReadonlySet<string>;
@@ -28,9 +33,13 @@ export function FindingDetailPanel({
   isBusy,
   commandStateLabel,
   fixDisabledReason,
+  canPublishFix,
+  publishFixResult,
+  publishFixError,
   onTriage,
   onFix,
   onRevalidate,
+  onPublishFix,
   onInterrupt,
   onOpenDiffFile,
   filesInDiff,
@@ -243,6 +252,11 @@ export function FindingDetailPanel({
             <button disabled={isBusy} onClick={onRevalidate}>
               Revalidate
             </button>
+            {canPublishFix ? (
+              <button disabled={isBusy} onClick={onPublishFix}>
+                Publish PR
+              </button>
+            ) : null}
             {isBusy && onInterrupt !== undefined ? (
               <button
                 aria-label="Interrupt finding command"
@@ -255,6 +269,17 @@ export function FindingDetailPanel({
               </button>
             ) : null}
           </div>
+          {publishFixError !== null ? (
+            <p className="detail-action-message error">{publishFixError.message}</p>
+          ) : null}
+          {publishFixResult !== null ? (
+            <p className="detail-action-message success">
+              PR draft opened for {publishFixResult.branchName}.{" "}
+              <a href={publishFixResult.prUrl} rel="noreferrer" target="_blank">
+                Open PR
+              </a>
+            </p>
+          ) : null}
         </div>
       </div>
     </div>

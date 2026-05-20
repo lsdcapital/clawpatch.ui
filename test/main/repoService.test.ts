@@ -417,6 +417,66 @@ describe("RepoService", () => {
     );
   });
 
+  it.effect("publishes a managed fix worktree for PR creation", () => {
+    const calls: RunnerCall[] = [];
+    const gitCalls: Array<{
+      kind: string;
+      repoPath: string;
+      worktreePath?: string;
+      branchName?: string;
+      baseBranch?: string | null;
+      baseRef?: string;
+      commitMessage?: string;
+    }> = [];
+    return Effect.gen(function* () {
+      const service = yield* RepoService;
+
+      const summary = yield* service.addRepo(fixtureRepo);
+      const fixResult = yield* service.runCommand(summary.id, {
+        command: "fix",
+        findingId: "fnd-1",
+      });
+      const publishResult = yield* service.publishFix(summary.id, "fnd-1");
+
+      expect(publishResult).toMatchObject({
+        worktreePath: fixResult.cwd,
+        branchName: "clawpatch/fix/fnd-1",
+        baseBranch: "main",
+        commitSha: "abc123",
+        remoteName: "origin",
+      });
+      expect(gitCalls).toContainEqual({
+        kind: "publish",
+        repoPath: fixtureRepo,
+        worktreePath: fixResult.cwd,
+        branchName: "clawpatch/fix/fnd-1",
+        baseBranch: "main",
+        commitMessage: "Fix Null branch can throw",
+      });
+    }).pipe(
+      Effect.provide(
+        makeRepoServiceTestLayer(fixtureRepo, calls, undefined, false, makeGitMock(gitCalls)),
+      ),
+    );
+  });
+
+  it.effect("rejects publishing before a fix worktree exists", () => {
+    const calls: RunnerCall[] = [];
+    return Effect.gen(function* () {
+      const service = yield* RepoService;
+
+      const summary = yield* service.addRepo(fixtureRepo);
+      const error = yield* service.publishFix(summary.id, "fnd-1").pipe(
+        Effect.match({
+          onFailure: (error) => error,
+          onSuccess: () => null,
+        }),
+      );
+
+      expect(error).toMatchObject({ message: "Run fix before publishing a PR for this finding." });
+    }).pipe(Effect.provide(makeRepoServiceTestLayer(fixtureRepo, calls)));
+  });
+
   it("rediscovers managed worktrees by directory convention after restart", async () => {
     const calls: RunnerCall[] = [];
     const gitCalls: Array<{
@@ -1054,7 +1114,9 @@ function makeGitMock(
     repoPath: string;
     worktreePath?: string;
     branchName?: string;
+    baseBranch?: string | null;
     baseRef?: string;
+    commitMessage?: string;
   }>,
 ): GitServiceShape {
   return {
@@ -1088,6 +1150,25 @@ function makeGitMock(
           argv: ["git", "worktree", "add", "-b", branchName, worktreePath, baseRef],
         });
         return worktreePath;
+      }),
+    publishFix: ({ repoPath, worktreePath, branchName, baseBranch, commitMessage }) =>
+      Effect.sync(() => {
+        calls.push({
+          kind: "publish",
+          repoPath,
+          worktreePath,
+          branchName,
+          baseBranch,
+          commitMessage,
+        });
+        return {
+          worktreePath,
+          branchName,
+          baseBranch: baseBranch ?? "main",
+          commitSha: "abc123",
+          remoteName: "origin",
+          prUrl: `https://github.com/acme/repo/compare/${baseBranch ?? "main"}...${branchName}?expand=1`,
+        };
       }),
   };
 }
