@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import packageJson from "../../package.json";
 import { ClawpatchApp } from "../../src/renderer/src/routes/ClawpatchApp";
 import type {
@@ -19,6 +19,10 @@ const selectedRepoStorageKey = "clawpatch.selectedRepoId.v1";
 describe("ClawpatchApp header actions", () => {
   beforeEach(() => {
     installLocalStorage();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("shows the app brand and package version in the sidebar", async () => {
@@ -80,6 +84,67 @@ describe("ClawpatchApp header actions", () => {
       "aria-expanded",
       "false",
     );
+  });
+
+  it("polls the selected repository git status and updates the strip", async () => {
+    vi.useFakeTimers();
+    const gitStatus = vi
+      .fn<Api["git"]["status"]>()
+      .mockResolvedValueOnce({ staged: 0, modified: 0, untracked: 0, branch: "main" })
+      .mockResolvedValueOnce({ staged: 0, modified: 1, untracked: 1, branch: "feature/status" });
+    window.clawpatch = makeApi(
+      vi.fn<Api["commands"]["run"]>(async () => makeCommandResult("map")),
+      { gitStatus },
+    );
+
+    renderApp();
+
+    await vi.waitFor(() =>
+      expect(screen.getByRole("heading", { name: "auth" })).toBeInTheDocument(),
+    );
+    await vi.waitFor(() => expect(screen.getByText("branch main")).toBeInTheDocument());
+    expect(screen.getByText("Working tree clean")).toBeInTheDocument();
+    expect(gitStatus).toHaveBeenCalledWith("repo-auth", undefined);
+    expect(gitStatus).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5_000);
+    });
+
+    await vi.waitFor(() => expect(gitStatus).toHaveBeenCalledTimes(2));
+    await vi.waitFor(() => expect(screen.getByText("branch feature/status")).toBeInTheDocument());
+    expect(screen.getByText("1 modified · 1 untracked")).toBeInTheDocument();
+  });
+
+  it("does not poll git status when no repository is selected", async () => {
+    vi.useFakeTimers();
+    const gitStatus = vi.fn<Api["git"]["status"]>(async () => ({
+      staged: 0,
+      modified: 0,
+      untracked: 0,
+      branch: "main",
+    }));
+    const repoList = vi.fn<Api["repo"]["list"]>(async () => []);
+    window.clawpatch = makeApi(
+      vi.fn<Api["commands"]["run"]>(async () => makeCommandResult("map")),
+      {
+        gitStatus,
+        repoList,
+      },
+    );
+
+    renderApp();
+
+    await vi.waitFor(() =>
+      expect(screen.getByRole("heading", { name: "Clawpatch" })).toBeInTheDocument(),
+    );
+    await vi.waitFor(() => expect(repoList).toHaveBeenCalledTimes(1));
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(10_000);
+    });
+
+    expect(gitStatus).not.toHaveBeenCalled();
   });
 
   it("restores the last selected repository from local storage", async () => {
