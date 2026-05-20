@@ -803,6 +803,138 @@ describe("ClawpatchApp header actions", () => {
     await screen.findByText(/\[exit 0\] clawpatch revalidate/);
   });
 
+  it("shows command output for the selected finding context", async () => {
+    let streamListener: ((event: CommandStreamEvent) => void) | null = null;
+    const highRiskFinding = makeFinding();
+    const lowerRiskFinding = makeFixFinding();
+    const findingsById = new Map([
+      [highRiskFinding.findingId, highRiskFinding],
+      [lowerRiskFinding.findingId, lowerRiskFinding],
+    ]);
+    const run = vi.fn<Api["commands"]["run"]>(
+      () =>
+        new Promise<CommandResult>(() => {
+          // Keep both fixes pending so streamed output is the visible command history.
+        }),
+    );
+    const onStream = vi.fn<Api["commands"]["onStream"]>((listener) => {
+      streamListener = listener;
+      return () => {
+        streamListener = null;
+      };
+    });
+    window.clawpatch = makeApi(run, {
+      findings: [highRiskFinding, lowerRiskFinding],
+      findingGet: async (_repoId, findingId) => {
+        const finding = findingsById.get(findingId);
+        if (finding === undefined) {
+          throw new Error(`Missing finding ${findingId}`);
+        }
+        return finding;
+      },
+      onStream,
+    });
+
+    renderApp();
+
+    await screen.findByRole("heading", { name: "Token is logged in debug output" });
+    await waitFor(() => expect(screen.getByRole("button", { name: "Run fix" })).not.toBeDisabled());
+    fireEvent.click(screen.getByRole("button", { name: "Run fix" }));
+    await screen.findByText("Command starting...");
+    if (streamListener === null) {
+      throw new Error("stream listener was not registered");
+    }
+
+    act(() => {
+      streamListener?.({
+        kind: "output",
+        runId: "run-security",
+        repoId: "repo-auth",
+        findingId: "fnd-security",
+        command: "fix",
+        stream: "stdout",
+        chunk: "security fix output",
+      });
+    });
+    expect(await screen.findByText(/security fix output/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText("Null branch can throw"));
+    await screen.findByRole("heading", { name: "Null branch can throw" });
+    expect(screen.queryByText(/security fix output/)).not.toBeInTheDocument();
+    expect(screen.queryByText("Command starting...")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Run fix" }));
+    act(() => {
+      streamListener?.({
+        kind: "output",
+        runId: "run-bug",
+        repoId: "repo-auth",
+        findingId: "fnd-bug",
+        command: "fix",
+        stream: "stdout",
+        chunk: "bug fix output",
+      });
+    });
+    expect(await screen.findByText(/bug fix output/)).toBeInTheDocument();
+    expect(screen.queryByText(/security fix output/)).not.toBeInTheDocument();
+
+    const rows = screen.getAllByRole("row");
+    fireEvent.click(within(rows[1]).getByText("Token is logged in debug output"));
+    await screen.findByRole("heading", { name: "Token is logged in debug output" });
+    expect(await screen.findByText(/security fix output/)).toBeInTheDocument();
+    expect(screen.queryByText(/bug fix output/)).not.toBeInTheDocument();
+  });
+
+  it("shows repo-level command output but hides finding output in the review queue", async () => {
+    let streamListener: ((event: CommandStreamEvent) => void) | null = null;
+    const onStream = vi.fn<Api["commands"]["onStream"]>((listener) => {
+      streamListener = listener;
+      return () => {
+        streamListener = null;
+      };
+    });
+    window.clawpatch = makeApi(
+      vi.fn<Api["commands"]["run"]>(async (_repoId, request) => makeCommandResult(request.command)),
+      { findings: [makeFinding()], findingDetail: makeFinding(), onStream },
+    );
+
+    renderApp();
+
+    await screen.findByRole("heading", { name: "Token is logged in debug output" });
+    fireEvent.click(screen.getByRole("button", { name: "Toggle command output" }));
+    if (streamListener === null) {
+      throw new Error("stream listener was not registered");
+    }
+
+    act(() => {
+      streamListener?.({
+        kind: "output",
+        runId: "run-security",
+        repoId: "repo-auth",
+        findingId: "fnd-security",
+        command: "fix",
+        stream: "stdout",
+        chunk: "finding output",
+      });
+      streamListener?.({
+        kind: "output",
+        runId: "run-review",
+        repoId: "repo-auth",
+        command: "review",
+        stream: "stderr",
+        chunk: "review queue output",
+      });
+    });
+
+    expect(await screen.findByText(/finding output/)).toBeInTheDocument();
+    expect(screen.getByText(/review queue output/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("tab", { name: "Review Queue" }));
+
+    expect(screen.queryByText(/finding output/)).not.toBeInTheDocument();
+    expect(screen.getByText(/review queue output/)).toBeInTheDocument();
+  });
+
   it("disables fix when the registered checkout is dirty", async () => {
     const run = vi.fn<Api["commands"]["run"]>(async (_repoId, request) =>
       makeCommandResult(request.command),

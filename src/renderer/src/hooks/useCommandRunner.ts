@@ -263,6 +263,7 @@ export function useCommandRunner({
     isTriagePending: triageMutation.isPending,
     runCommand,
     runFixWithSavedGuidance,
+    runningRepoCommand,
     runningFindingCommands,
     triageFinding,
   };

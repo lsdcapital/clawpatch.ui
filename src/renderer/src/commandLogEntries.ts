@@ -1,5 +1,31 @@
 import type { ClawpatchCommandRequest, CommandResult } from "../../shared/types";
-import type { CommandLogEntry } from "./workspaceTypes";
+import type { ActiveWorkspace, CommandLogEntry } from "./workspaceTypes";
+
+export function visibleCommandLogEntries({
+  entries,
+  selectedRepoId,
+  selectedFindingId,
+  activeWorkspace,
+}: {
+  entries: readonly CommandLogEntry[];
+  selectedRepoId?: string | null;
+  selectedFindingId?: string | null;
+  activeWorkspace: ActiveWorkspace;
+}): CommandLogEntry[] {
+  return entries.filter((entry) => {
+    const repoId = entryRepoId(entry);
+    if (repoId !== undefined && repoId !== selectedRepoId) {
+      return false;
+    }
+
+    const findingId = entryFindingId(entry);
+    if (activeWorkspace === "reviewQueue") {
+      return findingId === undefined;
+    }
+
+    return findingId === undefined || findingId === selectedFindingId;
+  });
+}
 
 export function commandResultLogEntries(
   repoId: string,
@@ -34,4 +60,18 @@ export function commandErrorLogEntry(
     findingId: "findingId" in request ? request.findingId : undefined,
     command: request.command,
   };
+}
+
+function entryRepoId(entry: CommandLogEntry): string | undefined {
+  if (entry.kind === "stream") {
+    return entry.event.repoId;
+  }
+  return entry.repoId;
+}
+
+function entryFindingId(entry: CommandLogEntry): string | undefined {
+  if (entry.kind === "stream") {
+    return entry.event.findingId;
+  }
+  return entry.findingId;
 }
