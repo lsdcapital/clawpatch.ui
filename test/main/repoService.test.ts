@@ -7,7 +7,11 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as ManagedRuntime from "effect/ManagedRuntime";
 import { afterEach, describe, expect } from "vitest";
-import type { ClawpatchCommandRequest, CommandResult } from "../../src/shared/types";
+import type {
+  ClawpatchCommandRequest,
+  CommandResult,
+  CommandStreamEvent,
+} from "../../src/shared/types";
 import {
   ClawpatchRunner,
   type ClawpatchRunnerShape,
@@ -208,6 +212,7 @@ describe("RepoService", () => {
 
   it.effect("runs fixes in a managed worktree and reads follow-up diff there", () => {
     const calls: RunnerCall[] = [];
+    const events: CommandStreamEvent[] = [];
     const gitCalls: Array<{
       kind: string;
       repoPath: string;
@@ -218,12 +223,16 @@ describe("RepoService", () => {
       const service = yield* RepoService;
 
       const summary = yield* service.addRepo(fixtureRepo);
-      const result = yield* service.runCommand(summary.id, {
-        command: "fix",
-        findingId: "fnd-1",
-        status: "open",
-        note: "prefer parser helper",
-      });
+      const result = yield* service.runCommand(
+        summary.id,
+        {
+          command: "fix",
+          findingId: "fnd-1",
+          status: "open",
+          note: "prefer parser helper",
+        },
+        (event) => events.push(event),
+      );
       const diff = yield* service.readDiff(summary.id, "fnd-1");
       const worktreeCall = gitCalls.find((call) => call.kind === "worktree");
 
@@ -259,6 +268,24 @@ describe("RepoService", () => {
         repoPath: result.cwd,
         request: { command: "revalidate", findingId: "fnd-1" },
       });
+      expect(events).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ kind: "lifecycle", phase: "fix:clean-check" }),
+          expect.objectContaining({ kind: "lifecycle", phase: "git:start" }),
+          expect.objectContaining({ kind: "lifecycle", phase: "fix:worktree-ready" }),
+          expect.objectContaining({
+            kind: "lifecycle",
+            phase: "clawpatch:start",
+            command: "fix",
+            cwd: result.cwd,
+          }),
+          expect.objectContaining({ kind: "lifecycle", phase: "fix:revalidate-start" }),
+        ]),
+      );
+      expect(phaseIndex(events, "fix:clean-check")).toBeLessThan(phaseIndex(events, "git:start"));
+      expect(phaseIndex(events, "fix:worktree-ready")).toBeLessThan(
+        phaseIndex(events, "clawpatch:start", "fix"),
+      );
     }).pipe(
       Effect.provide(
         makeRepoServiceTestLayer(fixtureRepo, calls, undefined, false, makeGitMock(gitCalls)),
@@ -337,6 +364,7 @@ describe("RepoService", () => {
           }),
         ),
       interrupt: () => Effect.succeed({ interrupted: true }),
+      interruptAll: () => Effect.succeed(0),
       isRunning: () => Effect.succeed(false),
     };
     const runtime = ManagedRuntime.make(
@@ -420,6 +448,7 @@ describe("RepoService", () => {
           }),
         ),
       interrupt: () => Effect.succeed({ interrupted: true }),
+      interruptAll: () => Effect.succeed(0),
       isRunning: () => Effect.succeed(false),
     };
     const runtime = ManagedRuntime.make(
@@ -507,6 +536,7 @@ describe("RepoService", () => {
           interruptPath = repoPath;
           return { interrupted: true };
         }),
+      interruptAll: () => Effect.succeed(0),
       isRunning: () => Effect.succeed(false),
     };
     const runtime = ManagedRuntime.make(
@@ -662,9 +692,17 @@ function makeRepoServiceTestLayer(
         ClawpatchRunner,
         ClawpatchRunner.of(
           runnerService ?? {
-            run: (repoPath, request) =>
+            run: (repoPath, request, onStream) =>
               Effect.sync((): CommandResult => {
                 calls.push({ repoPath, request });
+                onStream?.({
+                  kind: "lifecycle",
+                  runId: "run-test",
+                  phase: "clawpatch:start",
+                  message: `$ clawpatch ${request.command}`,
+                  cwd: repoPath,
+                  argv: ["clawpatch", request.command],
+                });
                 return {
                   runId: "run-test",
                   command: "clawpatch",
@@ -678,6 +716,7 @@ function makeRepoServiceTestLayer(
                 };
               }),
             interrupt: () => Effect.succeed({ interrupted: true }),
+            interruptAll: () => Effect.succeed(0),
             isRunning: () => Effect.succeed(isRunning),
           },
         ),
@@ -735,14 +774,39 @@ function makeGitMock(
   return {
     readDiff: (repoPath) => Effect.succeed(`diff:${repoPath}`),
     readStatus: () => Effect.succeed({ staged: 0, modified: 0, untracked: 0, branch: "main" }),
-    requireCleanCheckout: (repoPath) =>
+    requireCleanCheckout: (repoPath, onLifecycle) =>
       Effect.sync(() => {
         calls.push({ kind: "clean", repoPath });
+        onLifecycle?.({
+          phase: "git:start",
+          message: "$ git status --porcelain=v1 --untracked-files=all",
+          cwd: repoPath,
+          argv: ["git", "status", "--porcelain=v1", "--untracked-files=all"],
+        });
       }),
-    createOrReuseWorktree: ({ repoPath, worktreePath, branchName }) =>
+    createOrReuseWorktree: ({ repoPath, worktreePath, branchName }, onLifecycle) =>
       Effect.sync(() => {
         calls.push({ kind: "worktree", repoPath, worktreePath, branchName });
+        onLifecycle?.({
+          phase: "git:start",
+          message: `$ git worktree add -b ${branchName} ${worktreePath} HEAD`,
+          cwd: repoPath,
+          argv: ["git", "worktree", "add", "-b", branchName, worktreePath, "HEAD"],
+        });
         return worktreePath;
       }),
   };
+}
+
+function phaseIndex(
+  events: readonly CommandStreamEvent[],
+  phase: string,
+  command?: string,
+): number {
+  return events.findIndex(
+    (event) =>
+      event.kind === "lifecycle" &&
+      event.phase === phase &&
+      (command === undefined || event.command === command),
+  );
 }

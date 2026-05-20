@@ -368,6 +368,7 @@ describe("ClawpatchApp header actions", () => {
 
     act(() => {
       streamListener?.({
+        kind: "output",
         runId: "run-review",
         stream: "stderr",
         chunk: "[stderr] clawpatch review claimed index=1 total=2 feature=feat-auth\n",
@@ -518,6 +519,120 @@ describe("ClawpatchApp header actions", () => {
       throw new Error("command did not start");
     }
     finish(makeCommandResult("status"));
+  });
+
+  it("renders lifecycle events while a fix is still running", async () => {
+    let streamListener: ((event: CommandStreamEvent) => void) | null = null;
+    const onStream = vi.fn<Api["commands"]["onStream"]>((listener) => {
+      streamListener = listener;
+      return () => {
+        streamListener = null;
+      };
+    });
+    const run = vi.fn<Api["commands"]["run"]>(
+      () =>
+        new Promise<CommandResult>(() => {
+          // Keep the command pending so lifecycle output is the only visible progress.
+        }),
+    );
+    const finding = makeFixFinding();
+    window.clawpatch = makeApi(run, { findings: [finding], findingDetail: finding, onStream });
+
+    renderApp();
+
+    await screen.findByRole("heading", { name: "Null branch can throw" });
+    await waitFor(() => expect(screen.getByRole("button", { name: "Run fix" })).not.toBeDisabled());
+    fireEvent.click(screen.getByRole("button", { name: "Run fix" }));
+    await screen.findByText("Command starting...");
+    if (streamListener === null) {
+      throw new Error("stream listener was not registered");
+    }
+
+    act(() => {
+      streamListener?.({
+        kind: "lifecycle",
+        runId: "run-fix",
+        findingId: "fnd-bug",
+        command: "fix",
+        phase: "git:start",
+        message: "$ git worktree add -b clawpatch/fix/fnd-bug /tmp/worktree HEAD",
+        cwd: "/tmp/auth",
+        argv: ["git", "worktree", "add", "-b", "clawpatch/fix/fnd-bug", "/tmp/worktree", "HEAD"],
+      });
+    });
+
+    expect(screen.queryByText("Command starting...")).not.toBeInTheDocument();
+    expect(screen.getByText(/\[fnd-bug fix\] \[git:start\]/)).toHaveTextContent(
+      "$ git worktree add -b clawpatch/fix/fnd-bug /tmp/worktree HEAD",
+    );
+  });
+
+  it("renders lifecycle, stderr, and exit code for a failed fix", async () => {
+    let streamListener: ((event: CommandStreamEvent) => void) | null = null;
+    const onStream = vi.fn<Api["commands"]["onStream"]>((listener) => {
+      streamListener = listener;
+      return () => {
+        streamListener = null;
+      };
+    });
+    let resolveRun: ((result: CommandResult) => void) | undefined;
+    const run = vi.fn<Api["commands"]["run"]>(
+      () =>
+        new Promise<CommandResult>((resolve) => {
+          resolveRun = resolve;
+        }),
+    );
+    const finding = makeFixFinding();
+    window.clawpatch = makeApi(run, { findings: [finding], findingDetail: finding, onStream });
+
+    renderApp();
+
+    await screen.findByRole("heading", { name: "Null branch can throw" });
+    await waitFor(() => expect(screen.getByRole("button", { name: "Run fix" })).not.toBeDisabled());
+    fireEvent.click(screen.getByRole("button", { name: "Run fix" }));
+    if (streamListener === null) {
+      throw new Error("stream listener was not registered");
+    }
+
+    act(() => {
+      streamListener?.({
+        kind: "lifecycle",
+        runId: "run-fix",
+        findingId: "fnd-bug",
+        command: "fix",
+        phase: "clawpatch:start",
+        message: "$ clawpatch --json --no-color --no-input fix --finding fnd-bug",
+        cwd: "/tmp/worktree",
+        argv: ["clawpatch", "--json", "--no-color", "--no-input", "fix", "--finding", "fnd-bug"],
+      });
+      streamListener?.({
+        kind: "output",
+        runId: "run-fix",
+        findingId: "fnd-bug",
+        command: "fix",
+        stream: "stderr",
+        chunk: "error: validation failed after applying fix\n",
+      });
+    });
+
+    const finish = resolveRun;
+    if (finish === undefined) {
+      throw new Error("command did not start");
+    }
+    await act(async () => {
+      finish({
+        ...makeCommandResult("fix"),
+        exitCode: 6,
+        durationMs: 142501,
+        stderr: "error: validation failed after applying fix\n",
+      });
+    });
+
+    await screen.findByText(/\[fnd-bug fix\] \[clawpatch:start\]/);
+    expect(screen.getByText(/\[fnd-bug fix\] \[stderr\]/)).toHaveTextContent(
+      "error: validation failed after applying fix",
+    );
+    await screen.findByText(/\[fnd-bug fix\] \[exit 6\] clawpatch fix \(142501ms\)/);
   });
 
   it("opens the diff inspector and refreshes diff data when patch files are clicked repeatedly", async () => {

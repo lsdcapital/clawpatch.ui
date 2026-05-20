@@ -15,6 +15,7 @@ import { ClawpatchStateServiceLive } from "./services/clawpatchState";
 import { GitServiceLive } from "./services/gitService";
 import { UiMetadataServiceLive } from "./services/uiMetadata";
 import { RepoServiceLive } from "./services/repoService";
+import { makeBeforeQuitHandler } from "./shutdown";
 import {
   MIN_WINDOW_HEIGHT,
   MIN_WINDOW_WIDTH,
@@ -33,6 +34,16 @@ const WINDOW_STATE_SAVE_DEBOUNCE_MS = 250;
 const startupLogger = childLogger("startup");
 const windowLogger = childLogger("window");
 const commandStreamLogger = childLogger("command-stream");
+const handleBeforeQuit = makeBeforeQuitHandler({
+  getRuntime: () => appRuntime,
+  clearRuntime: () => {
+    appRuntime = null;
+  },
+  quit: () => app.quit(),
+  logError: (message, error) => {
+    startupLogger.error({ err: error }, message);
+  },
+});
 
 app.setName(APP_DISPLAY_NAME);
 app.setAppUserModelId(APP_ID);
@@ -69,6 +80,12 @@ async function createWindow(): Promise<void> {
   });
   windowLogger.info({ bounds: windowState.bounds }, "Created main window");
 
+  const window = mainWindow;
+  window.on("closed", () => {
+    if (mainWindow === window) {
+      mainWindow = null;
+    }
+  });
   installWindowStatePersistence(mainWindow, userDataPath);
 
   if (windowState.isFullScreen) {
@@ -128,30 +145,25 @@ app
   });
 
 app.on("before-quit", (event) => {
-  const runtime = appRuntime;
-  if (runtime === null) {
-    startupLogger.debug("Before quit without active app runtime");
-    return;
-  }
-  startupLogger.info("Disposing app runtime before quit");
-  appRuntime = null;
-  event.preventDefault();
-  void runtime.dispose().finally(() => {
-    startupLogger.debug("App runtime disposed");
-    app.quit();
-  });
+  startupLogger.debug("Handling before-quit");
+  handleBeforeQuit(event);
 });
 
 app.on("window-all-closed", () => {
-  if (process.platform !== "darwin") {
-    startupLogger.debug("All windows closed; quitting app");
-    app.quit();
-  }
+  startupLogger.debug("All windows closed; quitting app");
+  app.quit();
 });
 
 function publishCommandStream(event: CommandStreamEvent): void {
   commandStreamLogger.debug(
-    { runId: event.runId, stream: event.stream, repoId: event.repoId, command: event.command },
+    {
+      runId: event.runId,
+      kind: event.kind,
+      stream: event.kind === "output" ? event.stream : undefined,
+      phase: event.kind === "lifecycle" ? event.phase : undefined,
+      repoId: event.repoId,
+      command: event.command,
+    },
     "Publishing command stream event",
   );
   mainWindow?.webContents.send(COMMANDS_STREAM_CHANNEL, event);
@@ -285,7 +297,12 @@ function makeAppLayer(
     Layer.provideMerge(coreLayer),
     Layer.provide(NodeServices.layer),
   );
-  return Layer.mergeAll(NodeServices.layer, repoLayer, EffectIpcLive(ipcMain, runPromise));
+  return Layer.mergeAll(
+    NodeServices.layer,
+    coreLayer,
+    repoLayer,
+    EffectIpcLive(ipcMain, runPromise),
+  );
 }
 
 function makeAppRuntime(userDataPath: string): AppRuntime {

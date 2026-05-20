@@ -10,6 +10,7 @@ import {
   buildClawpatchArgs,
   makeClawpatchRunnerLayer,
 } from "../../src/main/services/clawpatchRunner";
+import type { CommandStreamEvent } from "../../src/shared/types";
 
 const encoder = new TextEncoder();
 
@@ -137,6 +138,49 @@ describe("buildClawpatchArgs", () => {
     ).toThrow("Unsupported triage status");
   });
 
+  it("emits command start before process output", async () => {
+    const events: CommandStreamEvent[] = [];
+    const runtime = makeRunnerRuntime(() =>
+      Effect.succeed(
+        mockHandle({
+          stdout: "started\n",
+        }),
+      ),
+    );
+
+    await expect(
+      runtime.runPromise(
+        Effect.gen(function* () {
+          const runner = yield* ClawpatchRunner;
+          return yield* runner.run("/tmp/repo", { command: "fix", findingId: "fnd-1" }, (event) =>
+            events.push(event),
+          );
+        }),
+      ),
+    ).resolves.toMatchObject({ exitCode: 0, stdout: "started\n" });
+
+    const lifecycleIndex = events.findIndex((event) => event.kind === "lifecycle");
+    const stdoutIndex = events.findIndex(
+      (event) =>
+        event.kind === "output" && event.stream === "stdout" && event.chunk === "started\n",
+    );
+
+    expect(events[lifecycleIndex]).toMatchObject({
+      kind: "lifecycle",
+      phase: "clawpatch:start",
+      cwd: "/tmp/repo",
+      argv: ["clawpatch", "--json", "--no-color", "--no-input", "fix", "--finding", "fnd-1"],
+    });
+    expect(events[stdoutIndex]).toMatchObject({
+      kind: "output",
+      stream: "stdout",
+      chunk: "started\n",
+    });
+    expect(lifecycleIndex).toBeGreaterThanOrEqual(0);
+    expect(stdoutIndex).toBeGreaterThan(lifecycleIndex);
+    await runtime.dispose();
+  });
+
   it("rejects overlapping command runs for the same repo", async () => {
     let finishFirstRun: ((result: CommandResult) => void) | undefined;
     const runtime = makeRunnerRuntime(() =>
@@ -228,6 +272,80 @@ describe("buildClawpatchArgs", () => {
 
     await expect(first).resolves.toMatchObject({ exitCode: 0 });
     await expect(second).resolves.toMatchObject({ exitCode: 0 });
+    await runtime.dispose();
+  });
+
+  it("interrupts all active commands for shutdown", async () => {
+    const finishers: Array<() => void> = [];
+    const killCounts = new Map<number, number>();
+    let nextHandleId = 0;
+    const runtime = makeRunnerRuntime(() => {
+      const handleId = nextHandleId;
+      nextHandleId += 1;
+      return Effect.succeed(
+        mockHandle({
+          exitCode: Effect.promise(
+            () =>
+              new Promise((resolve) => {
+                finishers.push(() => resolve(ChildProcessSpawner.ExitCode(130)));
+              }),
+          ),
+          isRunning: Effect.succeed(true),
+          kill: () =>
+            Effect.sync(() => {
+              killCounts.set(handleId, (killCounts.get(handleId) ?? 0) + 1);
+            }),
+        }),
+      );
+    });
+    const run = (repoPath: string) =>
+      runtime.runPromise(
+        Effect.gen(function* () {
+          const runner = yield* ClawpatchRunner;
+          return yield* runner.run(repoPath, { command: "status" });
+        }),
+      );
+
+    const first = run("/tmp/repo-a");
+    const second = run("/tmp/repo-b");
+    await waitUntil(() => finishers.length === 2);
+
+    await expect(
+      runtime.runPromise(
+        Effect.gen(function* () {
+          const runner = yield* ClawpatchRunner;
+          return yield* runner.interruptAll();
+        }),
+      ),
+    ).resolves.toBe(2);
+    expect(killCounts).toEqual(
+      new Map([
+        [0, 1],
+        [1, 1],
+      ]),
+    );
+
+    finishers[0]?.();
+    finishers[1]?.();
+    await expect(first).resolves.toMatchObject({ exitCode: 130 });
+    await expect(second).resolves.toMatchObject({ exitCode: 130 });
+
+    await expect(
+      runtime.runPromise(
+        Effect.gen(function* () {
+          const runner = yield* ClawpatchRunner;
+          return yield* runner.isRunning("/tmp/repo-a");
+        }),
+      ),
+    ).resolves.toBe(false);
+    await expect(
+      runtime.runPromise(
+        Effect.gen(function* () {
+          const runner = yield* ClawpatchRunner;
+          return yield* runner.isRunning("/tmp/repo-b");
+        }),
+      ),
+    ).resolves.toBe(false);
     await runtime.dispose();
   });
 
