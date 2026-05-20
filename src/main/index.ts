@@ -14,6 +14,7 @@ import { ClawpatchStateServiceLive } from "./services/clawpatchState";
 import { GitServiceLive } from "./services/gitService";
 import { UiMetadataServiceLive } from "./services/uiMetadata";
 import { RepoServiceLive } from "./services/repoService";
+import { makeBeforeQuitHandler } from "./shutdown";
 import {
   MIN_WINDOW_HEIGHT,
   MIN_WINDOW_WIDTH,
@@ -29,6 +30,13 @@ type AppRuntime = ManagedRuntime.ManagedRuntime<Layer.Success<AppLayer>, Layer.E
 let mainWindow: BrowserWindow | null = null;
 let appRuntime: AppRuntime | null = null;
 const WINDOW_STATE_SAVE_DEBOUNCE_MS = 250;
+const handleBeforeQuit = makeBeforeQuitHandler({
+  getRuntime: () => appRuntime,
+  clearRuntime: () => {
+    appRuntime = null;
+  },
+  quit: () => app.quit(),
+});
 
 app.setName(APP_DISPLAY_NAME);
 app.setAppUserModelId(APP_ID);
@@ -63,6 +71,12 @@ async function createWindow(): Promise<void> {
     },
   });
 
+  const window = mainWindow;
+  window.on("closed", () => {
+    if (mainWindow === window) {
+      mainWindow = null;
+    }
+  });
   installWindowStatePersistence(mainWindow, userDataPath);
 
   if (windowState.isFullScreen) {
@@ -91,22 +105,10 @@ app.whenReady().then(async () => {
   });
 });
 
-app.on("before-quit", (event) => {
-  const runtime = appRuntime;
-  if (runtime === null) {
-    return;
-  }
-  appRuntime = null;
-  event.preventDefault();
-  void runtime.dispose().finally(() => {
-    app.quit();
-  });
-});
+app.on("before-quit", handleBeforeQuit);
 
 app.on("window-all-closed", () => {
-  if (process.platform !== "darwin") {
-    app.quit();
-  }
+  app.quit();
 });
 
 function publishCommandStream(event: CommandStreamEvent): void {
@@ -241,7 +243,12 @@ function makeAppLayer(
     Layer.provideMerge(coreLayer),
     Layer.provide(NodeServices.layer),
   );
-  return Layer.mergeAll(NodeServices.layer, repoLayer, EffectIpcLive(ipcMain, runPromise));
+  return Layer.mergeAll(
+    NodeServices.layer,
+    coreLayer,
+    repoLayer,
+    EffectIpcLive(ipcMain, runPromise),
+  );
 }
 
 function makeAppRuntime(userDataPath: string): AppRuntime {

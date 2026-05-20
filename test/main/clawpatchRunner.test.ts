@@ -231,6 +231,80 @@ describe("buildClawpatchArgs", () => {
     await runtime.dispose();
   });
 
+  it("interrupts all active commands for shutdown", async () => {
+    const finishers: Array<() => void> = [];
+    const killCounts = new Map<number, number>();
+    let nextHandleId = 0;
+    const runtime = makeRunnerRuntime(() => {
+      const handleId = nextHandleId;
+      nextHandleId += 1;
+      return Effect.succeed(
+        mockHandle({
+          exitCode: Effect.promise(
+            () =>
+              new Promise((resolve) => {
+                finishers.push(() => resolve(ChildProcessSpawner.ExitCode(130)));
+              }),
+          ),
+          isRunning: Effect.succeed(true),
+          kill: () =>
+            Effect.sync(() => {
+              killCounts.set(handleId, (killCounts.get(handleId) ?? 0) + 1);
+            }),
+        }),
+      );
+    });
+    const run = (repoPath: string) =>
+      runtime.runPromise(
+        Effect.gen(function* () {
+          const runner = yield* ClawpatchRunner;
+          return yield* runner.run(repoPath, { command: "status" });
+        }),
+      );
+
+    const first = run("/tmp/repo-a");
+    const second = run("/tmp/repo-b");
+    await waitUntil(() => finishers.length === 2);
+
+    await expect(
+      runtime.runPromise(
+        Effect.gen(function* () {
+          const runner = yield* ClawpatchRunner;
+          return yield* runner.interruptAll();
+        }),
+      ),
+    ).resolves.toBe(2);
+    expect(killCounts).toEqual(
+      new Map([
+        [0, 1],
+        [1, 1],
+      ]),
+    );
+
+    finishers[0]?.();
+    finishers[1]?.();
+    await expect(first).resolves.toMatchObject({ exitCode: 130 });
+    await expect(second).resolves.toMatchObject({ exitCode: 130 });
+
+    await expect(
+      runtime.runPromise(
+        Effect.gen(function* () {
+          const runner = yield* ClawpatchRunner;
+          return yield* runner.isRunning("/tmp/repo-a");
+        }),
+      ),
+    ).resolves.toBe(false);
+    await expect(
+      runtime.runPromise(
+        Effect.gen(function* () {
+          const runner = yield* ClawpatchRunner;
+          return yield* runner.isRunning("/tmp/repo-b");
+        }),
+      ),
+    ).resolves.toBe(false);
+    await runtime.dispose();
+  });
+
   it("interrupts an active command and clears it after close", async () => {
     let finishRun: ((result: CommandResult) => void) | undefined;
     let killCount = 0;

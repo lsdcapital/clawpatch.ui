@@ -337,6 +337,7 @@ describe("RepoService", () => {
           }),
         ),
       interrupt: () => Effect.succeed({ interrupted: true }),
+      interruptAll: () => Effect.succeed(0),
       isRunning: () => Effect.succeed(false),
     };
     const runtime = ManagedRuntime.make(
@@ -420,6 +421,7 @@ describe("RepoService", () => {
           }),
         ),
       interrupt: () => Effect.succeed({ interrupted: true }),
+      interruptAll: () => Effect.succeed(0),
       isRunning: () => Effect.succeed(false),
     };
     const runtime = ManagedRuntime.make(
@@ -507,6 +509,7 @@ describe("RepoService", () => {
           interruptPath = repoPath;
           return { interrupted: true };
         }),
+      interruptAll: () => Effect.succeed(0),
       isRunning: () => Effect.succeed(false),
     };
     const runtime = ManagedRuntime.make(
@@ -678,6 +681,7 @@ function makeRepoServiceTestLayer(
                 };
               }),
             interrupt: () => Effect.succeed({ interrupted: true }),
+            interruptAll: () => Effect.succeed(0),
             isRunning: () => Effect.succeed(isRunning),
           },
         ),

@@ -38,6 +38,7 @@ export interface ClawpatchRunnerShape {
     onStream?: (event: CommandStreamEvent) => void,
   ) => Effect.Effect<CommandResult, ClawpatchRunnerError>;
   readonly interrupt: (repoPath: string) => Effect.Effect<CommandInterruptResult>;
+  readonly interruptAll: () => Effect.Effect<number>;
   readonly isRunning: (repoPath: string) => Effect.Effect<boolean>;
 }
 
@@ -91,6 +92,14 @@ export const makeClawpatchRunnerLayer = () =>
             return { interrupted: false };
           }
           return { interrupted: yield* activeCommand.interrupt };
+        }),
+        interruptAll: Effect.fn("clawpatch.runner.interruptAll")(function* () {
+          const commands = [...activeCommands.values()];
+          yield* Effect.all(
+            commands.map((command) => command.interrupt),
+            { concurrency: "unbounded" },
+          );
+          return commands.length;
         }),
         isRunning: (repoPath) => Effect.sync(() => activeCommands.has(repoPath)),
       });
@@ -193,11 +202,16 @@ function runClawpatchProcess(input: {
 }
 
 function interruptChild(child: ChildProcessSpawner.ChildProcessHandle): Effect.Effect<boolean> {
+  let hasInterrupted = false;
   return Effect.gen(function* () {
+    if (hasInterrupted) {
+      return false;
+    }
     const isRunning = yield* child.isRunning;
     if (!isRunning) {
       return false;
     }
+    hasInterrupted = true;
     yield* child.kill({ killSignal: "SIGINT", forceKillAfter: "2 seconds" });
     return true;
   }).pipe(Effect.catch(() => Effect.succeed(false)));

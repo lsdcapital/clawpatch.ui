@@ -177,9 +177,25 @@ function runGitResult(
     const [stdout, stderr, exitCode] = yield* Effect.all(
       [collectOutput(child.stdout), collectOutput(child.stderr), child.exitCode],
       { concurrency: "unbounded" },
-    );
+    ).pipe(Effect.onInterrupt(() => interruptChild(child).pipe(Effect.asVoid)));
     return { stdout, stderr, exitCode: Number(exitCode) };
   }).pipe(Effect.scoped);
+}
+
+function interruptChild(child: ChildProcessSpawner.ChildProcessHandle): Effect.Effect<boolean> {
+  let hasInterrupted = false;
+  return Effect.gen(function* () {
+    if (hasInterrupted) {
+      return false;
+    }
+    const isRunning = yield* child.isRunning;
+    if (!isRunning) {
+      return false;
+    }
+    hasInterrupted = true;
+    yield* child.kill({ killSignal: "SIGINT", forceKillAfter: "2 seconds" });
+    return true;
+  }).pipe(Effect.catch(() => Effect.succeed(false)));
 }
 
 function localBranchExists(
