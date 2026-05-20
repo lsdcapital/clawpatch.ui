@@ -1,5 +1,10 @@
 import { useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent } from "react";
-import type { ClawpatchStatus, FindingDetail, FindingListItem } from "../../../shared/types";
+import type {
+  ClawpatchStatus,
+  FindingDetail,
+  FindingListItem,
+  PublishFixResult,
+} from "../../../shared/types";
 import type { FindingFilterOptions, FindingFilters, FindingSort } from "../findingsFilters";
 import { FindingDetailPanel } from "./FindingDetailPanel";
 import { FindingsTable } from "./FindingsTable";
@@ -23,12 +28,16 @@ interface Props {
   isBusy: boolean;
   commandStateLabel?: string;
   fixDisabledReason: string | null;
+  canPublishFix: boolean;
+  publishFixResult: PublishFixResult | null;
+  publishFixError: Error | null;
   onFiltersChange: (filters: FindingFilters) => void;
   onSortChange: (sort: FindingSort) => void;
   onSelectFinding: (findingId: string) => void;
   onTriage: (status: ClawpatchStatus, note: string) => void;
   onFix: (status: ClawpatchStatus, note: string) => void;
   onRevalidate: () => void;
+  onPublishFix: () => void;
   onInterrupt?: () => void;
   onOpenDiffFile?: (filePath: string) => void;
   filesInDiff?: ReadonlySet<string>;
@@ -47,12 +56,16 @@ export function FindingsSplitPanel({
   isBusy,
   commandStateLabel,
   fixDisabledReason,
+  canPublishFix,
+  publishFixResult,
+  publishFixError,
   onFiltersChange,
   onSortChange,
   onSelectFinding,
   onTriage,
   onFix,
   onRevalidate,
+  onPublishFix,
   onInterrupt,
   onOpenDiffFile,
   filesInDiff,
@@ -155,9 +168,13 @@ export function FindingsSplitPanel({
         isBusy={isBusy}
         commandStateLabel={commandStateLabel}
         fixDisabledReason={fixDisabledReason}
+        canPublishFix={canPublishFix}
+        publishFixResult={publishFixResult}
+        publishFixError={publishFixError}
         onTriage={onTriage}
         onFix={onFix}
         onRevalidate={onRevalidate}
+        onPublishFix={onPublishFix}
         onInterrupt={onInterrupt}
         onOpenDiffFile={onOpenDiffFile}
         filesInDiff={filesInDiff}

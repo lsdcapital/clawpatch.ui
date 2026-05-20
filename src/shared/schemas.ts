@@ -51,6 +51,15 @@ export const CommandInterruptResultSchema = Schema.Struct({
   interrupted: Schema.Boolean,
 });
 
+export const PublishFixResultSchema = Schema.Struct({
+  worktreePath: Schema.String,
+  branchName: Schema.String,
+  baseBranch: Schema.String,
+  commitSha: Schema.String,
+  remoteName: Schema.String,
+  prUrl: Schema.String,
+});
+
 const CommandStreamMetadataSchema = {
   runId: Schema.String,
   repoId: Schema.optionalKey(Schema.String),

@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   COMMANDS_INTERRUPT_CHANNEL,
   COMMANDS_RUN_CHANNEL,
+  GIT_PUBLISH_FIX_CHANNEL,
   REPO_PICK_FOLDER_CHANNEL,
 } from "../../src/shared/ipcChannels";
 import type {
@@ -18,11 +19,13 @@ import { RepoService, type RepoServiceShape } from "../../src/main/services/repo
 import { installIpcHandlers } from "../../src/main/ipc/handlers";
 import { EffectIpc, EffectIpcLive, type IpcMainLike } from "../../src/main/ipc/effectIpc";
 
-const { getAllWindowsMock, getFocusedWindowMock, showOpenDialogMock } = vi.hoisted(() => ({
-  getAllWindowsMock: vi.fn(),
-  getFocusedWindowMock: vi.fn(),
-  showOpenDialogMock: vi.fn(),
-}));
+const { getAllWindowsMock, getFocusedWindowMock, showOpenDialogMock, openExternalMock } =
+  vi.hoisted(() => ({
+    getAllWindowsMock: vi.fn(),
+    getFocusedWindowMock: vi.fn(),
+    showOpenDialogMock: vi.fn(),
+    openExternalMock: vi.fn(),
+  }));
 
 type TestRuntime = ManagedRuntime.ManagedRuntime<RepoService | EffectIpc, never>;
 
@@ -34,6 +37,9 @@ vi.mock("electron", () => ({
   dialog: {
     showOpenDialog: showOpenDialogMock,
   },
+  shell: {
+    openExternal: openExternalMock,
+  },
 }));
 
 describe("IPC handlers", () => {
@@ -41,6 +47,7 @@ describe("IPC handlers", () => {
     getAllWindowsMock.mockReset();
     getFocusedWindowMock.mockReset();
     showOpenDialogMock.mockReset();
+    openExternalMock.mockReset();
   });
 
   it("returns the selected repo folder from the native picker", async () => {
@@ -151,6 +158,37 @@ describe("IPC handlers", () => {
       await runtime.dispose();
     }
   });
+
+  it("opens the GitHub PR page after publishing a fix", async () => {
+    openExternalMock.mockResolvedValue(undefined);
+    const publishFix = vi.fn<RepoServiceShape["publishFix"]>(() =>
+      Effect.succeed({
+        worktreePath: "/tmp/worktree",
+        branchName: "clawpatch/fix/fnd-1",
+        baseBranch: "main",
+        commitSha: "abc123",
+        remoteName: "origin",
+        prUrl: "https://github.com/acme/repo/compare/main...clawpatch/fix/fnd-1?expand=1",
+      }),
+    );
+    const { registered, runtime } = await installHandlersForTest({ publishFix });
+    const listener = registered.get(GIT_PUBLISH_FIX_CHANNEL);
+    if (listener === undefined) {
+      throw new Error("publish fix IPC handler was not registered");
+    }
+
+    try {
+      await expect(
+        listener({} as IpcMainInvokeEvent, { repoId: "repo-1", findingId: "fnd-1" }),
+      ).resolves.toMatchObject({ branchName: "clawpatch/fix/fnd-1" });
+      expect(publishFix).toHaveBeenCalledWith("repo-1", "fnd-1");
+      expect(openExternalMock).toHaveBeenCalledWith(
+        "https://github.com/acme/repo/compare/main...clawpatch/fix/fnd-1?expand=1",
+      );
+    } finally {
+      await runtime.dispose();
+    }
+  });
 });
 
 type RegisteredListener = (event: IpcMainInvokeEvent, raw: unknown) => unknown | Promise<unknown>;
@@ -163,6 +201,7 @@ async function installHandlersForTest(): Promise<{
 async function installHandlersForTest(options: {
   readonly interruptCommand?: RepoServiceShape["interruptCommand"];
   readonly publish?: (event: CommandStreamEvent) => void;
+  readonly publishFix?: RepoServiceShape["publishFix"];
   readonly runCommand?: RepoServiceShape["runCommand"];
 }): Promise<{
   readonly registered: Map<string, RegisteredListener>;
@@ -173,6 +212,7 @@ async function installHandlersForTest(
   options: {
     readonly interruptCommand?: RepoServiceShape["interruptCommand"];
     readonly publish?: (event: CommandStreamEvent) => void;
+    readonly publishFix?: RepoServiceShape["publishFix"];
     readonly runCommand?: RepoServiceShape["runCommand"];
   } = {},
 ): Promise<{
@@ -206,6 +246,7 @@ async function installHandlersForTest(
 function makeRepoServiceLayer(
   options: {
     readonly interruptCommand?: RepoServiceShape["interruptCommand"];
+    readonly publishFix?: RepoServiceShape["publishFix"];
     readonly runCommand?: RepoServiceShape["runCommand"];
   } = {},
 ) {
@@ -239,6 +280,17 @@ function makeRepoServiceLayer(
       setTriage: () => Effect.succeed(makeCommandResult()),
       readDiff: () => Effect.succeed(""),
       readGitStatus: () => Effect.succeed({ staged: 0, modified: 0, untracked: 0, branch: null }),
+      publishFix:
+        options.publishFix ??
+        (() =>
+          Effect.succeed({
+            worktreePath: "/tmp/worktree",
+            branchName: "clawpatch/fix/fnd-1",
+            baseBranch: "main",
+            commitSha: "abc123",
+            remoteName: "origin",
+            prUrl: "https://github.com/acme/repo/compare/main...clawpatch/fix/fnd-1?expand=1",
+          })),
     }),
   );
 }

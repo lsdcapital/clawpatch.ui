@@ -13,6 +13,7 @@ import {
   FINDINGS_GET_CHANNEL,
   FINDINGS_LIST_CHANNEL,
   GIT_DIFF_CHANNEL,
+  GIT_PUBLISH_FIX_CHANNEL,
   GIT_STATUS_CHANNEL,
   REPO_ADD_CHANNEL,
   REPO_LIST_CHANNEL,
@@ -70,6 +71,8 @@ const api: Api = {
       ipcRenderer.invoke(GIT_DIFF_CHANNEL, repoFindingPayload(repoId, findingId)),
     status: (repoId, findingId) =>
       ipcRenderer.invoke(GIT_STATUS_CHANNEL, repoFindingPayload(repoId, findingId)),
+    publishFix: (repoId, findingId) =>
+      ipcRenderer.invoke(GIT_PUBLISH_FIX_CHANNEL, { repoId, findingId }),
   },
 };
 

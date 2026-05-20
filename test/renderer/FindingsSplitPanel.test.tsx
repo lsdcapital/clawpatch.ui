@@ -249,12 +249,16 @@ function renderSplitPanel({
       isDetailLoading={false}
       isBusy={false}
       fixDisabledReason={null}
+      canPublishFix={false}
+      publishFixResult={null}
+      publishFixError={null}
       onFiltersChange={vi.fn()}
       onSortChange={vi.fn()}
       onSelectFinding={vi.fn()}
       onTriage={onTriage}
       onFix={vi.fn()}
       onRevalidate={onRevalidate}
+      onPublishFix={vi.fn()}
       onOpenDiffFile={onOpenDiffFile}
     />,
   );

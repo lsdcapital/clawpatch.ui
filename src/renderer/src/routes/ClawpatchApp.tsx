@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { clawpatchQueryKeys } from "../clawpatchQueries";
+import { clawpatchQueryKeys, invalidateRepo } from "../clawpatchQueries";
 import { visibleCommandLogEntries } from "../commandLogEntries";
 import { FindingsSplitPanel } from "../components/FindingsSplitPanel";
 import { GitStatusStrip } from "../components/GitStatusStrip";
@@ -13,6 +13,7 @@ import { useDiffInspector } from "../hooks/useDiffInspector";
 import { useFindingsWorkspace } from "../hooks/useFindingsWorkspace";
 import { useRepoSidebarState } from "../hooks/useRepoSidebarState";
 import { useSelectedRepo } from "../hooks/useSelectedRepo";
+import type { PublishFixResult } from "../../../shared/types";
 import type { ActiveInspector, ActiveWorkspace } from "../workspaceTypes";
 
 const REPO_SIDEBAR_ID = "repo-sidebar";
@@ -21,6 +22,10 @@ export function ClawpatchApp() {
   const queryClient = useQueryClient();
   const [activeWorkspace, setActiveWorkspace] = useState<ActiveWorkspace>("findings");
   const [activeInspector, setActiveInspector] = useState<ActiveInspector>(null);
+  const [publishedFix, setPublishedFix] = useState<{
+    readonly findingId: string;
+    readonly result: PublishFixResult;
+  } | null>(null);
   const { isRepoSidebarCollapsed, toggleRepoSidebar } = useRepoSidebarState();
 
   const reposQuery = useQuery({
@@ -57,6 +62,18 @@ export function ClawpatchApp() {
     enabled: selectedRepo !== null,
   });
 
+  const publishFixMutation = useMutation({
+    mutationFn: ({ repoId, findingId }: { repoId: string; findingId: string }) =>
+      window.clawpatch.git.publishFix(repoId, findingId),
+    onMutate: ({ findingId }) => {
+      setPublishedFix((current) => (current?.findingId === findingId ? null : current));
+    },
+    onSuccess: (result, variables) => {
+      setPublishedFix({ findingId: variables.findingId, result });
+      void invalidateRepo(queryClient, variables.repoId);
+    },
+  });
+
   const addRepoMutation = useMutation({
     mutationFn: (repoPath: string) => window.clawpatch.repo.add(repoPath),
     onSuccess: (repo) => {
@@ -84,6 +101,16 @@ export function ClawpatchApp() {
   const isOutputCommandRunning =
     commandRunner.runningRepoCommand !== null ||
     (activeWorkspace === "findings" && (isSelectedFindingRunning || commandRunner.isTriagePending));
+  const selectedFindingPublishResult =
+    publishedFix !== null && publishedFix.findingId === selectedFindingId
+      ? publishedFix.result
+      : null;
+  const selectedFindingPublishError =
+    publishFixMutation.variables?.findingId === selectedFindingId ? publishFixMutation.error : null;
+  const canPublishSelectedFix =
+    selectedRepo !== null &&
+    selectedFindingId !== undefined &&
+    selectedRepo.activeWorktrees.some((worktree) => worktree.findingId === selectedFindingId);
 
   return (
     <main className={isRepoSidebarCollapsed ? "app-shell sidebar-collapsed" : "app-shell"}>
@@ -149,14 +176,31 @@ export function ClawpatchApp() {
               sort={findingsWorkspace.findingSort}
               finding={findingsWorkspace.detailQuery.data ?? null}
               isDetailLoading={findingsWorkspace.detailQuery.isLoading}
-              isBusy={commandRunner.isTriagePending || isSelectedFindingRunning}
-              commandStateLabel={selectedFindingCommand?.request.command}
+              isBusy={
+                commandRunner.isTriagePending ||
+                isSelectedFindingRunning ||
+                (publishFixMutation.isPending &&
+                  publishFixMutation.variables?.findingId === selectedFindingId)
+              }
+              commandStateLabel={
+                publishFixMutation.isPending &&
+                publishFixMutation.variables?.findingId === selectedFindingId
+                  ? "publish"
+                  : selectedFindingCommand?.request.command
+              }
               fixDisabledReason={findingsWorkspace.fixDisabledReason}
-              onInterrupt={() => {
-                if (selectedFinding !== null) {
-                  commandRunner.interruptCommand(selectedFinding.findingId);
-                }
-              }}
+              canPublishFix={canPublishSelectedFix}
+              publishFixResult={selectedFindingPublishResult}
+              publishFixError={selectedFindingPublishError}
+              onInterrupt={
+                isSelectedFindingRunning
+                  ? () => {
+                      if (selectedFinding !== null) {
+                        commandRunner.interruptCommand(selectedFinding.findingId);
+                      }
+                    }
+                  : undefined
+              }
               onFiltersChange={findingsWorkspace.setFindingFilters}
               onSortChange={findingsWorkspace.setFindingSort}
               onSelectFinding={findingsWorkspace.setSelectedFindingId}
@@ -174,6 +218,14 @@ export function ClawpatchApp() {
                 if (selectedFinding !== null) {
                   runCommand({
                     command: "revalidate",
+                    findingId: selectedFinding.findingId,
+                  });
+                }
+              }}
+              onPublishFix={() => {
+                if (selectedRepo !== null && selectedFinding !== null) {
+                  publishFixMutation.mutate({
+                    repoId: selectedRepo.id,
                     findingId: selectedFinding.findingId,
                   });
                 }
