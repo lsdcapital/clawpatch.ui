@@ -37,6 +37,8 @@ interface RegistryFile {
   repos: Array<Pick<RepoSummary, "id" | "name" | "path" | "updatedAt">>;
 }
 
+const TARGET_BASE_REF = "origin/main";
+
 type ActiveWorktreePaths = Map<string, Map<string, string>>;
 type RunningCommandPaths = Map<string, string>;
 
@@ -498,7 +500,7 @@ export const RepoServiceLive = (appDataDir: string) =>
       ) {
         const { worktreePath, branchName } = managedWorktreeForFinding(repo, findingId);
         yield* git.createOrReuseWorktree(
-          { repoPath: repo.path, worktreePath, branchName },
+          { repoPath: repo.path, worktreePath, branchName, baseRef: TARGET_BASE_REF },
           onLifecycle,
         );
         yield* setActiveWorktreePath(repo.id, findingId, worktreePath);

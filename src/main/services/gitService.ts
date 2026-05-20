@@ -10,6 +10,9 @@ import { CommandSpawnError } from "../errors";
 import { childLogger } from "../logger";
 
 const gitLogger = childLogger("git");
+const DEFAULT_TARGET_REMOTE = "origin";
+const DEFAULT_TARGET_BRANCH = "main";
+const DEFAULT_TARGET_BASE_REF = `${DEFAULT_TARGET_REMOTE}/${DEFAULT_TARGET_BRANCH}`;
 
 export interface GitStatusSummary {
   readonly staged: number;
@@ -43,6 +46,7 @@ export interface GitServiceShape {
       readonly repoPath: string;
       readonly worktreePath: string;
       readonly branchName: string;
+      readonly baseRef: string;
     },
     onLifecycle?: (event: GitLifecycleEvent) => void,
   ) => Effect.Effect<string, CommandSpawnError>;
@@ -93,9 +97,15 @@ export const GitServiceLive = Layer.effect(
         },
       ),
       createOrReuseWorktree: Effect.fn("git.createOrReuseWorktree")(function* (
-        { repoPath, worktreePath, branchName },
+        { repoPath, worktreePath, branchName, baseRef },
         onLifecycle,
       ) {
+        const resolvedBaseRef = yield* resolveTargetBaseRef(
+          spawner,
+          repoPath,
+          baseRef,
+          onLifecycle,
+        ).pipe(Effect.mapError((cause) => new CommandSpawnError({ repoPath, cause })));
         const existingStats = yield* fs.stat(worktreePath).pipe(
           Effect.map((stats) => stats),
           Effect.catch(() => Effect.succeed(null)),
@@ -109,6 +119,13 @@ export const GitServiceLive = Layer.effect(
             );
           }
           yield* assertExistingWorktree(spawner, repoPath, worktreePath, branchName, onLifecycle);
+          yield* rebaseExistingWorktree(
+            spawner,
+            repoPath,
+            worktreePath,
+            resolvedBaseRef,
+            onLifecycle,
+          );
           return worktreePath;
         }
 
@@ -131,7 +148,7 @@ export const GitServiceLive = Layer.effect(
         yield* runGitOutput(
           spawner,
           repoPath,
-          ["worktree", "add", "-b", branchName, worktreePath, "HEAD"],
+          ["worktree", "add", "-b", branchName, worktreePath, resolvedBaseRef],
           onLifecycle,
         ).pipe(Effect.mapError((cause) => new CommandSpawnError({ repoPath, cause })));
         return worktreePath;
@@ -293,6 +310,92 @@ function localBranchExists(
       }
       return Effect.fail(new Error(stderr || stdout || `Unable to inspect branch ${branchName}`));
     }),
+  );
+}
+
+function resolveTargetBaseRef(
+  spawner: ChildProcessSpawner.ChildProcessSpawner["Service"],
+  repoPath: string,
+  preferredBaseRef: string,
+  onLifecycle?: (event: GitLifecycleEvent) => void,
+): Effect.Effect<string, unknown> {
+  return Effect.gen(function* () {
+    if (preferredBaseRef === DEFAULT_TARGET_BASE_REF) {
+      const hasOrigin = yield* remoteExists(spawner, repoPath, DEFAULT_TARGET_REMOTE, onLifecycle);
+      if (hasOrigin) {
+        yield* runGitOutput(
+          spawner,
+          repoPath,
+          [
+            "fetch",
+            DEFAULT_TARGET_REMOTE,
+            `+refs/heads/${DEFAULT_TARGET_BRANCH}:refs/remotes/${DEFAULT_TARGET_REMOTE}/${DEFAULT_TARGET_BRANCH}`,
+          ],
+          onLifecycle,
+        );
+        yield* requireCommit(spawner, repoPath, preferredBaseRef, onLifecycle);
+        return preferredBaseRef;
+      }
+
+      yield* requireCommit(spawner, repoPath, DEFAULT_TARGET_BRANCH, onLifecycle);
+      return DEFAULT_TARGET_BRANCH;
+    }
+
+    yield* requireCommit(spawner, repoPath, preferredBaseRef, onLifecycle);
+    return preferredBaseRef;
+  });
+}
+
+function remoteExists(
+  spawner: ChildProcessSpawner.ChildProcessSpawner["Service"],
+  repoPath: string,
+  remoteName: string,
+  onLifecycle?: (event: GitLifecycleEvent) => void,
+): Effect.Effect<boolean, unknown> {
+  return runGitResult(spawner, repoPath, ["remote", "get-url", remoteName], onLifecycle).pipe(
+    Effect.flatMap(({ stdout, stderr, exitCode }) => {
+      if (exitCode === 0) {
+        return Effect.succeed(true);
+      }
+      if (exitCode === 2) {
+        return Effect.succeed(false);
+      }
+      return Effect.fail(new Error(stderr || stdout || `Unable to inspect remote ${remoteName}`));
+    }),
+  );
+}
+
+function requireCommit(
+  spawner: ChildProcessSpawner.ChildProcessSpawner["Service"],
+  repoPath: string,
+  ref: string,
+  onLifecycle?: (event: GitLifecycleEvent) => void,
+): Effect.Effect<void, unknown> {
+  return runGitResult(
+    spawner,
+    repoPath,
+    ["rev-parse", "--verify", "--quiet", `${ref}^{commit}`],
+    onLifecycle,
+  ).pipe(
+    Effect.flatMap(({ stdout, stderr, exitCode }) => {
+      if (exitCode === 0) {
+        return Effect.void;
+      }
+      return Effect.fail(new Error(stderr || stdout || `Unable to resolve target base ${ref}`));
+    }),
+  );
+}
+
+function rebaseExistingWorktree(
+  spawner: ChildProcessSpawner.ChildProcessSpawner["Service"],
+  repoPath: string,
+  worktreePath: string,
+  baseRef: string,
+  onLifecycle?: (event: GitLifecycleEvent) => void,
+): Effect.Effect<void, CommandSpawnError> {
+  return runGitOutput(spawner, worktreePath, ["rebase", "--autostash", baseRef], onLifecycle).pipe(
+    Effect.asVoid,
+    Effect.mapError((cause) => new CommandSpawnError({ repoPath, cause })),
   );
 }
 

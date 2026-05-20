@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { clawpatchQueryKeys } from "../clawpatchQueries";
+import { visibleCommandLogEntries } from "../commandLogEntries";
 import { FindingsSplitPanel } from "../components/FindingsSplitPanel";
 import { GitStatusStrip } from "../components/GitStatusStrip";
 import { RepoSidebar } from "../components/RepoSidebar";
@@ -94,6 +95,19 @@ export function ClawpatchApp() {
       ? undefined
       : commandRunner.runningFindingCommands[selectedFindingId];
   const isSelectedFindingRunning = selectedFindingCommand !== undefined;
+  const visibleCommandLog = useMemo(
+    () =>
+      visibleCommandLogEntries({
+        entries: commandRunner.commandLog,
+        selectedRepoId: selectedRepo?.id,
+        selectedFindingId,
+        activeWorkspace,
+      }),
+    [activeWorkspace, commandRunner.commandLog, selectedFindingId, selectedRepo?.id],
+  );
+  const isOutputCommandRunning =
+    commandRunner.runningRepoCommand !== null ||
+    (activeWorkspace === "findings" && (isSelectedFindingRunning || commandRunner.isTriagePending));
 
   return (
     <main className={isRepoSidebarCollapsed ? "app-shell sidebar-collapsed" : "app-shell"}>
@@ -141,11 +155,13 @@ export function ClawpatchApp() {
           diff={diffInspector.diff}
           isDiffLoading={diffInspector.isDiffLoading}
           diffJump={diffInspector.diffJump}
-          commandLog={commandRunner.commandLog}
-          isCommandRunning={commandRunner.isAnyCommandRunning}
+          commandLog={visibleCommandLog}
+          isCommandRunning={isOutputCommandRunning}
           onInterruptCommand={() =>
             commandRunner.interruptCommand(
-              selectedFindingCommand?.request.findingId ?? commandRunner.firstRunningFindingId,
+              activeWorkspace === "findings"
+                ? selectedFindingCommand?.request.findingId
+                : undefined,
             )
           }
         >

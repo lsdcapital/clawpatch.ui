@@ -299,6 +299,7 @@ describe("RepoService", () => {
       repoPath: string;
       worktreePath?: string;
       branchName?: string;
+      baseRef?: string;
     }> = [];
     return Effect.gen(function* () {
       const service = yield* RepoService;
@@ -325,6 +326,7 @@ describe("RepoService", () => {
         kind: "worktree",
         repoPath: fixtureRepo,
         branchName: "clawpatch/fix/fnd-1",
+        baseRef: "origin/main",
       });
       expect(result.relatedResults).toMatchObject([
         {
@@ -381,6 +383,7 @@ describe("RepoService", () => {
       repoPath: string;
       worktreePath?: string;
       branchName?: string;
+      baseRef?: string;
     }> = [];
     return Effect.gen(function* () {
       const service = yield* RepoService;
@@ -401,6 +404,7 @@ describe("RepoService", () => {
         kind: "worktree",
         repoPath: fixtureRepo,
         branchName: "clawpatch/fix/fnd-1",
+        baseRef: "origin/main",
       });
       expect(calls.at(-1)).toEqual({
         repoPath: result.cwd,
@@ -1045,7 +1049,13 @@ function makeTerminalMock(calls: string[]): TerminalLauncherShape {
 }
 
 function makeGitMock(
-  calls: Array<{ kind: string; repoPath: string; worktreePath?: string; branchName?: string }>,
+  calls: Array<{
+    kind: string;
+    repoPath: string;
+    worktreePath?: string;
+    branchName?: string;
+    baseRef?: string;
+  }>,
 ): GitServiceShape {
   return {
     readDiff: (repoPath) =>
@@ -1068,14 +1078,14 @@ function makeGitMock(
           argv: ["git", "status", "--porcelain=v1", "--untracked-files=all"],
         });
       }),
-    createOrReuseWorktree: ({ repoPath, worktreePath, branchName }, onLifecycle) =>
+    createOrReuseWorktree: ({ repoPath, worktreePath, branchName, baseRef }, onLifecycle) =>
       Effect.sync(() => {
-        calls.push({ kind: "worktree", repoPath, worktreePath, branchName });
+        calls.push({ kind: "worktree", repoPath, worktreePath, branchName, baseRef });
         onLifecycle?.({
           phase: "git:start",
-          message: `$ git worktree add -b ${branchName} ${worktreePath} HEAD`,
+          message: `$ git worktree add -b ${branchName} ${worktreePath} ${baseRef}`,
           cwd: repoPath,
-          argv: ["git", "worktree", "add", "-b", branchName, worktreePath, "HEAD"],
+          argv: ["git", "worktree", "add", "-b", branchName, worktreePath, baseRef],
         });
         return worktreePath;
       }),
