@@ -1540,34 +1540,48 @@ button.table-row:hover:not(:disabled) {
   border-bottom: 1px solid var(--border);
   color: var(--muted);
   display: flex;
-  flex-wrap: wrap;
+  flex: 0 0 32px;
+  flex-wrap: nowrap;
   font-size: 11px;
   gap: 8px;
+  height: 32px;
   min-width: 0;
+  overflow: hidden;
   padding: 5px 14px;
 }
 
 .git-status-branch {
   color: var(--text);
+  flex: 0 1 auto;
   font-weight: 600;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .git-status-divider {
   color: var(--subtle);
+  flex: 0 0 auto;
 }
 
 .git-status-clean {
   color: var(--success);
+  flex: 0 0 auto;
+  white-space: nowrap;
 }
 
 .git-status-counts {
   color: var(--text);
+  flex: 0 0 auto;
+  white-space: nowrap;
 }
 
 .git-status-action {
   background: transparent;
   border: 0;
   color: var(--accent);
+  flex: 0 0 auto;
   font-size: 11px;
   font-weight: 600;
   margin-left: auto;

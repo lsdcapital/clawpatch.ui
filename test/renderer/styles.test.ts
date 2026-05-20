@@ -28,6 +28,13 @@ describe("renderer layout styles", () => {
     expect(edgeToEdgePanelRule).toContain("border-radius: 0;");
     expect(edgeToEdgePanelRule).toContain("box-shadow: none;");
     expect(ruleFor("\\.feature-map-table")).toContain("align-content: start;");
+    const gitStatusStripRule = ruleFor("\\.git-status-strip");
+    expect(gitStatusStripRule).toContain("height: 32px;");
+    expect(gitStatusStripRule).toContain("flex-wrap: nowrap;");
+    expect(gitStatusStripRule).toContain("overflow: hidden;");
+    const gitStatusBranchRule = ruleFor("\\.git-status-branch");
+    expect(gitStatusBranchRule).toContain("text-overflow: ellipsis;");
+    expect(gitStatusBranchRule).toContain("white-space: nowrap;");
   });
 });
 
