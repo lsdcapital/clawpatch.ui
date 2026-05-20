@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { mkdtemp, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
@@ -165,11 +165,13 @@ describe("GitService", () => {
           repoPath,
           worktreePath,
           branchName: "clawpatch/fix/fnd-1",
+          baseRef: "origin/main",
         });
         const reused = yield* git.createOrReuseWorktree({
           repoPath,
           worktreePath,
           branchName: "clawpatch/fix/fnd-1",
+          baseRef: "origin/main",
         });
         expect(created).toBe(worktreePath);
         expect(reused).toBe(worktreePath);
@@ -181,6 +183,80 @@ describe("GitService", () => {
     ).resolves.toBeTruthy();
     await expect(git(worktreePath, ["branch", "--show-current"])).resolves.toBe(
       "clawpatch/fix/fnd-1",
+    );
+  });
+
+  it("creates managed worktrees from origin/main instead of the current checkout", async () => {
+    const repoPath = await makeGitRepo();
+    await addOriginRemote(repoPath);
+    await git(repoPath, ["checkout", "-b", "feature"]);
+    await writeFile(join(repoPath, "feature.txt"), "feature\n", "utf8");
+    await git(repoPath, ["add", "feature.txt"]);
+    await git(repoPath, ["commit", "-m", "feature"]);
+    const worktreePath = join(await mkdtemp(join(tmpdir(), "clawpatch-worktrees-")), "fnd-1");
+    const layer = GitServiceLive.pipe(Layer.provide(NodeServices.layer));
+
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const git = yield* GitService;
+        return yield* git.createOrReuseWorktree({
+          repoPath,
+          worktreePath,
+          branchName: "clawpatch/fix/fnd-1",
+          baseRef: "origin/main",
+        });
+      }).pipe(Effect.provide(layer)),
+    );
+
+    await expect(git(worktreePath, ["rev-parse", "HEAD"])).resolves.toBe(
+      await git(repoPath, ["rev-parse", "origin/main"]),
+    );
+  });
+
+  it("rebases existing managed worktrees onto latest origin/main before reuse", async () => {
+    const repoPath = await makeGitRepo();
+    await addOriginRemote(repoPath);
+    const worktreePath = join(await mkdtemp(join(tmpdir(), "clawpatch-worktrees-")), "fnd-1");
+    const layer = GitServiceLive.pipe(Layer.provide(NodeServices.layer));
+
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const git = yield* GitService;
+        yield* git.createOrReuseWorktree({
+          repoPath,
+          worktreePath,
+          branchName: "clawpatch/fix/fnd-1",
+          baseRef: "origin/main",
+        });
+      }).pipe(Effect.provide(layer)),
+    );
+
+    await writeFile(join(worktreePath, "README.md"), "candidate fix\n", "utf8");
+    await writeFile(join(repoPath, "CHANGELOG.md"), "main moved\n", "utf8");
+    await git(repoPath, ["add", "CHANGELOG.md"]);
+    await git(repoPath, ["commit", "-m", "move main"]);
+    await git(repoPath, ["push", "origin", "main"]);
+
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const git = yield* GitService;
+        yield* git.createOrReuseWorktree({
+          repoPath,
+          worktreePath,
+          branchName: "clawpatch/fix/fnd-1",
+          baseRef: "origin/main",
+        });
+      }).pipe(Effect.provide(layer)),
+    );
+
+    await expect(git(worktreePath, ["rev-parse", "HEAD"])).resolves.toBe(
+      await git(repoPath, ["rev-parse", "origin/main"]),
+    );
+    await expect(readFile(join(worktreePath, "CHANGELOG.md"), "utf8")).resolves.toBe(
+      "main moved\n",
+    );
+    await expect(readFile(join(worktreePath, "README.md"), "utf8")).resolves.toBe(
+      "candidate fix\n",
     );
   });
 
@@ -198,6 +274,7 @@ describe("GitService", () => {
             repoPath,
             worktreePath,
             branchName: "clawpatch/fix/fnd-1",
+            baseRef: "origin/main",
           });
         }).pipe(Effect.provide(layer)),
       ),
@@ -237,6 +314,14 @@ async function makeGitRepo(): Promise<string> {
   await git(repoPath, ["add", "README.md"]);
   await git(repoPath, ["commit", "-m", "initial"]);
   return repoPath;
+}
+
+async function addOriginRemote(repoPath: string): Promise<string> {
+  const remotePath = await mkdtemp(join(tmpdir(), "clawpatch-origin-"));
+  await git(remotePath, ["init", "--bare", "-b", "main"]);
+  await git(repoPath, ["remote", "add", "origin", remotePath]);
+  await git(repoPath, ["push", "-u", "origin", "main"]);
+  return remotePath;
 }
 
 async function git(cwd: string, args: readonly string[]): Promise<string> {
