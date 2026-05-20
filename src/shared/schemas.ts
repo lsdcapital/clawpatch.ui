@@ -18,7 +18,12 @@ export const ClawpatchCommandRequestSchema = Schema.Union([
     status: ClawpatchStatusSchema,
     note: Schema.optionalKey(Schema.String),
   }),
-  Schema.Struct({ command: Schema.Literal("fix"), findingId: Schema.String }),
+  Schema.Struct({
+    command: Schema.Literal("fix"),
+    findingId: Schema.String,
+    status: Schema.optionalKey(ClawpatchStatusSchema),
+    note: Schema.optionalKey(Schema.String),
+  }),
   Schema.Struct({ command: Schema.Literal("revalidate"), findingId: Schema.String }),
   Schema.Struct({ command: Schema.Literal("doctor") }),
 ]);
@@ -173,6 +178,7 @@ export const RepoSummarySchema = Schema.Struct({
   id: Schema.String,
   name: Schema.String,
   path: Schema.String,
+  activeWorktreePath: Schema.NullOr(Schema.String),
   hasClawpatch: Schema.Boolean,
   isValid: Schema.Boolean,
   lastError: Schema.NullOr(Schema.String),

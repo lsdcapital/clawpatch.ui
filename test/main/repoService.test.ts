@@ -8,9 +8,16 @@ import * as Layer from "effect/Layer";
 import * as ManagedRuntime from "effect/ManagedRuntime";
 import { afterEach, describe, expect } from "vitest";
 import type { ClawpatchCommandRequest, CommandResult } from "../../src/shared/types";
-import { ClawpatchRunner } from "../../src/main/services/clawpatchRunner";
+import {
+  ClawpatchRunner,
+  type ClawpatchRunnerShape,
+} from "../../src/main/services/clawpatchRunner";
 import { ClawpatchStateServiceLive } from "../../src/main/services/clawpatchState";
-import { GitServiceLive } from "../../src/main/services/gitService";
+import {
+  GitService,
+  GitServiceLive,
+  type GitServiceShape,
+} from "../../src/main/services/gitService";
 import { UiMetadataServiceLive } from "../../src/main/services/uiMetadata";
 import { RepoService, RepoServiceLive } from "../../src/main/services/repoService";
 
@@ -199,6 +206,141 @@ describe("RepoService", () => {
     }).pipe(Effect.provide(makeRepoServiceTestLayer(fixtureRepo, calls)));
   });
 
+  it.effect("runs fixes in a managed worktree and reads follow-up diff there", () => {
+    const calls: RunnerCall[] = [];
+    const gitCalls: Array<{
+      kind: string;
+      repoPath: string;
+      worktreePath?: string;
+      branchName?: string;
+    }> = [];
+    return Effect.gen(function* () {
+      const service = yield* RepoService;
+
+      const summary = yield* service.addRepo(fixtureRepo);
+      const result = yield* service.runCommand(summary.id, {
+        command: "fix",
+        findingId: "fnd-1",
+        status: "open",
+        note: "prefer parser helper",
+      });
+      const diff = yield* service.readDiff(summary.id);
+      const worktreeCall = gitCalls.find((call) => call.kind === "worktree");
+
+      expect(worktreeCall?.worktreePath).toBe(result.cwd);
+      expect(worktreeCall?.worktreePath).toContain(join("worktrees", summary.id, "fnd-1"));
+      expect(diff).toBe(`diff:${result.cwd}`);
+      expect(gitCalls).toContainEqual({ kind: "clean", repoPath: fixtureRepo });
+      expect(worktreeCall).toMatchObject({
+        kind: "worktree",
+        repoPath: fixtureRepo,
+        branchName: "clawpatch/fix/fnd-1",
+      });
+      expect(calls.at(-2)).toEqual({
+        repoPath: result.cwd,
+        request: {
+          command: "triage",
+          findingId: "fnd-1",
+          status: "open",
+          note: "prefer parser helper",
+        },
+      });
+      expect(calls.at(-1)).toEqual({
+        repoPath: result.cwd,
+        request: { command: "fix", findingId: "fnd-1" },
+      });
+    }).pipe(
+      Effect.provide(
+        makeRepoServiceTestLayer(fixtureRepo, calls, undefined, false, makeGitMock(gitCalls)),
+      ),
+    );
+  });
+
+  it("interrupts a fix running in its managed worktree", async () => {
+    const calls: RunnerCall[] = [];
+    const gitCalls: Array<{
+      kind: string;
+      repoPath: string;
+      worktreePath?: string;
+      branchName?: string;
+    }> = [];
+    let interruptPath: string | null = null;
+    let finishFix: ((result: CommandResult) => void) | undefined;
+    const runnerService: ClawpatchRunnerShape = {
+      run: (repoPath, request) =>
+        Effect.sync(() => {
+          calls.push({ repoPath, request });
+          if (request.command !== "fix") {
+            return makeCommandResult(repoPath, request.command);
+          }
+          return null;
+        }).pipe(
+          Effect.flatMap((result) => {
+            if (result !== null) {
+              return Effect.succeed(result);
+            }
+            return Effect.promise(
+              () =>
+                new Promise<CommandResult>((resolve) => {
+                  finishFix = resolve;
+                }),
+            );
+          }),
+        ),
+      interrupt: (repoPath) =>
+        Effect.sync(() => {
+          interruptPath = repoPath;
+          return { interrupted: true };
+        }),
+      isRunning: () => Effect.succeed(false),
+    };
+    const runtime = ManagedRuntime.make(
+      makeRepoServiceTestLayer(
+        fixtureRepo,
+        calls,
+        undefined,
+        false,
+        makeGitMock(gitCalls),
+        runnerService,
+      ),
+    );
+
+    try {
+      const summary = await runtime.runPromise(
+        Effect.gen(function* () {
+          const service = yield* RepoService;
+          return yield* service.addRepo(fixtureRepo);
+        }),
+      );
+      const run = runtime.runPromise(
+        Effect.gen(function* () {
+          const service = yield* RepoService;
+          return yield* service.runCommand(summary.id, { command: "fix", findingId: "fnd-1" });
+        }),
+      );
+
+      await waitUntil(() => calls.some((call) => call.request.command === "fix"));
+      const interrupt = await runtime.runPromise(
+        Effect.gen(function* () {
+          const service = yield* RepoService;
+          return yield* service.interruptCommand(summary.id);
+        }),
+      );
+      const worktreePath = gitCalls.find((call) => call.kind === "worktree")?.worktreePath;
+
+      expect(interrupt).toEqual({ interrupted: true });
+      expect(interruptPath).toBe(worktreePath);
+
+      if (finishFix === undefined) {
+        throw new Error("fix command did not start");
+      }
+      finishFix(makeCommandResult(worktreePath ?? "", "fix"));
+      await expect(run).resolves.toMatchObject({ cwd: worktreePath });
+    } finally {
+      await runtime.dispose();
+    }
+  });
+
   it.effect("interrupts commands by repo id", () => {
     const calls: RunnerCall[] = [];
     return Effect.gen(function* () {
@@ -290,6 +432,8 @@ function makeRepoServiceTestLayer(
   calls: RunnerCall[],
   appData?: string,
   isRunning = false,
+  gitService?: GitServiceShape,
+  runnerService?: ClawpatchRunnerShape,
 ) {
   const appDataEffect =
     appData === undefined ? Effect.promise(() => makeTempDir()) : Effect.succeed(appData);
@@ -298,25 +442,27 @@ function makeRepoServiceTestLayer(
       const appData = yield* appDataEffect;
       const runnerLayer = Layer.succeed(
         ClawpatchRunner,
-        ClawpatchRunner.of({
-          run: (repoPath, request) =>
-            Effect.sync((): CommandResult => {
-              calls.push({ repoPath, request });
-              return {
-                runId: "run-test",
-                command: "clawpatch",
-                args: [request.command],
-                cwd,
-                exitCode: 0,
-                durationMs: 1,
-                stdout: "{}",
-                stderr: "",
-                parsedJson: {},
-              };
-            }),
-          interrupt: () => Effect.succeed({ interrupted: true }),
-          isRunning: () => Effect.succeed(isRunning),
-        }),
+        ClawpatchRunner.of(
+          runnerService ?? {
+            run: (repoPath, request) =>
+              Effect.sync((): CommandResult => {
+                calls.push({ repoPath, request });
+                return {
+                  runId: "run-test",
+                  command: "clawpatch",
+                  args: [request.command],
+                  cwd: repoPath,
+                  exitCode: 0,
+                  durationMs: 1,
+                  stdout: "{}",
+                  stderr: "",
+                  parsedJson: {},
+                };
+              }),
+            interrupt: () => Effect.succeed({ interrupted: true }),
+            isRunning: () => Effect.succeed(isRunning),
+          },
+        ),
       );
       return RepoServiceLive(appData).pipe(
         Layer.provideMerge(
@@ -324,7 +470,9 @@ function makeRepoServiceTestLayer(
             runnerLayer,
             ClawpatchStateServiceLive,
             UiMetadataServiceLive(appData),
-            GitServiceLive,
+            gitService === undefined
+              ? GitServiceLive
+              : Layer.succeed(GitService, GitService.of(gitService)),
           ),
         ),
         Layer.provide(NodeServices.layer),
@@ -337,4 +485,46 @@ async function makeTempDir(): Promise<string> {
   const dir = await mkdtemp(join(tmpdir(), "clawpatch-ui-"));
   tempDirs.push(dir);
   return dir;
+}
+
+async function waitUntil(assertion: () => boolean): Promise<void> {
+  const started = Date.now();
+  while (!assertion()) {
+    if (Date.now() - started > 1000) {
+      throw new Error("Timed out waiting for condition");
+    }
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  }
+}
+
+function makeCommandResult(cwd: string, command: string): CommandResult {
+  return {
+    runId: "run-test",
+    command: "clawpatch",
+    args: [command],
+    cwd,
+    exitCode: 0,
+    durationMs: 1,
+    stdout: "{}",
+    stderr: "",
+    parsedJson: {},
+  };
+}
+
+function makeGitMock(
+  calls: Array<{ kind: string; repoPath: string; worktreePath?: string; branchName?: string }>,
+): GitServiceShape {
+  return {
+    readDiff: (repoPath) => Effect.succeed(`diff:${repoPath}`),
+    readStatus: () => Effect.succeed({ staged: 0, modified: 0, untracked: 0, branch: "main" }),
+    requireCleanCheckout: (repoPath) =>
+      Effect.sync(() => {
+        calls.push({ kind: "clean", repoPath });
+      }),
+    createOrReuseWorktree: ({ repoPath, worktreePath, branchName }) =>
+      Effect.sync(() => {
+        calls.push({ kind: "worktree", repoPath, worktreePath, branchName });
+        return worktreePath;
+      }),
+  };
 }

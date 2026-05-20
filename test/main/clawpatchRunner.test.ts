@@ -57,6 +57,14 @@ describe("buildClawpatchArgs", () => {
       "--finding",
       "abc123",
     ]);
+    expect(
+      buildClawpatchArgs({
+        command: "fix",
+        findingId: "abc123",
+        status: "open",
+        note: "prefer small fix",
+      }),
+    ).toEqual(["--json", "--no-color", "--no-input", "fix", "--finding", "abc123"]);
     expect(buildClawpatchArgs({ command: "revalidate", findingId: "abc123" })).toEqual([
       "--json",
       "--no-color",
