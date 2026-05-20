@@ -231,7 +231,10 @@ describe("GitService", () => {
       }).pipe(Effect.provide(layer)),
     );
 
+    const originalBase = await git(worktreePath, ["rev-parse", "HEAD"]);
     await writeFile(join(worktreePath, "README.md"), "candidate fix\n", "utf8");
+    await git(worktreePath, ["add", "README.md"]);
+    await git(worktreePath, ["commit", "-m", "candidate fix"]);
     await writeFile(join(repoPath, "CHANGELOG.md"), "main moved\n", "utf8");
     await git(repoPath, ["add", "CHANGELOG.md"]);
     await git(repoPath, ["commit", "-m", "move main"]);
@@ -249,7 +252,8 @@ describe("GitService", () => {
       }).pipe(Effect.provide(layer)),
     );
 
-    await expect(git(worktreePath, ["rev-parse", "HEAD"])).resolves.toBe(
+    expect(await git(worktreePath, ["rev-parse", "HEAD^"])).not.toBe(originalBase);
+    expect(await git(worktreePath, ["rev-parse", "HEAD^"])).toBe(
       await git(repoPath, ["rev-parse", "origin/main"]),
     );
     await expect(readFile(join(worktreePath, "CHANGELOG.md"), "utf8")).resolves.toBe(
@@ -258,6 +262,56 @@ describe("GitService", () => {
     await expect(readFile(join(worktreePath, "README.md"), "utf8")).resolves.toBe(
       "candidate fix\n",
     );
+  });
+
+  it("skips rebasing existing managed worktrees with uncommitted changes", async () => {
+    const repoPath = await makeGitRepo();
+    await addOriginRemote(repoPath);
+    const worktreePath = join(await mkdtemp(join(tmpdir(), "clawpatch-worktrees-")), "fnd-1");
+    const events: Array<{ readonly phase: string; readonly message: string }> = [];
+    const layer = GitServiceLive.pipe(Layer.provide(NodeServices.layer));
+
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const git = yield* GitService;
+        yield* git.createOrReuseWorktree({
+          repoPath,
+          worktreePath,
+          branchName: "clawpatch/fix/fnd-1",
+          baseRef: "origin/main",
+        });
+      }).pipe(Effect.provide(layer)),
+    );
+
+    const originalHead = await git(worktreePath, ["rev-parse", "HEAD"]);
+    await writeFile(join(worktreePath, "README.md"), "dirty fix\n", "utf8");
+    await writeFile(join(repoPath, "CHANGELOG.md"), "main moved\n", "utf8");
+    await git(repoPath, ["add", "CHANGELOG.md"]);
+    await git(repoPath, ["commit", "-m", "move main"]);
+    await git(repoPath, ["push", "origin", "main"]);
+
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const git = yield* GitService;
+        yield* git.createOrReuseWorktree(
+          {
+            repoPath,
+            worktreePath,
+            branchName: "clawpatch/fix/fnd-1",
+            baseRef: "origin/main",
+          },
+          (event) => events.push({ phase: event.phase, message: event.message }),
+        );
+      }).pipe(Effect.provide(layer)),
+    );
+
+    expect(await git(worktreePath, ["rev-parse", "HEAD"])).toBe(originalHead);
+    await expect(readFile(join(worktreePath, "README.md"), "utf8")).resolves.toBe("dirty fix\n");
+    await expect(readFile(join(worktreePath, "CHANGELOG.md"), "utf8")).rejects.toThrow();
+    expect(events).toContainEqual({
+      phase: "git:rebase-skip",
+      message: "Skipping rebase because managed worktree has uncommitted changes.",
+    });
   });
 
   it("rejects existing branches that are not checked out at the managed path", async () => {

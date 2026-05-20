@@ -576,10 +576,26 @@ function rebaseExistingWorktree(
   baseRef: string,
   onLifecycle?: (event: GitLifecycleEvent) => void,
 ): Effect.Effect<void, CommandSpawnError> {
-  return runGitOutput(spawner, worktreePath, ["rebase", "--autostash", baseRef], onLifecycle).pipe(
-    Effect.asVoid,
-    Effect.mapError((cause) => new CommandSpawnError({ repoPath, cause })),
-  );
+  return Effect.gen(function* () {
+    const statusOutput = yield* runGitOutput(
+      spawner,
+      worktreePath,
+      ["status", "--porcelain=v1", "--untracked-files=all"],
+      onLifecycle,
+    );
+    if (statusOutput.trim() !== "") {
+      onLifecycle?.({
+        phase: "git:rebase-skip",
+        message: "Skipping rebase because managed worktree has uncommitted changes.",
+        cwd: worktreePath,
+        argv: ["git", "rebase", baseRef],
+      });
+      return;
+    }
+    yield* runGitOutput(spawner, worktreePath, ["rebase", baseRef], onLifecycle).pipe(
+      Effect.asVoid,
+    );
+  }).pipe(Effect.mapError((cause) => new CommandSpawnError({ repoPath, cause })));
 }
 
 function assertExistingWorktree(
