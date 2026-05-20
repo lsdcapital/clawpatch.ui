@@ -93,6 +93,43 @@ describe("GitService", () => {
     });
   });
 
+  it("kills an active git child process when the effect is interrupted", async () => {
+    let killCount = 0;
+    const spawnerLayer = Layer.succeed(
+      ChildProcessSpawner.ChildProcessSpawner,
+      ChildProcessSpawner.make(() =>
+        Effect.succeed(
+          mockHandle({
+            exitCode: Effect.never,
+            isRunning: Effect.succeed(true),
+            kill: () =>
+              Effect.sync(() => {
+                killCount += 1;
+              }),
+          }),
+        ),
+      ),
+    );
+    const layer = GitServiceLive.pipe(
+      Layer.provide(Layer.mergeAll(NodeServices.layer, spawnerLayer)),
+    );
+    const abortController = new AbortController();
+
+    const readDiff = Effect.runPromise(
+      Effect.gen(function* () {
+        const git = yield* GitService;
+        return yield* git.readDiff("/tmp/repo-a");
+      }).pipe(Effect.provide(layer)),
+      { signal: abortController.signal },
+    ).catch(() => undefined);
+
+    await Promise.resolve();
+    abortController.abort();
+    await readDiff;
+
+    expect(killCount).toBe(1);
+  });
+
   it("requires a clean checkout before worktree fixes", async () => {
     const repoPath = await makeGitRepo();
     const layer = GitServiceLive.pipe(Layer.provide(NodeServices.layer));
@@ -172,12 +209,15 @@ function mockHandle(options: {
   readonly stdout?: string;
   readonly stderr?: string;
   readonly code?: number;
+  readonly exitCode?: Effect.Effect<ChildProcessSpawner.ExitCode>;
+  readonly isRunning?: Effect.Effect<boolean>;
+  readonly kill?: ChildProcessSpawner.ChildProcessHandle["kill"];
 }): ChildProcessSpawner.ChildProcessHandle {
   return ChildProcessSpawner.makeHandle({
     pid: ChildProcessSpawner.ProcessId(1),
-    exitCode: Effect.succeed(ChildProcessSpawner.ExitCode(options.code ?? 0)),
-    isRunning: Effect.succeed(false),
-    kill: () => Effect.void,
+    exitCode: options.exitCode ?? Effect.succeed(ChildProcessSpawner.ExitCode(options.code ?? 0)),
+    isRunning: options.isRunning ?? Effect.succeed(false),
+    kill: options.kill ?? (() => Effect.void),
     unref: Effect.succeed(Effect.void),
     stdin: Sink.drain,
     stdout: Stream.make(encoder.encode(options.stdout ?? "")),
