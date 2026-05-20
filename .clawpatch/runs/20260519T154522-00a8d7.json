@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "runId": "20260519T154522-00a8d7",
+  "command": "revalidate",
+  "args": [
+    "--json",
+    "--no-color",
+    "--no-input",
+    "revalidate",
+    "--finding",
+    "fnd_sig-feat-library-648a355089-277b_16b9c723a8"
+  ],
+  "rootPath": "/Users/steflsd/src/lsdcapital/clawpatch.ui",
+  "headSha": "9992b337ad91835987242305a80a2944887476a3",
+  "startedAt": "2026-05-19T15:45:22.246Z",
+  "finishedAt": "2026-05-19T15:46:18.514Z",
+  "status": "completed",
+  "claimedFeatureIds": [],
+  "findingIds": [
+    "fnd_sig-feat-library-648a355089-277b_16b9c723a8"
+  ],
+  "patchAttemptIds": [],
+  "errors": []
+}

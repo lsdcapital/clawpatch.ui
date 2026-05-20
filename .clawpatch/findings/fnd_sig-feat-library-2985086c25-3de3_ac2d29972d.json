@@ -36,13 +36,33 @@
   "whyTestsDoNotAlreadyCoverThis": "test/main/repoService.test.ts exercises validation, serial add/list behavior, feature map reads, triage forwarding, and malformed registry fallback, but it never runs two addRepo calls concurrently or asserts that both survive in repos.json.",
   "suggestedRegressionTest": "Add a RepoService test that uses a controllable writeRegistry or filesystem delay to run two addRepo calls concurrently, then asserts listRepos returns both repositories.",
   "minimumFixScope": "src/main/services/repoService.ts registry mutation path plus a focused concurrent addRepo regression test.",
-  "status": "uncertain",
-  "history": [],
+  "status": "fixed",
+  "history": [
+    {
+      "runId": "20260519T155102-e25942",
+      "kind": "revalidate",
+      "status": "fixed",
+      "note": null,
+      "reasoning": "The original evidence path still exists, but the relevant lines moved. Current src/main/services/repoService.ts defines registryMutationSemaphore at line 82 and addRepo now wraps the readRegistry -> registry mutation -> writeRegistry sequence in registryMutationSemaphore.withPermit at lines 227-247, serializing in-process concurrent addRepo calls. A focused regression test now exists at test/main/repoService.test.ts lines 90-121 and runs multiple service.addRepo calls with concurrency: \"unbounded\", then asserts all repo paths remain present. The focused test suite passed: 1 file, 10 tests. The initial pnpm test command was blocked by the read-only sandbox because Vitest's default config loader tried to write under node_modules/.vite-temp, but rerunning with --configLoader runner succeeded.",
+      "commands": [
+        "sed -n '1,260p' src/main/services/repoService.ts",
+        "sed -n '1,320p' test/main/repoService.test.ts",
+        "rg -n \"addRepo|readRegistry|writeRegistry|repos.json|Mutex|mutex|serialize|lock|queue|with.*Lock\" src test package.json",
+        "nl -ba src/main/services/repoService.ts | sed -n '76,112p;222,250p'",
+        "nl -ba test/main/repoService.test.ts | sed -n '88,121p'",
+        "cat package.json",
+        "pnpm test test/main/repoService.test.ts",
+        "pnpm exec vitest --help | sed -n '1,220p'",
+        "pnpm exec vitest run test/main/repoService.test.ts --configLoader runner"
+      ],
+      "createdAt": "2026-05-19T15:51:55.895Z"
+    }
+  ],
   "signature": "sig_feat-library-2985086c25_3de3b849e1",
   "linkedPatchAttemptIds": [
     "pat_fnd-sig-feat-library-2985086c25-_be9b4471b0"
   ],
   "createdByRunId": "20260519T090731-6c235c",
   "createdAt": "2026-05-19T09:08:45.666Z",
-  "updatedAt": "2026-05-19T12:17:39.654Z"
+  "updatedAt": "2026-05-19T15:51:55.895Z"
 }

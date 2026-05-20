@@ -36,11 +36,32 @@
   "whyTestsDoNotAlreadyCoverThis": "test/main/repoService.test.ts covers sequential add/list behavior and malformed registry fallback, but it never runs addRepo concurrently or asserts that multiple simultaneous additions are preserved.",
   "suggestedRegressionTest": "Add a RepoService test with two concurrent addRepo calls for distinct temp directories and a delayed write/read stub or filesystem barrier, then assert both repos are present in listRepos after both calls settle.",
   "minimumFixScope": "src/main/services/repoService.ts registry mutation path, plus one concurrent addRepo regression test.",
-  "status": "open",
-  "history": [],
+  "status": "fixed",
+  "history": [
+    {
+      "runId": "20260519T154715-5be708",
+      "kind": "revalidate",
+      "status": "fixed",
+      "note": null,
+      "reasoning": "The original evidence paths still exist in src/main/services/repoService.ts, but the addRepo mutation path has changed: current lines 81-82 create registryMutationSemaphore = Semaphore.make(1), and current lines 227-247 wrap the readRegistry/find existing/push/writeRegistry sequence in registryMutationSemaphore.withPermit(...). That serializes concurrent addRepo registry mutations for this RepoServiceLive instance, addressing the originally reported unlocked read-modify-write race. A regression test now exists at test/main/repoService.test.ts:90-122 named \"preserves concurrent repo additions\"; it runs five service.addRepo calls with Effect.all concurrency \"unbounded\" and asserts all paths remain in listRepos. I attempted to run the targeted test file, but the read-only sandbox prevented Vitest/Vite temp writes and test temp directory creation, so runtime verification could not complete here. Based on current code plus the added regression test, the finding is fixed.",
+      "commands": [
+        "sed -n '70,220p' src/main/services/repoService.ts",
+        "rg -n \"readRegistry|writeRegistry|addRepo|repos\\.json|Semaphore|Mutex|queue|withLock\" src test package.json",
+        "sed -n '1,260p' test/main/repoService.test.ts",
+        "sed -n '210,255p' src/main/services/repoService.ts",
+        "npm test -- --run test/main/repoService.test.ts",
+        "cat package.json",
+        "npx vitest run --configLoader runner test/main/repoService.test.ts",
+        "nl -ba src/main/services/repoService.ts | sed -n '76,250p'",
+        "nl -ba test/main/repoService.test.ts | sed -n '88,122p'",
+        "git status --short && git diff -- src/main/services/repoService.ts test/main/repoService.test.ts"
+      ],
+      "createdAt": "2026-05-19T15:48:00.964Z"
+    }
+  ],
   "signature": "sig_feat-library-a1562e140a_b3c0ef188a",
   "linkedPatchAttemptIds": [],
   "createdByRunId": "20260519T113652-408557",
   "createdAt": "2026-05-19T11:37:27.433Z",
-  "updatedAt": "2026-05-19T11:37:27.433Z"
+  "updatedAt": "2026-05-19T15:48:00.964Z"
 }

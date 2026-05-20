@@ -7,6 +7,7 @@ export default defineConfig({
     build: {
       rollupOptions: {
         input: resolve(__dirname, "src/main/index.ts"),
+        external: ["electron"],
       },
     },
   },
@@ -14,12 +15,16 @@ export default defineConfig({
     build: {
       rollupOptions: {
         input: resolve(__dirname, "src/preload/index.ts"),
+        external: ["electron"],
       },
     },
   },
   renderer: {
     root: resolve(__dirname, "src/renderer"),
     plugins: [react()],
+    worker: {
+      format: "es",
+    },
     build: {
       rollupOptions: {
         input: resolve(__dirname, "src/renderer/index.html"),

@@ -29,13 +29,31 @@
   "whyTestsDoNotAlreadyCoverThis": "The feature declares no linked tests, and there is no evidence of schema decode tests for status-bearing requests or command stream events.",
   "suggestedRegressionTest": "Add tests that decode representative valid values for `ClawpatchStatusSchema`, `ClawpatchCommandRequestSchema` triage requests, `GuiMetadataSchema`, and `CommandStreamEventSchema`, and assert invalid literals are rejected.",
   "minimumFixScope": "Update the literal schema construction sites in `src/shared/schemas.ts` and add focused schema validation tests.",
-  "status": "uncertain",
-  "history": [],
+  "status": "false-positive",
+  "history": [
+    {
+      "runId": "20260519T154522-00a8d7",
+      "kind": "revalidate",
+      "status": "false-positive",
+      "note": null,
+      "reasoning": "The original evidence still exists in the current repository: src/shared/schemas.ts still has ClawpatchStatusSchema = Schema.Literals(clawpatchStatuses) at line 4 and CommandStreamEventSchema uses Schema.Literals([\"stdout\", \"stderr\"]) at line 44. However, current focused tests directly exercise the alleged failures and pass: ClawpatchStatusSchema decodes \"open\" and \"wont-fix\" and rejects \"closed\"; ClawpatchCommandRequestSchema decodes a triage request with status \"open\"; UiMetadataSchema decodes a nullable status filter; CommandStreamEventSchema decodes stream \"stdout\" and rejects \"stdin\". TypeScript also passes with tsc --noEmit, so the current Effect Schema API/version accepts these array forms without the reported runtime or type breakage.",
+      "commands": [
+        "rg -n \"ClawpatchStatusSchema|CommandStreamEventSchema|Schema\\.Literals|clawpatchStatuses|stream:\" src test tests . --glob '!node_modules'",
+        "sed -n '1,140p' src/shared/schemas.ts",
+        "rg --files -g 'package.json' -g 'vitest.config.*' -g '*test*' -g '*spec*' -g 'pnpm-lock.yaml' -g 'yarn.lock' -g 'package-lock.json'",
+        "sed -n '1,120p' test/shared/schemas.test.ts",
+        "cat package.json",
+        "pnpm exec vitest run test/shared/schemas.test.ts",
+        "pnpm exec tsc --noEmit"
+      ],
+      "createdAt": "2026-05-19T15:46:18.505Z"
+    }
+  ],
   "signature": "sig_feat-library-648a355089_277b15bfd7",
   "linkedPatchAttemptIds": [
     "pat_fnd-sig-feat-library-648a355089-_bb92e6293d"
   ],
   "createdByRunId": "20260519T113652-408557",
   "createdAt": "2026-05-19T11:37:17.745Z",
-  "updatedAt": "2026-05-19T12:01:26.850Z"
+  "updatedAt": "2026-05-19T15:46:18.505Z"
 }

@@ -47,7 +47,7 @@
     "project-root:."
   ],
   "trustBoundaries": [],
-  "status": "needs-fix",
+  "status": "fixed",
   "lock": null,
   "findingIds": [
     "fnd_sig-feat-library-648a355089-277b_16b9c723a8"
@@ -65,5 +65,5 @@
     }
   ],
   "createdAt": "2026-05-19T08:07:07.260Z",
-  "updatedAt": "2026-05-19T11:37:17.746Z"
+  "updatedAt": "2026-05-19T15:46:18.512Z"
 }
