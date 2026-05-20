@@ -37,6 +37,11 @@ export interface GitPublishFixResult {
   readonly prUrl: string;
 }
 
+export interface GitWorktreeResult {
+  readonly worktreePath: string;
+  readonly created: boolean;
+}
+
 export interface GitServiceShape {
   readonly readDiff: (
     repoPath: string,
@@ -58,7 +63,7 @@ export interface GitServiceShape {
       readonly baseRef: string;
     },
     onLifecycle?: (event: GitLifecycleEvent) => void,
-  ) => Effect.Effect<string, CommandSpawnError>;
+  ) => Effect.Effect<GitWorktreeResult, CommandSpawnError>;
   readonly publishFix: (
     input: {
       readonly repoPath: string;
@@ -145,7 +150,7 @@ export const GitServiceLive = Layer.effect(
             resolvedBaseRef,
             onLifecycle,
           );
-          return worktreePath;
+          return { worktreePath, created: false };
         }
 
         const branchExists = yield* localBranchExists(
@@ -170,7 +175,7 @@ export const GitServiceLive = Layer.effect(
           ["worktree", "add", "-b", branchName, worktreePath, resolvedBaseRef],
           onLifecycle,
         ).pipe(Effect.mapError((cause) => new CommandSpawnError({ repoPath, cause })));
-        return worktreePath;
+        return { worktreePath, created: true };
       }),
       publishFix: Effect.fn("git.publishFix")(function* (
         { repoPath, worktreePath, branchName, baseBranch, commitMessage },

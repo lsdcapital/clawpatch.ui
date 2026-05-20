@@ -5,6 +5,7 @@ import { visibleCommandLogEntries } from "../commandLogEntries";
 import { FindingsSplitPanel } from "../components/FindingsSplitPanel";
 import { GitStatusStrip } from "../components/GitStatusStrip";
 import { RepoSidebar } from "../components/RepoSidebar";
+import { RepoSettingsDialog } from "../components/RepoSettingsDialog";
 import { ReviewMapPanel } from "../components/ReviewMapPanel";
 import { WorkspaceHeader } from "../components/WorkspaceHeader";
 import { WorkspaceInspector } from "../components/WorkspaceInspector";
@@ -13,7 +14,7 @@ import { useDiffInspector } from "../hooks/useDiffInspector";
 import { useFindingsWorkspace } from "../hooks/useFindingsWorkspace";
 import { useRepoSidebarState } from "../hooks/useRepoSidebarState";
 import { useSelectedRepo } from "../hooks/useSelectedRepo";
-import type { PublishFixResult } from "../../../shared/types";
+import type { PublishFixResult, RepoSettings, RepoSummary } from "../../../shared/types";
 import type { ActiveInspector, ActiveWorkspace } from "../workspaceTypes";
 
 const REPO_SIDEBAR_ID = "repo-sidebar";
@@ -27,6 +28,7 @@ export function ClawpatchApp() {
     readonly result: PublishFixResult;
   } | null>(null);
   const [terminalError, setTerminalError] = useState<string | null>(null);
+  const [settingsRepo, setSettingsRepo] = useState<RepoSummary | null>(null);
   const { isRepoSidebarCollapsed, toggleRepoSidebar } = useRepoSidebarState();
 
   const reposQuery = useQuery({
@@ -80,6 +82,23 @@ export function ClawpatchApp() {
     onSuccess: (repo) => {
       selectRepo(repo.id);
       void queryClient.invalidateQueries({ queryKey: clawpatchQueryKeys.repos() });
+    },
+  });
+
+  const repoSettingsQuery = useQuery({
+    queryKey: clawpatchQueryKeys.repoSettings(settingsRepo?.id),
+    queryFn: () => window.clawpatch.repo.getSettings(settingsRepo!.id),
+    enabled: settingsRepo !== null,
+  });
+
+  const repoSettingsMutation = useMutation({
+    mutationFn: ({ repoId, settings }: { repoId: string; settings: RepoSettings }) =>
+      window.clawpatch.repo.updateSettings(repoId, settings),
+    onSuccess: (_settings, variables) => {
+      void queryClient.invalidateQueries({
+        queryKey: clawpatchQueryKeys.repoSettings(variables.repoId),
+      });
+      setSettingsRepo(null);
     },
   });
 
@@ -146,6 +165,7 @@ export function ClawpatchApp() {
           isAdding={addRepoMutation.isPending}
           addError={addRepoMutation.error}
           onAddRepo={(repoPath) => addRepoMutation.mutate(repoPath)}
+          onOpenRepoSettings={setSettingsRepo}
           onSelectRepo={(repoId) => {
             selectRepo(repoId);
             findingsWorkspace.setSelectedFindingId(null);
@@ -272,6 +292,17 @@ export function ClawpatchApp() {
           )}
         </WorkspaceInspector>
       </section>
+      {settingsRepo !== null ? (
+        <RepoSettingsDialog
+          repo={settingsRepo}
+          settings={repoSettingsQuery.data}
+          isLoading={repoSettingsQuery.isLoading}
+          isSaving={repoSettingsMutation.isPending}
+          error={repoSettingsQuery.error ?? repoSettingsMutation.error}
+          onCancel={() => setSettingsRepo(null)}
+          onSave={(settings) => repoSettingsMutation.mutate({ repoId: settingsRepo.id, settings })}
+        />
+      ) : null}
     </main>
   );
 }

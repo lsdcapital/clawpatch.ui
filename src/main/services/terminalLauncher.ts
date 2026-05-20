@@ -5,15 +5,29 @@ import * as Layer from "effect/Layer";
 import * as ChildProcess from "effect/unstable/process/ChildProcess";
 import * as ChildProcessSpawner from "effect/unstable/process/ChildProcessSpawner";
 import type { TerminalOpenResult } from "../../shared/types";
-import { TerminalCwdError, TerminalLaunchError, TerminalUnsupportedPlatformError } from "../errors";
+import {
+  TerminalCwdError,
+  TerminalLaunchError,
+  TerminalStartupScriptUnsupportedError,
+  TerminalUnsupportedPlatformError,
+} from "../errors";
 
 export type TerminalLauncherError =
   | TerminalCwdError
   | TerminalLaunchError
+  | TerminalStartupScriptUnsupportedError
   | TerminalUnsupportedPlatformError;
 
+export interface TerminalLaunchOptions {
+  readonly appName: string;
+  readonly startupScript?: string;
+}
+
 export interface TerminalLauncherShape {
-  readonly open: (cwd: string) => Effect.Effect<TerminalOpenResult, TerminalLauncherError>;
+  readonly open: (
+    cwd: string,
+    options?: TerminalLaunchOptions,
+  ) => Effect.Effect<TerminalOpenResult, TerminalLauncherError>;
 }
 
 export class TerminalLauncher extends Context.Service<TerminalLauncher, TerminalLauncherShape>()(
@@ -28,7 +42,7 @@ export const makeTerminalLauncherLayer = (platform: NodeJS.Platform = process.pl
       const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
 
       return TerminalLauncher.of({
-        open: (cwd) =>
+        open: (cwd, options) =>
           Effect.gen(function* () {
             const stats = yield* fs.stat(cwd).pipe(
               Effect.mapError(
@@ -51,8 +65,18 @@ export const makeTerminalLauncherLayer = (platform: NodeJS.Platform = process.pl
               return yield* new TerminalUnsupportedPlatformError({ platform });
             }
 
+            const appName = normalizeTerminalAppName(options?.appName);
+            const startupScript = options?.startupScript?.trim() ?? "";
+            if (startupScript !== "" && !isTerminalApp(appName)) {
+              return yield* new TerminalStartupScriptUnsupportedError({ appName });
+            }
+            const command =
+              startupScript === ""
+                ? ChildProcess.make("open", ["-a", appName, cwd], { shell: false })
+                : makeTerminalStartupCommand(cwd, startupScript);
+            const launchDescription = startupScript === "" ? `open -a ${appName}` : "osascript";
             const child = yield* spawner
-              .spawn(ChildProcess.make("open", ["-a", "Terminal", cwd], { shell: false }))
+              .spawn(command)
               .pipe(Effect.mapError((cause) => new TerminalLaunchError({ cwd, cause })));
             const exitCode = Number(
               yield* child.exitCode.pipe(
@@ -62,7 +86,7 @@ export const makeTerminalLauncherLayer = (platform: NodeJS.Platform = process.pl
             if (exitCode !== 0) {
               return yield* new TerminalLaunchError({
                 cwd,
-                cause: new Error(`open -a Terminal exited with code ${exitCode}`),
+                cause: new Error(`${launchDescription} exited with code ${exitCode}`),
               });
             }
             return { cwd };
@@ -72,3 +96,51 @@ export const makeTerminalLauncherLayer = (platform: NodeJS.Platform = process.pl
   );
 
 export const TerminalLauncherLive = makeTerminalLauncherLayer();
+
+function normalizeTerminalAppName(appName: string | undefined): string {
+  const trimmed = appName?.trim();
+  return trimmed === undefined || trimmed === "" ? "Terminal" : trimmed;
+}
+
+function makeTerminalStartupCommand(
+  cwd: string,
+  startupScript: string,
+): ReturnType<typeof ChildProcess.make> {
+  const command = `cd ${shellQuote(cwd)}\n${startupScript}`;
+  return ChildProcess.make(
+    "osascript",
+    [
+      "-e",
+      "on run argv",
+      "-e",
+      'tell application "Terminal"',
+      "-e",
+      "activate",
+      "-e",
+      "do script item 1 of argv",
+      "-e",
+      "end tell",
+      "-e",
+      "end run",
+      "--",
+      command,
+    ],
+    { shell: false },
+  );
+}
+
+function isTerminalApp(appName: string): boolean {
+  return (
+    appName
+      .trim()
+      .toLowerCase()
+      .replace(/\.app$/, "") === "terminal"
+  );
+}
+
+function shellQuote(value: string): string {
+  if (/^[A-Za-z0-9_/:=.,@%+-]+$/.test(value)) {
+    return value;
+  }
+  return `'${value.replaceAll("'", "'\\''")}'`;
+}

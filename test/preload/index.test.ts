@@ -3,6 +3,8 @@ import {
   COMMANDS_INTERRUPT_CHANNEL,
   COMMANDS_STREAM_CHANNEL,
   GIT_PUBLISH_FIX_CHANNEL,
+  REPO_GET_SETTINGS_CHANNEL,
+  REPO_UPDATE_SETTINGS_CHANNEL,
   TERMINAL_OPEN_CHANNEL,
 } from "../../src/shared/ipcChannels";
 import type { Api } from "../../src/shared/types";
@@ -88,6 +90,42 @@ describe("preload api", () => {
     expect(invokeMock).toHaveBeenCalledWith(TERMINAL_OPEN_CHANNEL, {
       repoId: "repo-1",
       findingId: "fnd-1",
+    });
+  });
+
+  it("exposes repo settings over IPC", async () => {
+    invokeMock.mockResolvedValue({
+      schemaVersion: 1,
+      terminalAppName: "Terminal",
+      terminalStartupScript: "",
+      worktreeSetupScript: "pnpm install",
+      updatedAt: "2026-05-19T00:00:00.000Z",
+    });
+
+    await import("../../src/preload/index");
+
+    const api = exposeInMainWorldMock.mock.calls[0]?.[1] as Api | undefined;
+    if (api === undefined) {
+      throw new Error("preload api was not exposed");
+    }
+    const settings = {
+      schemaVersion: 1 as const,
+      terminalAppName: "Terminal",
+      terminalStartupScript: "",
+      worktreeSetupScript: "pnpm install",
+      updatedAt: "2026-05-19T00:00:00.000Z",
+    };
+
+    await expect(api.repo.getSettings("repo-1")).resolves.toMatchObject({
+      worktreeSetupScript: "pnpm install",
+    });
+    await expect(api.repo.updateSettings("repo-1", settings)).resolves.toMatchObject({
+      worktreeSetupScript: "pnpm install",
+    });
+    expect(invokeMock).toHaveBeenCalledWith(REPO_GET_SETTINGS_CHANNEL, { repoId: "repo-1" });
+    expect(invokeMock).toHaveBeenCalledWith(REPO_UPDATE_SETTINGS_CHANNEL, {
+      repoId: "repo-1",
+      settings,
     });
   });
 

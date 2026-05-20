@@ -7,7 +7,9 @@ import {
   COMMANDS_INTERRUPT_CHANNEL,
   COMMANDS_RUN_CHANNEL,
   GIT_PUBLISH_FIX_CHANNEL,
+  REPO_GET_SETTINGS_CHANNEL,
   REPO_PICK_FOLDER_CHANNEL,
+  REPO_UPDATE_SETTINGS_CHANNEL,
   TERMINAL_OPEN_CHANNEL,
 } from "../../src/shared/ipcChannels";
 import type {
@@ -208,6 +210,48 @@ describe("IPC handlers", () => {
       await runtime.dispose();
     }
   });
+
+  it("reads and updates repo settings through IPC", async () => {
+    const getSettings = vi.fn<RepoServiceShape["getSettings"]>(() =>
+      Effect.succeed({
+        schemaVersion: 1,
+        terminalAppName: "iTerm",
+        terminalStartupScript: "pnpm dev",
+        worktreeSetupScript: "pnpm install",
+        updatedAt: "2026-05-19T00:00:00.000Z",
+      }),
+    );
+    const updateSettings = vi.fn<RepoServiceShape["updateSettings"]>((_repoId, settings) =>
+      Effect.succeed({ ...settings, updatedAt: "2026-05-20T00:00:00.000Z" }),
+    );
+    const { registered, runtime } = await installHandlersForTest({ getSettings, updateSettings });
+    const getListener = registered.get(REPO_GET_SETTINGS_CHANNEL);
+    const updateListener = registered.get(REPO_UPDATE_SETTINGS_CHANNEL);
+    if (getListener === undefined || updateListener === undefined) {
+      throw new Error("repo settings IPC handlers were not registered");
+    }
+
+    const settings = {
+      schemaVersion: 1 as const,
+      terminalAppName: "Terminal",
+      terminalStartupScript: "",
+      worktreeSetupScript: "pnpm install",
+      updatedAt: "2026-05-19T00:00:00.000Z",
+    };
+
+    try {
+      await expect(
+        getListener({} as IpcMainInvokeEvent, { repoId: "repo-1" }),
+      ).resolves.toMatchObject({ terminalAppName: "iTerm" });
+      await expect(
+        updateListener({} as IpcMainInvokeEvent, { repoId: "repo-1", settings }),
+      ).resolves.toMatchObject({ worktreeSetupScript: "pnpm install" });
+      expect(getSettings).toHaveBeenCalledWith("repo-1");
+      expect(updateSettings).toHaveBeenCalledWith("repo-1", settings);
+    } finally {
+      await runtime.dispose();
+    }
+  });
 });
 
 type RegisteredListener = (event: IpcMainInvokeEvent, raw: unknown) => unknown | Promise<unknown>;
@@ -222,6 +266,8 @@ async function installHandlersForTest(options: {
   readonly openTerminal?: RepoServiceShape["openTerminal"];
   readonly publish?: (event: CommandStreamEvent) => void;
   readonly publishFix?: RepoServiceShape["publishFix"];
+  readonly getSettings?: RepoServiceShape["getSettings"];
+  readonly updateSettings?: RepoServiceShape["updateSettings"];
   readonly runCommand?: RepoServiceShape["runCommand"];
 }): Promise<{
   readonly registered: Map<string, RegisteredListener>;
@@ -234,6 +280,8 @@ async function installHandlersForTest(
     readonly openTerminal?: RepoServiceShape["openTerminal"];
     readonly publish?: (event: CommandStreamEvent) => void;
     readonly publishFix?: RepoServiceShape["publishFix"];
+    readonly getSettings?: RepoServiceShape["getSettings"];
+    readonly updateSettings?: RepoServiceShape["updateSettings"];
     readonly runCommand?: RepoServiceShape["runCommand"];
   } = {},
 ): Promise<{
@@ -269,6 +317,8 @@ function makeRepoServiceLayer(
     readonly interruptCommand?: RepoServiceShape["interruptCommand"];
     readonly openTerminal?: RepoServiceShape["openTerminal"];
     readonly publishFix?: RepoServiceShape["publishFix"];
+    readonly getSettings?: RepoServiceShape["getSettings"];
+    readonly updateSettings?: RepoServiceShape["updateSettings"];
     readonly runCommand?: RepoServiceShape["runCommand"];
   } = {},
 ) {
@@ -294,6 +344,24 @@ function makeRepoServiceLayer(
             updatedAt: "2026-05-19T00:00:00.000Z",
           },
         }),
+      getSettings:
+        options.getSettings ??
+        (() =>
+          Effect.succeed({
+            schemaVersion: 1,
+            terminalAppName: "Terminal",
+            terminalStartupScript: "",
+            worktreeSetupScript: "",
+            updatedAt: "2026-05-19T00:00:00.000Z",
+          })),
+      updateSettings:
+        options.updateSettings ??
+        ((_repoId, settings) =>
+          Effect.succeed({
+            ...settings,
+            schemaVersion: 1 as const,
+            updatedAt: "2026-05-19T00:00:00.000Z",
+          })),
       listFindings: () => Effect.succeed([]),
       readFeatureMap: () => Effect.succeed(makeFeatureMapSnapshot()),
       getFinding: () => Effect.die("not implemented"),

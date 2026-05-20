@@ -296,6 +296,26 @@ button:disabled {
   min-width: 0;
 }
 
+.repo-row {
+  align-items: stretch;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  display: grid;
+  gap: 2px;
+  grid-template-columns: minmax(0, 1fr) 28px;
+  min-width: 0;
+}
+
+.repo-row:hover {
+  background: var(--repo-hover-bg);
+}
+
+.repo-row.selected {
+  background: var(--accent-soft);
+  border-color: var(--accent-border);
+  color: var(--accent-text);
+}
+
 .repo-item {
   align-items: center;
   background: transparent;
@@ -313,14 +333,25 @@ button:disabled {
 }
 
 .repo-item:hover:not(:disabled) {
-  background: var(--repo-hover-bg);
   border-color: transparent;
 }
 
-.repo-item.selected {
-  background: var(--accent-soft);
-  border-color: var(--accent-border);
-  color: var(--accent-text);
+.repo-settings-button {
+  align-self: center;
+  background: transparent;
+  border-color: transparent;
+  color: var(--muted);
+  opacity: 0;
+}
+
+.repo-row:hover .repo-settings-button,
+.repo-row:focus-within .repo-settings-button {
+  opacity: 1;
+}
+
+.repo-settings-button:hover:not(:disabled) {
+  background: var(--button-hover-bg);
+  border-color: transparent;
 }
 
 .repo-name,
@@ -490,6 +521,103 @@ button:disabled {
   background: var(--accent-soft);
   border-color: var(--accent-border);
   color: var(--accent-text);
+}
+
+.primary-button {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--primary-text);
+}
+
+.primary-button:hover:not(:disabled) {
+  background: var(--primary-hover);
+  border-color: var(--primary-hover);
+}
+
+.modal-backdrop {
+  align-items: center;
+  background: rgba(20, 24, 31, 0.38);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: 24px;
+  position: fixed;
+  z-index: 50;
+}
+
+.settings-dialog {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: var(--popover-shadow);
+  color: var(--text);
+  display: grid;
+  gap: 14px;
+  max-height: min(720px, calc(100vh - 48px));
+  max-width: 680px;
+  min-width: 520px;
+  overflow: auto;
+  padding: 18px;
+  width: min(680px, calc(100vw - 48px));
+}
+
+.settings-dialog-header {
+  align-items: flex-start;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  min-width: 0;
+}
+
+.settings-dialog h2 {
+  color: var(--text-heading);
+  font-size: 16px;
+  margin: 0;
+}
+
+.settings-dialog p {
+  color: var(--muted);
+  margin: 2px 0 0;
+  overflow-wrap: anywhere;
+}
+
+.settings-form {
+  display: grid;
+  gap: 12px;
+}
+
+.settings-form label {
+  color: var(--muted);
+  display: grid;
+  font-size: 11px;
+  font-weight: 700;
+  gap: 5px;
+}
+
+.settings-form input,
+.settings-form textarea {
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  color: var(--text);
+  min-width: 0;
+  padding: 7px 8px;
+  width: 100%;
+}
+
+.settings-form textarea {
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  resize: vertical;
+}
+
+.settings-loading {
+  color: var(--muted);
+}
+
+.settings-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
 }
 
 .workspace-body {

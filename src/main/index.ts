@@ -13,9 +13,11 @@ import { childLogger, logger } from "./logger";
 import { ClawpatchRunnerLive } from "./services/clawpatchRunner";
 import { ClawpatchStateServiceLive } from "./services/clawpatchState";
 import { GitServiceLive } from "./services/gitService";
+import { RepoSettingsServiceLive } from "./services/repoSettings";
 import { TerminalLauncherLive } from "./services/terminalLauncher";
 import { UiMetadataServiceLive } from "./services/uiMetadata";
 import { RepoServiceLive } from "./services/repoService";
+import { SetupScriptRunnerLive } from "./services/setupScriptRunner";
 import { makeBeforeQuitHandler } from "./shutdown";
 import {
   MIN_WINDOW_HEIGHT,
@@ -324,7 +326,9 @@ function makeAppLayer(
     ClawpatchRunnerLive,
     ClawpatchStateServiceLive,
     UiMetadataServiceLive(userDataPath),
+    RepoSettingsServiceLive(userDataPath),
     GitServiceLive,
+    SetupScriptRunnerLive,
     TerminalLauncherLive,
   ).pipe(Layer.provide(NodeServices.layer));
   const repoLayer = RepoServiceLive(userDataPath).pipe(

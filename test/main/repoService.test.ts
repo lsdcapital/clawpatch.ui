@@ -12,6 +12,7 @@ import type {
   CommandResult,
   CommandStreamEvent,
 } from "../../src/shared/types";
+import { CommandSpawnError } from "../../src/main/errors";
 import {
   ClawpatchRunner,
   type ClawpatchRunnerShape,
@@ -27,6 +28,11 @@ import {
   type TerminalLauncherShape,
 } from "../../src/main/services/terminalLauncher";
 import { UiMetadataServiceLive } from "../../src/main/services/uiMetadata";
+import { RepoSettingsServiceLive } from "../../src/main/services/repoSettings";
+import {
+  SetupScriptRunner,
+  type SetupScriptRunnerShape,
+} from "../../src/main/services/setupScriptRunner";
 import { RepoService, RepoServiceLive } from "../../src/main/services/repoService";
 
 const fixtureRepo = resolve("test/fixtures/clawpatch-repo");
@@ -126,6 +132,80 @@ describe("RepoService", () => {
         ),
       ),
     );
+  });
+
+  it("opens a terminal with configured repo settings", async () => {
+    const calls: RunnerCall[] = [];
+    const terminalCalls: Array<{
+      readonly cwd: string;
+      readonly appName: string | undefined;
+      readonly startupScript: string | undefined;
+    }> = [];
+    const appData = await makeTempDir();
+    const runtime = ManagedRuntime.make(
+      makeRepoServiceTestLayer(fixtureRepo, calls, appData, false, undefined, undefined, {
+        open: (cwd, options) =>
+          Effect.sync(() => {
+            terminalCalls.push({
+              cwd,
+              appName: options?.appName,
+              startupScript: options?.startupScript,
+            });
+            return { cwd };
+          }),
+      }),
+    );
+
+    try {
+      await runtime.runPromise(
+        Effect.gen(function* () {
+          const service = yield* RepoService;
+          const summary = yield* service.addRepo(fixtureRepo);
+          yield* service.updateSettings(summary.id, {
+            schemaVersion: 1,
+            terminalAppName: "iTerm",
+            terminalStartupScript: "pnpm dev",
+            worktreeSetupScript: "",
+            updatedAt: "2026-05-19T00:00:00.000Z",
+          });
+          yield* service.openTerminal(summary.id);
+        }),
+      );
+
+      expect(terminalCalls).toEqual([
+        { cwd: fixtureRepo, appName: "iTerm", startupScript: "pnpm dev" },
+      ]);
+    } finally {
+      await runtime.dispose();
+    }
+  });
+
+  it("falls back to default repo settings when the settings file is invalid", async () => {
+    const calls: RunnerCall[] = [];
+    const appData = await makeTempDir();
+    const runtime = ManagedRuntime.make(makeRepoServiceTestLayer(fixtureRepo, calls, appData));
+
+    try {
+      const settings = await runtime.runPromise(
+        Effect.gen(function* () {
+          const service = yield* RepoService;
+          const summary = yield* service.addRepo(fixtureRepo);
+          yield* Effect.promise(() => mkdir(join(appData, "repo-settings"), { recursive: true }));
+          yield* Effect.promise(() =>
+            writeFile(join(appData, "repo-settings", `${summary.id}.json`), "{not-json", "utf8"),
+          );
+          return yield* service.getSettings(summary.id);
+        }),
+      );
+
+      expect(settings).toMatchObject({
+        terminalAppName: "Terminal",
+        terminalStartupScript: "",
+        worktreeSetupScript: "",
+      });
+    } finally {
+      await runtime.dispose();
+    }
   });
 
   it("opens a terminal at an active finding worktree when present", async () => {
@@ -372,6 +452,172 @@ describe("RepoService", () => {
     }).pipe(
       Effect.provide(
         makeRepoServiceTestLayer(fixtureRepo, calls, undefined, false, makeGitMock(gitCalls)),
+      ),
+    );
+  });
+
+  it("runs configured setup scripts once after creating a managed worktree", async () => {
+    const calls: RunnerCall[] = [];
+    const setupCalls: Array<{ readonly cwd: string; readonly script: string }> = [];
+    const gitCalls: Array<{
+      kind: string;
+      repoPath: string;
+      worktreePath?: string;
+      branchName?: string;
+      baseRef?: string;
+    }> = [];
+    const appData = await makeTempDir();
+    const runtime = ManagedRuntime.make(
+      makeRepoServiceTestLayer(
+        fixtureRepo,
+        calls,
+        appData,
+        false,
+        makeGitMock(gitCalls),
+        undefined,
+        undefined,
+        {
+          run: (cwd, script, metadata, onStream) =>
+            Effect.sync(() => {
+              setupCalls.push({ cwd, script });
+              onStream?.({
+                kind: "lifecycle",
+                runId: metadata.runId ?? "setup",
+                repoId: metadata.repoId,
+                findingId: metadata.findingId,
+                command: metadata.command,
+                phase: "setup:start",
+                message: "$ /bin/zsh -lc <worktree setup script>",
+                cwd,
+              });
+              return makeCommandResult(cwd, "setup");
+            }),
+        },
+      ),
+    );
+
+    try {
+      await runtime.runPromise(
+        Effect.gen(function* () {
+          const service = yield* RepoService;
+          const summary = yield* service.addRepo(fixtureRepo);
+          yield* service.updateSettings(summary.id, {
+            schemaVersion: 1,
+            terminalAppName: "Terminal",
+            terminalStartupScript: "",
+            worktreeSetupScript: "pnpm install",
+            updatedAt: "2026-05-19T00:00:00.000Z",
+          });
+          yield* service.runCommand(summary.id, { command: "fix", findingId: "fnd-1" });
+        }),
+      );
+
+      const worktreePath = gitCalls.find((call) => call.kind === "worktree")?.worktreePath;
+      expect(setupCalls).toEqual([{ cwd: worktreePath ?? "", script: "pnpm install" }]);
+      expect(calls.at(-2)).toMatchObject({
+        repoPath: worktreePath,
+        request: { command: "fix", findingId: "fnd-1" },
+      });
+    } finally {
+      await runtime.dispose();
+    }
+  });
+
+  it.effect("skips setup scripts when a managed worktree is reused", () => {
+    const calls: RunnerCall[] = [];
+    const setupCalls: string[] = [];
+    const gitService = makeGitMock([]);
+    return Effect.gen(function* () {
+      const service = yield* RepoService;
+      const summary = yield* service.addRepo(fixtureRepo);
+      yield* service.updateSettings(summary.id, {
+        schemaVersion: 1,
+        terminalAppName: "Terminal",
+        terminalStartupScript: "",
+        worktreeSetupScript: "pnpm install",
+        updatedAt: "2026-05-19T00:00:00.000Z",
+      });
+      yield* service.runCommand(summary.id, { command: "revalidate", findingId: "fnd-1" });
+
+      expect(setupCalls).toEqual([]);
+    }).pipe(
+      Effect.provide(
+        makeRepoServiceTestLayer(
+          fixtureRepo,
+          calls,
+          undefined,
+          false,
+          {
+            ...gitService,
+            createOrReuseWorktree: (input, onLifecycle) =>
+              gitService
+                .createOrReuseWorktree(input, onLifecycle)
+                .pipe(Effect.map((result) => ({ ...result, created: false }))),
+          },
+          undefined,
+          undefined,
+          {
+            run: (cwd) =>
+              Effect.sync(() => {
+                setupCalls.push(cwd);
+                return makeCommandResult(cwd, "setup");
+              }),
+          },
+        ),
+      ),
+    );
+  });
+
+  it.effect("blocks fixes when the setup script fails", () => {
+    const calls: RunnerCall[] = [];
+    const gitCalls: Array<{
+      kind: string;
+      repoPath: string;
+      worktreePath?: string;
+      branchName?: string;
+      baseRef?: string;
+    }> = [];
+    return Effect.gen(function* () {
+      const service = yield* RepoService;
+      const summary = yield* service.addRepo(fixtureRepo);
+      yield* service.updateSettings(summary.id, {
+        schemaVersion: 1,
+        terminalAppName: "Terminal",
+        terminalStartupScript: "",
+        worktreeSetupScript: "exit 1",
+        updatedAt: "2026-05-19T00:00:00.000Z",
+      });
+      const error = yield* service
+        .runCommand(summary.id, { command: "fix", findingId: "fnd-1" })
+        .pipe(
+          Effect.match({
+            onFailure: (error) => error,
+            onSuccess: () => null,
+          }),
+        );
+
+      expect(error).toMatchObject({ message: "Worktree setup script failed with exit code 1" });
+      expect(calls.some((call) => call.request.command === "fix")).toBe(false);
+    }).pipe(
+      Effect.provide(
+        makeRepoServiceTestLayer(
+          fixtureRepo,
+          calls,
+          undefined,
+          false,
+          makeGitMock(gitCalls),
+          undefined,
+          undefined,
+          {
+            run: (cwd) =>
+              Effect.fail(
+                new CommandSpawnError({
+                  repoPath: cwd,
+                  cause: new Error("Worktree setup script failed with exit code 1"),
+                }),
+              ),
+          },
+        ),
       ),
     );
   });
@@ -1004,6 +1250,7 @@ function makeRepoServiceTestLayer(
   gitService?: GitServiceShape,
   runnerService?: ClawpatchRunnerShape,
   terminalLauncherService?: TerminalLauncherShape,
+  setupScriptRunnerService?: SetupScriptRunnerShape,
 ) {
   const appDataEffect =
     appData === undefined ? Effect.promise(() => makeTempDir()) : Effect.succeed(appData);
@@ -1049,9 +1296,18 @@ function makeRepoServiceTestLayer(
             runnerLayer,
             ClawpatchStateServiceLive,
             UiMetadataServiceLive(appData),
+            RepoSettingsServiceLive(appData),
             gitService === undefined
               ? GitServiceLive
               : Layer.succeed(GitService, GitService.of(gitService)),
+            Layer.succeed(
+              SetupScriptRunner,
+              SetupScriptRunner.of(
+                setupScriptRunnerService ?? {
+                  run: (cwd) => Effect.succeed(makeCommandResult(cwd, "setup")),
+                },
+              ),
+            ),
             Layer.succeed(
               TerminalLauncher,
               TerminalLauncher.of(
@@ -1149,7 +1405,7 @@ function makeGitMock(
           cwd: repoPath,
           argv: ["git", "worktree", "add", "-b", branchName, worktreePath, baseRef],
         });
-        return worktreePath;
+        return { worktreePath, created: true };
       }),
     publishFix: ({ repoPath, worktreePath, branchName, baseBranch, commitMessage }) =>
       Effect.sync(() => {

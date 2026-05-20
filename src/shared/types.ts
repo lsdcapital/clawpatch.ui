@@ -16,6 +16,7 @@ import type {
   PatchCommandRunSchema,
   PatchGitInfoSchema,
   PublishFixResultSchema,
+  RepoSettingsSchema,
   UiMetadataSchema,
   RepoSnapshotSchema,
   RepoSummarySchema,
@@ -31,6 +32,7 @@ export type CommandInterruptResult = typeof CommandInterruptResultSchema.Type;
 export type CommandResult = typeof CommandResultSchema.Type;
 export type CommandStreamEvent = typeof CommandStreamEventSchema.Type;
 export type PublishFixResult = typeof PublishFixResultSchema.Type;
+export type RepoSettings = typeof RepoSettingsSchema.Type;
 export type ActiveWorktree = typeof ActiveWorktreeSchema.Type;
 export type RepoSummary = typeof RepoSummarySchema.Type;
 export type RepoSnapshot = typeof RepoSnapshotSchema.Type;
@@ -55,6 +57,8 @@ export interface Api {
     add: (repoPath: string) => Promise<RepoSummary>;
     pickFolder: () => Promise<string | null>;
     refresh: (repoId: string) => Promise<RepoSnapshot>;
+    getSettings: (repoId: string) => Promise<RepoSettings>;
+    updateSettings: (repoId: string, settings: RepoSettings) => Promise<RepoSettings>;
   };
   findings: {
     list: (repoId: string) => Promise<readonly FindingListItem[]>;
