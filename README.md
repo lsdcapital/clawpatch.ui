@@ -31,8 +31,8 @@ See [clawpatch.ai](https://clawpatch.ai) for full CLI documentation.
 Clone or fork the repo, then install dependencies and start the Electron app:
 
 ```bash
-git clone https://github.com/lsdcapital/clawpatch-ui.git
-cd clawpatch-ui
+git clone https://github.com/lsdcapital/clawpatch.ui.git
+cd clawpatch.ui
 fnm install
 fnm use
 corepack enable

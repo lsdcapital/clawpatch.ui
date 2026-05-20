@@ -85,9 +85,10 @@ export function FindingDetailPanel({
     );
   }
 
-  const noteHistory = finding.history.filter(
-    (entry) => entry.note !== null && entry.note.trim() !== "",
-  );
+  const evidence = finding.evidence ?? [];
+  const history = finding.history ?? [];
+  const patchAttempts = finding.patchAttempts ?? [];
+  const noteHistory = history.filter((entry) => entry.note !== null && entry.note.trim() !== "");
   const saveTriageNote = (): void => {
     if (!isBusy) {
       onTriage(status, note);
@@ -156,7 +157,7 @@ export function FindingDetailPanel({
 
         <section>
           <h3>Evidence</h3>
-          {finding.evidence.map((evidence) => (
+          {evidence.map((evidence) => (
             <div className="evidence" key={`${evidence.path}:${evidence.startLine ?? 0}`}>
               <strong>{evidence.path}</strong>
               <span>
@@ -191,9 +192,9 @@ export function FindingDetailPanel({
           </section>
         ) : null}
 
-        {finding.patchAttempts.length > 0 ? (
+        {patchAttempts.length > 0 ? (
           <PatchAttemptsSection
-            patches={finding.patchAttempts}
+            patches={patchAttempts}
             onOpenDiffFile={onOpenDiffFile}
             filesInDiff={filesInDiff}
           />
@@ -320,8 +321,10 @@ function PatchAttemptCard({
   filesInDiff?: ReadonlySet<string>;
 }) {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
-  const testSummary = summarizeRuns(patch.testResults);
-  const commandSummary = summarizeRuns(patch.commandsRun);
+  const filesChanged = patch.filesChanged ?? [];
+  const git = patch.git ?? { baseSha: null, commitSha: null, branchName: null, prUrl: null };
+  const testSummary = summarizeRuns(patch.testResults ?? []);
+  const commandSummary = summarizeRuns(patch.commandsRun ?? []);
 
   return (
     <article className={`patch-entry status-${patch.status}`}>
@@ -336,7 +339,7 @@ function PatchAttemptCard({
         </span>
         <span className={`patch-status patch-status-${patch.status}`}>{patch.status}</span>
         <span className="patch-files-count">
-          {patch.filesChanged.length} file{patch.filesChanged.length === 1 ? "" : "s"}
+          {filesChanged.length} file{filesChanged.length === 1 ? "" : "s"}
         </span>
         {testSummary !== null ? (
           <span className={`patch-tests patch-tests-${testSummary.outcome}`}>
@@ -350,11 +353,11 @@ function PatchAttemptCard({
       {isExpanded ? (
         <div className="patch-entry-body">
           {patch.plan !== null && patch.plan.trim() !== "" ? <p>{patch.plan}</p> : null}
-          {patch.filesChanged.length > 0 ? (
+          {filesChanged.length > 0 ? (
             <div className="patch-files">
               <span className="patch-section-label">Files changed</span>
               <ul>
-                {patch.filesChanged.map((filePath) => {
+                {filesChanged.map((filePath) => {
                   const isPresentInDiff = filesInDiff === undefined || filesInDiff.has(filePath);
                   if (onOpenDiffFile === undefined) {
                     return (
@@ -394,22 +397,22 @@ function PatchAttemptCard({
             </div>
           ) : null}
           <dl className="patch-meta">
-            {patch.git.branchName !== null ? (
+            {git.branchName !== null ? (
               <>
                 <dt>Branch</dt>
-                <dd>{patch.git.branchName}</dd>
+                <dd>{git.branchName}</dd>
               </>
             ) : null}
-            {patch.git.baseSha !== null ? (
+            {git.baseSha !== null ? (
               <>
                 <dt>Base</dt>
-                <dd className="patch-sha">{patch.git.baseSha.slice(0, 12)}</dd>
+                <dd className="patch-sha">{git.baseSha.slice(0, 12)}</dd>
               </>
             ) : null}
-            {patch.git.commitSha !== null ? (
+            {git.commitSha !== null ? (
               <>
                 <dt>Commit</dt>
-                <dd className="patch-sha">{patch.git.commitSha.slice(0, 12)}</dd>
+                <dd className="patch-sha">{git.commitSha.slice(0, 12)}</dd>
               </>
             ) : null}
             {testSummary !== null ? (

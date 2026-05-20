@@ -21,6 +21,20 @@ import {
   TRIAGE_SET_CHANNEL,
 } from "../shared/ipcChannels";
 
+const repoFindingPayload = (
+  repoId: string,
+  findingId?: string,
+): { repoId: string; findingId?: string } =>
+  findingId === undefined ? { repoId } : { repoId, findingId };
+
+const triagePayload = (
+  repoId: string,
+  findingId: string,
+  status: ClawpatchStatus,
+  note?: string,
+): { repoId: string; findingId: string; status: ClawpatchStatus; note?: string } =>
+  note === undefined ? { repoId, findingId, status } : { repoId, findingId, status, note };
+
 const api: Api = {
   repo: {
     list: () => ipcRenderer.invoke(REPO_LIST_CHANNEL),
@@ -37,13 +51,13 @@ const api: Api = {
   },
   triage: {
     set: (repoId: string, findingId: string, status: ClawpatchStatus, note?: string) =>
-      ipcRenderer.invoke(TRIAGE_SET_CHANNEL, { repoId, findingId, status, note }),
+      ipcRenderer.invoke(TRIAGE_SET_CHANNEL, triagePayload(repoId, findingId, status, note)),
   },
   commands: {
     run: (repoId: string, request: ClawpatchCommandRequest) =>
       ipcRenderer.invoke(COMMANDS_RUN_CHANNEL, { repoId, request }),
     interrupt: (repoId: string, findingId?: string) =>
-      ipcRenderer.invoke(COMMANDS_INTERRUPT_CHANNEL, { repoId, findingId }),
+      ipcRenderer.invoke(COMMANDS_INTERRUPT_CHANNEL, repoFindingPayload(repoId, findingId)),
     onStream: (listener: (event: CommandStreamEvent) => void) => {
       const handler = (_event: Electron.IpcRendererEvent, payload: CommandStreamEvent): void =>
         listener(payload);
@@ -52,8 +66,10 @@ const api: Api = {
     },
   },
   git: {
-    diff: (repoId, findingId) => ipcRenderer.invoke(GIT_DIFF_CHANNEL, { repoId, findingId }),
-    status: (repoId, findingId) => ipcRenderer.invoke(GIT_STATUS_CHANNEL, { repoId, findingId }),
+    diff: (repoId, findingId) =>
+      ipcRenderer.invoke(GIT_DIFF_CHANNEL, repoFindingPayload(repoId, findingId)),
+    status: (repoId, findingId) =>
+      ipcRenderer.invoke(GIT_STATUS_CHANNEL, repoFindingPayload(repoId, findingId)),
   },
 };
 

@@ -4,7 +4,7 @@
   "name": "clawpatch-gui",
   "rootPath": "/Users/steflsd/src/lsdcapital/clawpatch.ui",
   "git": {
-    "remoteUrl": "git@github.com:lsdcapital/clawpatch-ui.git",
+    "remoteUrl": "git@github.com:lsdcapital/clawpatch.ui.git",
     "defaultBranch": "main",
     "currentBranch": "main",
     "headSha": "65e1c9e36701cd60e5319ecf5b20388754bf8bbe"
