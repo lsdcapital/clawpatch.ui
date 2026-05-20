@@ -14,6 +14,9 @@ import type {
 } from "../../shared/types";
 import { clawpatchStatuses } from "../../shared/types";
 import { CommandAlreadyRunningError, CommandSpawnError, CommandValidationError } from "../errors";
+import { childLogger } from "../logger";
+
+const clawpatchLogger = childLogger("clawpatch");
 
 const commandNames = new Set([
   "status",
@@ -82,6 +85,14 @@ export const makeClawpatchRunnerLayer = () =>
               activeCommand.interrupt = interrupt;
             },
           }).pipe(
+            Effect.tapError((cause) =>
+              Effect.sync(() => {
+                clawpatchLogger.error(
+                  { err: cause, repoPath, args, runId },
+                  "Clawpatch command failed",
+                );
+              }),
+            ),
             Effect.mapError((cause) => new CommandSpawnError({ repoPath, cause })),
             Effect.ensuring(Effect.sync(() => activeCommands.delete(repoPath))),
           );
@@ -165,6 +176,10 @@ function runClawpatchProcess(input: {
   readonly registerInterrupt: (interrupt: Effect.Effect<boolean>) => void;
 }) {
   return Effect.gen(function* () {
+    clawpatchLogger.info(
+      { repoPath: input.repoPath, args: input.args, runId: input.runId },
+      "Starting clawpatch command",
+    );
     const child = yield* input.spawner.spawn(
       ChildProcess.make("clawpatch", input.args, {
         cwd: input.repoPath,
@@ -196,7 +211,7 @@ function runClawpatchProcess(input: {
       { concurrency: "unbounded" },
     ).pipe(Effect.onInterrupt(() => interrupt.pipe(Effect.asVoid)));
 
-    return {
+    const result = {
       runId: input.runId,
       command: "clawpatch",
       args: [...input.args],
@@ -207,6 +222,21 @@ function runClawpatchProcess(input: {
       stderr,
       parsedJson: parseJsonOutput(stdout),
     };
+    const logPayload = {
+      repoPath: input.repoPath,
+      args: input.args,
+      runId: input.runId,
+      exitCode,
+      durationMs: result.durationMs,
+      stdoutLength: stdout.length,
+      stderrLength: stderr.length,
+    };
+    if (exitCode === 0) {
+      clawpatchLogger.info(logPayload, "Clawpatch command completed");
+    } else {
+      clawpatchLogger.warn(logPayload, "Clawpatch command exited non-zero");
+    }
+    return result;
   }).pipe(Effect.scoped);
 }
 

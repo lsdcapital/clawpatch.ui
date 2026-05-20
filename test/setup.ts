@@ -1,5 +1,7 @@
 import "@testing-library/jest-dom/vitest";
 
+process.env["LOG_LEVEL"] ??= "silent";
+
 class TestResizeObserver {
   observe(): void {}
   unobserve(): void {}

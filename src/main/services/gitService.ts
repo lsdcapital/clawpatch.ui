@@ -7,6 +7,9 @@ import * as Stream from "effect/Stream";
 import * as ChildProcess from "effect/unstable/process/ChildProcess";
 import * as ChildProcessSpawner from "effect/unstable/process/ChildProcessSpawner";
 import { CommandSpawnError } from "../errors";
+import { childLogger } from "../logger";
+
+const gitLogger = childLogger("git");
 
 export interface GitStatusSummary {
   readonly staged: number;
@@ -183,6 +186,16 @@ function runGitOutput(
       if (exitCode === 0) {
         return Effect.succeed(stdout || stderr);
       }
+      gitLogger.debug(
+        {
+          repoPath,
+          args,
+          exitCode,
+          stdoutLength: stdout.length,
+          stderrLength: stderr.length,
+        },
+        "Git command exited non-zero",
+      );
       return Effect.fail(new Error(stderr || stdout || `git ${args.join(" ")} failed`));
     }),
   );
@@ -194,7 +207,10 @@ function runGitResult(
   args: readonly string[],
   onLifecycle?: (event: GitLifecycleEvent) => void,
 ) {
+  let started = 0;
   return Effect.gen(function* () {
+    started = Date.now();
+    gitLogger.debug({ repoPath, args }, "Starting git command");
     const argv = ["git", ...args];
     onLifecycle?.({
       phase: "git:start",
@@ -209,8 +225,35 @@ function runGitResult(
       [collectOutput(child.stdout), collectOutput(child.stderr), child.exitCode],
       { concurrency: "unbounded" },
     ).pipe(Effect.onInterrupt(() => interruptChild(child).pipe(Effect.asVoid)));
-    return { stdout, stderr, exitCode: Number(exitCode) };
-  }).pipe(Effect.scoped);
+    const numericExitCode = Number(exitCode);
+    gitLogger.debug(
+      {
+        repoPath,
+        args,
+        exitCode: numericExitCode,
+        durationMs: Date.now() - started,
+        stdoutLength: stdout.length,
+        stderrLength: stderr.length,
+      },
+      "Git command completed",
+    );
+    return { stdout, stderr, exitCode: numericExitCode };
+  }).pipe(
+    Effect.tapError((cause) =>
+      Effect.sync(() => {
+        gitLogger.error(
+          {
+            err: cause,
+            repoPath,
+            args,
+            durationMs: started === 0 ? undefined : Date.now() - started,
+          },
+          "Git command failed",
+        );
+      }),
+    ),
+    Effect.scoped,
+  );
 }
 
 function interruptChild(child: ChildProcessSpawner.ChildProcessHandle): Effect.Effect<boolean> {
