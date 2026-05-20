@@ -97,6 +97,13 @@ export function ClawpatchApp() {
       null,
     [selectedFindingId, sortedFindings],
   );
+  const selectedFindingWorktree = useMemo(
+    () =>
+      selectedRepo?.activeWorktrees.find(
+        (worktree) => worktree.findingId === selectedFinding?.findingId,
+      ) ?? null,
+    [selectedFinding?.findingId, selectedRepo?.activeWorktrees],
+  );
   const selectedFindingIdForWorkspace = selectedFinding?.findingId;
   const selectedFindingCommand =
     selectedFindingIdForWorkspace === undefined
@@ -421,6 +428,7 @@ export function ClawpatchApp() {
       <section className="workspace">
         <WorkspaceHeader
           repo={selectedRepo}
+          selectedFindingWorktree={selectedFindingWorktree}
           repoSidebarId={REPO_SIDEBAR_ID}
           isRepoSidebarCollapsed={isRepoSidebarCollapsed}
           activeWorkspace={activeWorkspace}

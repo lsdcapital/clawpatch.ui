@@ -9,11 +9,12 @@ import {
   StethoscopeIcon,
   TerminalSquareIcon,
 } from "lucide-react";
-import type { ClawpatchCommandRequest, RepoSummary } from "../../../shared/types";
+import type { ActiveWorktree, ClawpatchCommandRequest, RepoSummary } from "../../../shared/types";
 import type { ActiveInspector, ActiveWorkspace } from "../workspaceTypes";
 
 export function WorkspaceHeader({
   repo,
+  selectedFindingWorktree,
   repoSidebarId,
   isRepoSidebarCollapsed,
   activeWorkspace,
@@ -25,6 +26,7 @@ export function WorkspaceHeader({
   onRunCommand,
 }: {
   repo: RepoSummary | null;
+  selectedFindingWorktree: ActiveWorktree | null;
   repoSidebarId: string;
   isRepoSidebarCollapsed: boolean;
   activeWorkspace: ActiveWorkspace;
@@ -60,17 +62,10 @@ export function WorkspaceHeader({
       <div className="workspace-title">
         <h1>{repo?.name ?? "Clawpatch"}</h1>
         <p>{repo?.path ?? "Add a repository with .clawpatch state to begin."}</p>
-        {repo !== null && repo.activeWorktrees.length > 0 ? (
-          <div
-            className="workspace-worktree"
-            title={repo.activeWorktrees.map((worktree) => worktree.path).join("\n")}
-          >
-            <span>{repo.activeWorktrees.length === 1 ? "worktree" : "worktrees"}</span>
-            <code>
-              {repo.activeWorktrees.length === 1
-                ? repo.activeWorktrees[0]?.path
-                : String(repo.activeWorktrees.length)}
-            </code>
+        {selectedFindingWorktree !== null ? (
+          <div className="workspace-worktree" title={selectedFindingWorktree.path}>
+            <span>worktree</span>
+            <code>{selectedFindingWorktree.path}</code>
           </div>
         ) : null}
       </div>
