@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  MAX_COMMAND_LOG_ENTRIES,
+  appendCommandLogEntries,
   commandErrorLogEntry,
   commandResultLogEntries,
   visibleCommandLogEntries,
@@ -8,6 +10,31 @@ import type { CommandResult } from "../../src/shared/types";
 import type { CommandLogEntry } from "../../src/renderer/src/workspaceTypes";
 
 describe("command log entries", () => {
+  it("caps appended command log entries at MAX_COMMAND_LOG_ENTRIES, keeping the latest", () => {
+    const current: CommandLogEntry[] = Array.from({ length: MAX_COMMAND_LOG_ENTRIES }, (_, index) =>
+      makeStreamEntry(`existing-${index}`),
+    );
+    const additions: CommandLogEntry[] = Array.from({ length: 5 }, (_, index) =>
+      makeStreamEntry(`new-${index}`),
+    );
+
+    const next = appendCommandLogEntries(current, additions);
+
+    expect(next).toHaveLength(MAX_COMMAND_LOG_ENTRIES);
+    expect(streamChunk(next[0])).toBe("existing-5");
+    expect(streamChunk(next.at(-1))).toBe("new-4");
+  });
+
+  it("returns the appended array as-is when the total stays within the cap", () => {
+    const current: CommandLogEntry[] = [makeStreamEntry("a")];
+    const additions: CommandLogEntry[] = [makeStreamEntry("b"), makeStreamEntry("c")];
+
+    const next = appendCommandLogEntries(current, additions);
+
+    expect(next).toHaveLength(3);
+    expect(next.map(streamChunk)).toEqual(["a", "b", "c"]);
+  });
+
   it("keeps the parent finding id on related command results", () => {
     const entries = commandResultLogEntries(
       "repo-auth",
@@ -129,6 +156,25 @@ function makeMixedEntries(): CommandLogEntry[] {
     },
     { kind: "error", message: "unknown failure" },
   ];
+}
+
+function makeStreamEntry(chunk: string): CommandLogEntry {
+  return {
+    kind: "stream",
+    event: {
+      kind: "output",
+      runId: "run-cap",
+      stream: "stdout",
+      chunk,
+    },
+  };
+}
+
+function streamChunk(entry: CommandLogEntry | undefined): string | undefined {
+  if (entry === undefined || entry.kind !== "stream" || entry.event.kind !== "output") {
+    return undefined;
+  }
+  return entry.event.chunk;
 }
 
 function makeCommandResult(

@@ -480,6 +480,44 @@ describe("ClawpatchApp header actions", () => {
     expect(screen.getByText("Billing")).toBeInTheDocument();
   });
 
+  it("retains only the latest command stream entries", async () => {
+    let streamListener: ((event: CommandStreamEvent) => void) | null = null;
+    const onStream = vi.fn<Api["commands"]["onStream"]>((listener) => {
+      streamListener = listener;
+      return () => {
+        streamListener = null;
+      };
+    });
+    window.clawpatch = makeApi(
+      vi.fn<Api["commands"]["run"]>(async () => makeCommandResult("status")),
+      { onStream },
+    );
+
+    renderApp();
+
+    await screen.findByRole("heading", { name: "auth" });
+    fireEvent.click(screen.getByRole("button", { name: "Toggle command output" }));
+    if (streamListener === null) {
+      throw new Error("stream listener was not registered");
+    }
+
+    act(() => {
+      for (let index = 0; index < 205; index += 1) {
+        streamListener?.({
+          kind: "output",
+          runId: "run-status",
+          stream: "stdout",
+          chunk: `chunk-${index}\n`,
+        });
+      }
+    });
+
+    const output = screen.getByRole("complementary", { name: "Command output" });
+    expect(output.textContent).not.toContain("[stdout] chunk-4\n");
+    expect(output.textContent).toContain("[stdout] chunk-5\n");
+    expect(output.textContent).toContain("[stdout] chunk-204\n");
+  });
+
   it("revalidates the selected finding and opens command output", async () => {
     const run = vi.fn<Api["commands"]["run"]>(async (_repoId, request) =>
       makeCommandResult(request.command),

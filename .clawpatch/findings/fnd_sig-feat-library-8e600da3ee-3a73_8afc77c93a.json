@@ -36,11 +36,35 @@
   "whyTestsDoNotAlreadyCoverThis": "No linked tests exercise large command streams or repeated command output rendering.",
   "suggestedRegressionTest": "Add a renderer test that sends many stream events and asserts the log is capped or trimmed according to the chosen retention policy.",
   "minimumFixScope": "Introduce a bounded command log policy in ClawpatchApp and avoid recomputing the full formatted output on every CommandPanel render.",
-  "status": "open",
-  "history": [],
+  "status": "fixed",
+  "history": [
+    {
+      "runId": "20260520T131504-fadafd",
+      "kind": "revalidate",
+      "status": "fixed",
+      "note": null,
+      "reasoning": "The original evidence no longer exists in the reported form. In src/renderer/src/routes/ClawpatchApp.tsx, stream/result/error appends now all route through appendCommandLogEntries, and that helper caps retained entries to MAX_COMMAND_LOG_ENTRIES = 200 via next.slice(-MAX_COMMAND_LOG_ENTRIES). In src/renderer/src/components/CommandPanel.tsx, formatted output is now wrapped in useMemo, so unrelated renders with the same entries/isRunning do not rebuild the full output string. A current regression test in test/renderer/ClawpatchApp.test.tsx named \"retains only the latest command stream entries\" sends 205 stream events and asserts chunk-4 is trimmed while chunk-5 and chunk-204 remain. I attempted to run the renderer test file, but the read-only sandbox prevented Vitest/Vite from creating node_modules/.vite-temp, so runtime verification was blocked by EPERM rather than a test failure.",
+      "commands": [
+        "pwd && rg -n \"setCommandLog|onStream|CommandPanel|entries\\.map|commandLog\" src/renderer/src/routes/ClawpatchApp.tsx src/renderer/src/components/CommandPanel.tsx",
+        "rg -n \"command log|commandLog|CommandPanel|onStream|stream\" src/renderer/src --glob '*.{test,spec}.{ts,tsx}' --glob '*.{ts,tsx}'",
+        "nl -ba src/renderer/src/routes/ClawpatchApp.tsx | sed -n '120,180p' && nl -ba src/renderer/src/components/CommandPanel.tsx | sed -n '1,120p'",
+        "rg -n \"appendCommandLogEntries|MAX_COMMAND|COMMAND_LOG|formatCommandOutput|clear\" src/renderer/src src -g '*.{ts,tsx}'",
+        "nl -ba src/renderer/src/routes/ClawpatchApp.tsx | sed -n '1,90p' && nl -ba src/renderer/src/routes/ClawpatchApp.tsx | sed -n '180,240p' && nl -ba src/renderer/src/routes/ClawpatchApp.tsx | sed -n '310,365p'",
+        "rg --files | rg '(CommandPanel|ClawpatchApp|command).*\\.(test|spec)\\.(ts|tsx)$|vitest|jest|testing-library'",
+        "nl -ba src/renderer/src/routes/ClawpatchApp.tsx | sed -n '535,560p'",
+        "rg -n \"command log|Command Output|200|stream|trim|capped|No commands\" test/renderer/ClawpatchApp.test.tsx src/renderer/src/components/CommandPanel.tsx",
+        "nl -ba test/renderer/ClawpatchApp.test.tsx | sed -n '1,260p'",
+        "nl -ba test/renderer/ClawpatchApp.test.tsx | sed -n '320,435p'",
+        "npm test -- --run test/renderer/ClawpatchApp.test.tsx"
+      ],
+      "createdAt": "2026-05-20T13:16:12.637Z"
+    }
+  ],
   "signature": "sig_feat-library-8e600da3ee_3a732f6254",
-  "linkedPatchAttemptIds": [],
+  "linkedPatchAttemptIds": [
+    "pat_fnd-sig-feat-library-8e600da3ee-_3521e9b096"
+  ],
   "createdByRunId": "20260519T113652-408557",
   "createdAt": "2026-05-19T11:38:14.401Z",
-  "updatedAt": "2026-05-19T11:38:14.401Z"
+  "updatedAt": "2026-05-20T13:16:12.637Z"
 }

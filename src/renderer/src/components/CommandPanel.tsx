@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { SquareIcon } from "lucide-react";
 import type { CommandLogEntry } from "../workspaceTypes";
 
@@ -10,6 +11,8 @@ export function CommandPanel({
   isRunning: boolean;
   onInterrupt: () => void;
 }) {
+  const output = useMemo(() => formatCommandOutput(entries, isRunning), [entries, isRunning]);
+
   return (
     <section className="panel command-panel">
       <div className="panel-header">
@@ -28,30 +31,31 @@ export function CommandPanel({
           ) : null}
         </div>
       </div>
-      <pre>
-        {entries.length === 0
-          ? isRunning
-            ? "Command starting..."
-            : "No commands run yet."
-          : entries
-              .map((entry) => {
-                if (entry.kind === "stream") {
-                  if (entry.event.kind === "output") {
-                    return `${entryLabel(entry.event)}[${entry.event.stream}] ${entry.event.chunk}`;
-                  }
-                  return `${entryLabel(entry.event)}[${entry.event.phase}] ${entry.event.message} (cwd: ${entry.event.cwd})`;
-                }
-                if (entry.kind === "result") {
-                  return `${entryLabel(entry)}[exit ${
-                    entry.result.exitCode ?? "null"
-                  }] clawpatch ${entry.result.args.join(" ")} (${entry.result.durationMs}ms)`;
-                }
-                return `${entryLabel(entry)}[error] ${entry.message}`;
-              })
-              .join("\n")}
-      </pre>
+      <pre>{output}</pre>
     </section>
   );
+}
+
+function formatCommandOutput(entries: readonly CommandLogEntry[], isRunning: boolean): string {
+  if (entries.length === 0) {
+    return isRunning ? "Command starting..." : "No commands run yet.";
+  }
+  return entries
+    .map((entry) => {
+      if (entry.kind === "stream") {
+        if (entry.event.kind === "output") {
+          return `${entryLabel(entry.event)}[${entry.event.stream}] ${entry.event.chunk}`;
+        }
+        return `${entryLabel(entry.event)}[${entry.event.phase}] ${entry.event.message} (cwd: ${entry.event.cwd})`;
+      }
+      if (entry.kind === "result") {
+        return `${entryLabel(entry)}[exit ${
+          entry.result.exitCode ?? "null"
+        }] clawpatch ${entry.result.args.join(" ")} (${entry.result.durationMs}ms)`;
+      }
+      return `${entryLabel(entry)}[error] ${entry.message}`;
+    })
+    .join("\n");
 }
 
 function entryLabel(entry: { readonly findingId?: string; readonly command?: string }): string {
