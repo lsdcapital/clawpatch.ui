@@ -36,7 +36,10 @@ export function CommandPanel({
           : entries
               .map((entry) => {
                 if (entry.kind === "stream") {
-                  return `${entryLabel(entry.event)}[${entry.event.stream}] ${entry.event.chunk}`;
+                  if (entry.event.kind === "output") {
+                    return `${entryLabel(entry.event)}[${entry.event.stream}] ${entry.event.chunk}`;
+                  }
+                  return `${entryLabel(entry.event)}[${entry.event.phase}] ${entry.event.message} (cwd: ${entry.event.cwd})`;
                 }
                 if (entry.kind === "result") {
                   return `${entryLabel(entry)}[exit ${

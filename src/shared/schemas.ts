@@ -51,14 +51,29 @@ export const CommandInterruptResultSchema = Schema.Struct({
   interrupted: Schema.Boolean,
 });
 
-export const CommandStreamEventSchema = Schema.Struct({
+const CommandStreamMetadataSchema = {
   runId: Schema.String,
   repoId: Schema.optionalKey(Schema.String),
   findingId: Schema.optionalKey(Schema.String),
   command: Schema.optionalKey(Schema.String),
-  stream: Schema.Literals(["stdout", "stderr"]),
-  chunk: Schema.String,
-});
+};
+
+export const CommandStreamEventSchema = Schema.Union([
+  Schema.Struct({
+    ...CommandStreamMetadataSchema,
+    kind: Schema.Literal("output"),
+    stream: Schema.Literals(["stdout", "stderr"]),
+    chunk: Schema.String,
+  }),
+  Schema.Struct({
+    ...CommandStreamMetadataSchema,
+    kind: Schema.Literal("lifecycle"),
+    phase: Schema.String,
+    message: Schema.String,
+    cwd: Schema.String,
+    argv: Schema.optionalKey(Schema.Array(Schema.String)),
+  }),
+]);
 
 export const UiMetadataSchema = Schema.Struct({
   schemaVersion: Schema.Literal(1),

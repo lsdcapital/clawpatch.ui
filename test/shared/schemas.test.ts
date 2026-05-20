@@ -54,11 +54,28 @@ describe("shared schemas", () => {
     expect(Schema.decodeUnknownSync(UiMetadataSchema)(metadata)).toEqual(metadata);
   });
 
-  it("decodes command stream event stream literals", () => {
+  it("decodes command output stream events", () => {
     const event = {
+      kind: "output",
       runId: "r1",
       stream: "stdout",
       chunk: "x",
+    };
+
+    expect(Schema.decodeUnknownSync(CommandStreamEventSchema)(event)).toEqual(event);
+  });
+
+  it("decodes command lifecycle stream events", () => {
+    const event = {
+      kind: "lifecycle",
+      runId: "r1",
+      repoId: "repo-1",
+      findingId: "fnd-1",
+      command: "fix",
+      phase: "git:start",
+      message: "$ git status --porcelain=v1",
+      cwd: "/tmp/repo",
+      argv: ["git", "status", "--porcelain=v1"],
     };
 
     expect(Schema.decodeUnknownSync(CommandStreamEventSchema)(event)).toEqual(event);
@@ -96,6 +113,7 @@ describe("shared schemas", () => {
   it("rejects invalid command stream event stream literals", () => {
     expect(() =>
       Schema.decodeUnknownSync(CommandStreamEventSchema)({
+        kind: "output",
         runId: "r1",
         stream: "stdin",
         chunk: "x",
