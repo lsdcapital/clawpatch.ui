@@ -55,47 +55,6 @@ describe("FindingsSplitPanel", () => {
     expect(onRevalidate).toHaveBeenCalledOnce();
   });
 
-  it("resets detail scroll only when the selected finding changes", () => {
-    const previousFinding = makeFindingDetail();
-    const nextFinding = makeFindingDetail({
-      findingId: "fnd-bug",
-      title: "Null branch can throw",
-      category: "bug",
-      severity: "medium",
-    });
-    const { container, rerender } = renderSplitPanel({
-      finding: previousFinding,
-      selectedFindingId: previousFinding.findingId,
-    });
-    const detailBody = getDetailBody(container);
-    detailBody.scrollTop = 180;
-
-    rerender(
-      splitPanelElement({
-        finding: previousFinding,
-        selectedFindingId: nextFinding.findingId,
-        isDetailPending: true,
-      }),
-    );
-
-    expect(detailBody.scrollTop).toBe(0);
-    expect(screen.getByRole("heading", { name: "Selected detail title" })).toBeInTheDocument();
-    expect(screen.getByText("Loading selected finding")).toBeInTheDocument();
-
-    detailBody.scrollTop = 55;
-    rerender(
-      splitPanelElement({
-        finding: nextFinding,
-        selectedFindingId: nextFinding.findingId,
-        isDetailPending: false,
-      }),
-    );
-
-    expect(getDetailBody(container).scrollTop).toBe(55);
-    expect(screen.getByRole("heading", { name: "Null branch can throw" })).toBeInTheDocument();
-    expect(screen.queryByText("Loading selected finding")).not.toBeInTheDocument();
-  });
-
   it("keeps status in the metadata card and saves it with the current note", () => {
     const onTriage = vi.fn();
     renderSplitPanel({ onTriage });
@@ -268,58 +227,26 @@ function installLocalStorage(): void {
 
 function renderSplitPanel({
   finding = makeFindingDetail(),
-  selectedFindingId = "fnd-security",
-  isDetailPending = false,
   onTriage = vi.fn(),
   onRevalidate = vi.fn(),
   onOpenDiffFile,
 }: {
   finding?: FindingDetail;
-  selectedFindingId?: string | null;
-  isDetailPending?: boolean;
   onTriage?: (status: ClawpatchStatus, note: string) => void;
   onRevalidate?: () => void;
   onOpenDiffFile?: (filePath: string) => void;
 } = {}) {
   return render(
-    splitPanelElement({
-      finding,
-      selectedFindingId,
-      isDetailPending,
-      onTriage,
-      onRevalidate,
-      onOpenDiffFile,
-    }),
-  );
-}
-
-function splitPanelElement({
-  finding = makeFindingDetail(),
-  selectedFindingId = "fnd-security",
-  isDetailPending = false,
-  onTriage = vi.fn(),
-  onRevalidate = vi.fn(),
-  onOpenDiffFile,
-}: {
-  finding?: FindingDetail;
-  selectedFindingId?: string | null;
-  isDetailPending?: boolean;
-  onTriage?: (status: ClawpatchStatus, note: string) => void;
-  onRevalidate?: () => void;
-  onOpenDiffFile?: (filePath: string) => void;
-} = {}) {
-  return (
     <FindingsSplitPanel
       findings={findings}
       totalFindingCount={findings.length}
-      selectedFindingId={selectedFindingId}
+      selectedFindingId="fnd-security"
       isFindingsLoading={false}
       filters={defaultFindingFilters}
       filterOptions={getFindingFilterOptions(findings, clawpatchStatuses)}
       sort={defaultFindingSort}
       finding={finding}
       isDetailLoading={false}
-      isDetailPending={isDetailPending}
       isBusy={false}
       fixDisabledReason={null}
       onFiltersChange={vi.fn()}
@@ -329,14 +256,8 @@ function splitPanelElement({
       onFix={vi.fn()}
       onRevalidate={onRevalidate}
       onOpenDiffFile={onOpenDiffFile}
-    />
+    />,
   );
-}
-
-function getDetailBody(container: HTMLElement): HTMLElement {
-  const detailBody = container.querySelector<HTMLElement>(".detail-body");
-  expect(detailBody).not.toBeNull();
-  return detailBody as HTMLElement;
 }
 
 function makeFindingListItem(overrides: Partial<FindingListItem>): FindingListItem {
