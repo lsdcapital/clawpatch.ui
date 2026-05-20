@@ -21,12 +21,14 @@ interface Props {
   finding: FindingDetail | null;
   isDetailLoading: boolean;
   isBusy: boolean;
+  commandStateLabel?: string;
   onFiltersChange: (filters: FindingFilters) => void;
   onSortChange: (sort: FindingSort) => void;
   onSelectFinding: (findingId: string) => void;
   onTriage: (status: ClawpatchStatus, note: string) => void;
   onFix: (status: ClawpatchStatus, note: string) => void;
   onRevalidate: () => void;
+  onInterrupt?: () => void;
   onOpenDiffFile?: (filePath: string) => void;
   filesInDiff?: ReadonlySet<string>;
 }
@@ -42,12 +44,14 @@ export function FindingsSplitPanel({
   finding,
   isDetailLoading,
   isBusy,
+  commandStateLabel,
   onFiltersChange,
   onSortChange,
   onSelectFinding,
   onTriage,
   onFix,
   onRevalidate,
+  onInterrupt,
   onOpenDiffFile,
   filesInDiff,
 }: Props) {
@@ -147,9 +151,11 @@ export function FindingsSplitPanel({
         finding={finding}
         isLoading={isDetailLoading}
         isBusy={isBusy}
+        commandStateLabel={commandStateLabel}
         onTriage={onTriage}
         onFix={onFix}
         onRevalidate={onRevalidate}
+        onInterrupt={onInterrupt}
         onOpenDiffFile={onOpenDiffFile}
         filesInDiff={filesInDiff}
       />

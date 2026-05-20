@@ -341,6 +341,72 @@ describe("ClawpatchApp header actions", () => {
     expect(screen.getByRole("complementary", { name: "Command output" })).toBeInTheDocument();
   });
 
+  it("keeps other finding fix controls available while one finding is running", async () => {
+    const highRiskFinding = makeFinding();
+    const lowerRiskFinding = makeFixFinding();
+    const findingsById = new Map([
+      [highRiskFinding.findingId, highRiskFinding],
+      [lowerRiskFinding.findingId, lowerRiskFinding],
+    ]);
+    const resolvers = new Map<string, (result: CommandResult) => void>();
+    const run = vi.fn<Api["commands"]["run"]>(
+      (_repoId, request) =>
+        new Promise<CommandResult>((resolve) => {
+          if ("findingId" in request) {
+            resolvers.set(request.findingId, resolve);
+          } else {
+            resolve(makeCommandResult(request.command));
+          }
+        }),
+    );
+    window.clawpatch = makeApi(run, {
+      findings: [highRiskFinding, lowerRiskFinding],
+      findingGet: async (_repoId, findingId) => {
+        const finding = findingsById.get(findingId);
+        if (finding === undefined) {
+          throw new Error(`Missing finding ${findingId}`);
+        }
+        return finding;
+      },
+    });
+
+    renderApp();
+
+    await screen.findByRole("heading", { name: "Token is logged in debug output" });
+    fireEvent.click(screen.getByRole("button", { name: "Run fix" }));
+    await screen.findByText("fix running");
+    expect(screen.getByRole("button", { name: "Run fix" })).toBeDisabled();
+
+    fireEvent.click(screen.getByText("Null branch can throw"));
+    await screen.findByRole("heading", { name: "Null branch can throw" });
+    expect(screen.getByRole("button", { name: "Run fix" })).not.toBeDisabled();
+
+    resolvers.get("fnd-security")?.(makeCommandResult("fix"));
+  });
+
+  it("interrupts the selected finding command by finding id", async () => {
+    const finding = makeFixFinding();
+    let resolveRun: ((result: CommandResult) => void) | undefined;
+    const run = vi.fn<Api["commands"]["run"]>(
+      (_repoId, request) =>
+        new Promise<CommandResult>((resolve) => {
+          resolveRun = () => resolve(makeCommandResult(request.command));
+        }),
+    );
+    const interrupt = vi.fn<Api["commands"]["interrupt"]>(async () => ({ interrupted: true }));
+    window.clawpatch = makeApi(run, { findings: [finding], findingDetail: finding, interrupt });
+
+    renderApp();
+
+    await screen.findByRole("heading", { name: "Null branch can throw" });
+    fireEvent.click(screen.getByRole("button", { name: "Run fix" }));
+    await screen.findByText("fix running");
+    fireEvent.click(screen.getByRole("button", { name: "Interrupt finding command" }));
+
+    await waitFor(() => expect(interrupt).toHaveBeenCalledWith("repo-auth", "fnd-bug"));
+    resolveRun?.(makeCommandResult("fix"));
+  });
+
   it("selects the first sorted finding when the loaded list is unsorted", async () => {
     const run = vi.fn<Api["commands"]["run"]>(async (_repoId, request) =>
       makeCommandResult(request.command),
@@ -383,7 +449,7 @@ describe("ClawpatchApp header actions", () => {
     expect(screen.queryByText("No commands run yet.")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Interrupt command" }));
 
-    await waitFor(() => expect(interrupt).toHaveBeenCalledWith("repo-auth"));
+    await waitFor(() => expect(interrupt).toHaveBeenCalledWith("repo-auth", undefined));
 
     const finish = resolveRun;
     if (finish === undefined) {
@@ -434,14 +500,15 @@ describe("ClawpatchApp header actions", () => {
     renderApp();
 
     await screen.findByRole("heading", { name: "Null branch can throw" });
-    await waitFor(() => expect(gitDiff).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(gitDiff).toHaveBeenCalledWith("repo-auth", "fnd-bug"));
+    const initialDiffCalls = gitDiff.mock.calls.length;
 
     fireEvent.click(screen.getByRole("button", { name: "src/profile.ts" }));
     expect(screen.getByRole("complementary", { name: "Git diff" })).toBeInTheDocument();
-    await waitFor(() => expect(gitDiff).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(gitDiff).toHaveBeenCalledTimes(initialDiffCalls + 1));
 
     fireEvent.click(screen.getByRole("button", { name: "test/profile.test.ts" }));
-    await waitFor(() => expect(gitDiff).toHaveBeenCalledTimes(3));
+    await waitFor(() => expect(gitDiff).toHaveBeenCalledTimes(initialDiffCalls + 2));
   });
 
   it("supports keyboard resizing for the shared inspector", async () => {
@@ -505,7 +572,14 @@ describe("ClawpatchApp header actions", () => {
     const worktreePath = "/tmp/clawpatch-ui/worktrees/repo-auth/fnd-bug";
     window.clawpatch = makeApi(
       vi.fn<Api["commands"]["run"]>(async () => makeCommandResult("map")),
-      { repoList: async () => [makeRepo({ activeWorktreePath: worktreePath })] },
+      {
+        repoList: async () => [
+          makeRepo({
+            activeWorktreePath: worktreePath,
+            activeWorktrees: [{ findingId: "fnd-bug", path: worktreePath }],
+          }),
+        ],
+      },
     );
 
     renderApp();
@@ -545,6 +619,7 @@ function makeApi(
   options: {
     add?: Api["repo"]["add"];
     findings?: readonly FindingListItem[];
+    findingGet?: Api["findings"]["get"];
     findingsList?: Api["findings"]["list"];
     featureMap?: Api["features"]["map"];
     findingDetail?: FindingDetail;
@@ -577,12 +652,14 @@ function makeApi(
     },
     findings: {
       list: options.findingsList ?? (async () => options.findings ?? []),
-      get: async () => {
-        if (options.findingDetail === undefined) {
-          throw new Error("No finding expected");
-        }
-        return options.findingDetail;
-      },
+      get:
+        options.findingGet ??
+        (async () => {
+          if (options.findingDetail === undefined) {
+            throw new Error("No finding expected");
+          }
+          return options.findingDetail;
+        }),
     },
     features: {
       map: options.featureMap ?? (async () => makeFeatureMapSnapshot()),
@@ -636,6 +713,7 @@ function makeRepo(overrides: Partial<RepoSummary> = {}): RepoSummary {
     name,
     path: `/tmp/${name}`,
     activeWorktreePath: null,
+    activeWorktrees: [],
     hasClawpatch: true,
     isValid: true,
     lastError: null,

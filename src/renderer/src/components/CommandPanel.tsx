@@ -3,8 +3,14 @@ import type { CommandResult, CommandStreamEvent } from "../../../shared/types";
 
 type Entry =
   | { kind: "stream"; event: CommandStreamEvent }
-  | { kind: "result"; result: CommandResult }
-  | { kind: "error"; message: string };
+  | {
+      kind: "result";
+      result: CommandResult;
+      repoId: string;
+      findingId?: string;
+      command: string;
+    }
+  | { kind: "error"; message: string; repoId?: string; findingId?: string; command?: string };
 
 export function CommandPanel({
   entries,
@@ -41,15 +47,24 @@ export function CommandPanel({
           : entries
               .map((entry) => {
                 if (entry.kind === "stream") {
-                  return `[${entry.event.stream}] ${entry.event.chunk}`;
+                  return `${entryLabel(entry.event)}[${entry.event.stream}] ${entry.event.chunk}`;
                 }
                 if (entry.kind === "result") {
-                  return `[exit ${entry.result.exitCode ?? "null"}] clawpatch ${entry.result.args.join(" ")} (${entry.result.durationMs}ms)`;
+                  return `${entryLabel(entry)}[exit ${
+                    entry.result.exitCode ?? "null"
+                  }] clawpatch ${entry.result.args.join(" ")} (${entry.result.durationMs}ms)`;
                 }
-                return `[error] ${entry.message}`;
+                return `${entryLabel(entry)}[error] ${entry.message}`;
               })
               .join("\n")}
       </pre>
     </section>
   );
+}
+
+function entryLabel(entry: { readonly findingId?: string; readonly command?: string }): string {
+  const parts = [entry.findingId, entry.command].filter(
+    (part): part is string => part !== undefined && part !== "",
+  );
+  return parts.length === 0 ? "" : `[${parts.join(" ")}] `;
 }

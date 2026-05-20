@@ -196,6 +196,41 @@ describe("buildClawpatchArgs", () => {
     await runtime.dispose();
   });
 
+  it("allows overlapping command runs for different worktree paths", async () => {
+    const finishers: Array<() => void> = [];
+    const runtime = makeRunnerRuntime(() =>
+      Effect.succeed(
+        mockHandle({
+          exitCode: Effect.promise(
+            () =>
+              new Promise((resolve) => {
+                finishers.push(() => resolve(ChildProcessSpawner.ExitCode(0)));
+              }),
+          ),
+          isRunning: Effect.succeed(true),
+        }),
+      ),
+    );
+    const run = (repoPath: string) =>
+      runtime.runPromise(
+        Effect.gen(function* () {
+          const runner = yield* ClawpatchRunner;
+          return yield* runner.run(repoPath, { command: "status" });
+        }),
+      );
+
+    const first = run("/tmp/repo-a/worktree-fnd-1");
+    const second = run("/tmp/repo-a/worktree-fnd-2");
+
+    await waitUntil(() => finishers.length === 2);
+    finishers[0]?.();
+    finishers[1]?.();
+
+    await expect(first).resolves.toMatchObject({ exitCode: 0 });
+    await expect(second).resolves.toMatchObject({ exitCode: 0 });
+    await runtime.dispose();
+  });
+
   it("interrupts an active command and clears it after close", async () => {
     let finishRun: ((result: CommandResult) => void) | undefined;
     let killCount = 0;
@@ -346,6 +381,16 @@ describe("buildClawpatchArgs", () => {
 });
 
 type CommandResult = import("../../src/shared/types").CommandResult;
+
+async function waitUntil(assertion: () => boolean): Promise<void> {
+  const started = Date.now();
+  while (!assertion()) {
+    if (Date.now() - started > 1000) {
+      throw new Error("Timed out waiting for condition");
+    }
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  }
+}
 
 function makeRunnerRuntime(
   spawn: ChildProcessSpawner.ChildProcessSpawner["Service"]["spawn"],

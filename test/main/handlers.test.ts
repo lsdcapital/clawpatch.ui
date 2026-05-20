@@ -97,7 +97,7 @@ describe("IPC handlers", () => {
       await expect(listener({} as IpcMainInvokeEvent, { repoId: "repo-1" })).resolves.toEqual({
         interrupted: true,
       });
-      expect(interruptCommand).toHaveBeenCalledWith("repo-1");
+      expect(interruptCommand).toHaveBeenCalledWith("repo-1", undefined);
     } finally {
       await runtime.dispose();
     }
@@ -195,6 +195,7 @@ function makeRepoSummary(): RepoSummary {
     name: "repo",
     path: "/tmp/repo",
     activeWorktreePath: null,
+    activeWorktrees: [],
     isValid: true,
     hasClawpatch: true,
     findingCount: 0,

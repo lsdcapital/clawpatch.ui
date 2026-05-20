@@ -34,6 +34,10 @@ import {
 import { EffectIpc, makeIpcMethod } from "./effectIpc";
 
 const RepoIdPayload = Schema.Struct({ repoId: Schema.String });
+const RepoFindingPayload = Schema.Struct({
+  repoId: Schema.String,
+  findingId: Schema.optionalKey(Schema.String),
+});
 const RepoAddPayload = Schema.Struct({ repoPath: Schema.String });
 const FindingPayload = Schema.Struct({ repoId: Schema.String, findingId: Schema.String });
 const TriageSetPayload = Schema.Struct({
@@ -129,25 +133,25 @@ export const installIpcHandlers = (publishCommandStream: (event: CommandStreamEv
     yield* ipc.handle(
       makeIpcMethod({
         channel: COMMANDS_INTERRUPT_CHANNEL,
-        payload: RepoIdPayload,
+        payload: RepoFindingPayload,
         result: CommandInterruptResultSchema,
-        handler: ({ repoId }) => repos.interruptCommand(repoId),
+        handler: ({ repoId, findingId }) => repos.interruptCommand(repoId, findingId),
       }),
     );
     yield* ipc.handle(
       makeIpcMethod({
         channel: GIT_DIFF_CHANNEL,
-        payload: RepoIdPayload,
+        payload: RepoFindingPayload,
         result: Schema.String,
-        handler: ({ repoId }) => repos.readDiff(repoId),
+        handler: ({ repoId, findingId }) => repos.readDiff(repoId, findingId),
       }),
     );
     yield* ipc.handle(
       makeIpcMethod({
         channel: GIT_STATUS_CHANNEL,
-        payload: RepoIdPayload,
+        payload: RepoFindingPayload,
         result: GitStatusSummarySchema,
-        handler: ({ repoId }) => repos.readGitStatus(repoId),
+        handler: ({ repoId, findingId }) => repos.readGitStatus(repoId, findingId),
       }),
     );
   }).pipe(Effect.withSpan("ipc.installHandlers"));

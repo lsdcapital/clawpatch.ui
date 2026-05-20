@@ -53,6 +53,9 @@ export const CommandInterruptResultSchema = Schema.Struct({
 
 export const CommandStreamEventSchema = Schema.Struct({
   runId: Schema.String,
+  repoId: Schema.optionalKey(Schema.String),
+  findingId: Schema.optionalKey(Schema.String),
+  command: Schema.optionalKey(Schema.String),
   stream: Schema.Literals(["stdout", "stderr"]),
   chunk: Schema.String,
 });
@@ -181,11 +184,17 @@ export const FeatureMapSnapshotSchema = Schema.Struct({
   coverage: ReviewCoverageSchema,
 });
 
+export const ActiveWorktreeSchema = Schema.Struct({
+  findingId: Schema.String,
+  path: Schema.String,
+});
+
 export const RepoSummarySchema = Schema.Struct({
   id: Schema.String,
   name: Schema.String,
   path: Schema.String,
   activeWorktreePath: Schema.NullOr(Schema.String),
+  activeWorktrees: Schema.Array(ActiveWorktreeSchema),
   hasClawpatch: Schema.Boolean,
   isValid: Schema.Boolean,
   lastError: Schema.NullOr(Schema.String),

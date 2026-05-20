@@ -1277,17 +1277,25 @@ button.table-row:hover:not(:disabled) {
 }
 
 .detail-actions {
+  align-items: center;
   display: flex;
   gap: 6px;
 }
 
-.detail-actions button:last-child {
+.detail-command-state {
+  color: var(--subtle);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.detail-actions button:nth-of-type(2) {
   background: var(--accent);
   border-color: var(--accent);
   color: var(--primary-text);
 }
 
-.detail-actions button:last-child:hover:not(:disabled) {
+.detail-actions button:nth-of-type(2):hover:not(:disabled) {
   background: var(--primary-hover);
   border-color: var(--primary-hover);
 }
