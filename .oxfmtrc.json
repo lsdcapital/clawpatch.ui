@@ -5,6 +5,7 @@
     "dist",
     "release",
     "node_modules",
+    "repos",
     ".context",
     ".clawpatch",
     "pnpm-lock.yaml",
