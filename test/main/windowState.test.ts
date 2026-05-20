@@ -2,8 +2,10 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
+import { describe, it } from "@effect/vitest";
+import { deepStrictEqual } from "@effect/vitest/utils";
 import * as Effect from "effect/Effect";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach } from "vitest";
 import {
   DEFAULT_WINDOW_BOUNDS,
   WINDOW_STATE_FILE,
@@ -23,24 +25,32 @@ describe("window state", () => {
     tempDirs.length = 0;
   });
 
-  it("falls back to first-launch maximized defaults when state is missing or malformed", async () => {
-    const missingDir = await makeTempDir();
-    await expect(runEffect(readWindowState(missingDir, [primaryDisplay]))).resolves.toEqual({
-      bounds: DEFAULT_WINDOW_BOUNDS,
-      isMaximized: true,
-      isFullScreen: false,
-      isFirstLaunch: true,
-    });
+  it.effect(
+    "falls back to first-launch maximized defaults when state is missing or malformed",
+    () =>
+      Effect.gen(function* () {
+        const missingDir = yield* Effect.promise(() => makeTempDir());
+        const fromMissing = yield* readWindowState(missingDir, [primaryDisplay]);
+        deepStrictEqual(fromMissing, {
+          bounds: DEFAULT_WINDOW_BOUNDS,
+          isMaximized: true,
+          isFullScreen: false,
+          isFirstLaunch: true,
+        });
 
-    const malformedDir = await makeTempDir();
-    await writeFile(join(malformedDir, WINDOW_STATE_FILE), "{not-json", "utf8");
-    await expect(runEffect(readWindowState(malformedDir, [primaryDisplay]))).resolves.toEqual({
-      bounds: DEFAULT_WINDOW_BOUNDS,
-      isMaximized: true,
-      isFullScreen: false,
-      isFirstLaunch: true,
-    });
-  });
+        const malformedDir = yield* Effect.promise(() => makeTempDir());
+        yield* Effect.promise(() =>
+          writeFile(join(malformedDir, WINDOW_STATE_FILE), "{not-json", "utf8"),
+        );
+        const fromMalformed = yield* readWindowState(malformedDir, [primaryDisplay]);
+        deepStrictEqual(fromMalformed, {
+          bounds: DEFAULT_WINDOW_BOUNDS,
+          isMaximized: true,
+          isFullScreen: false,
+          isFirstLaunch: true,
+        });
+      }).pipe(Effect.provide(NodeServices.layer)),
+  );
 
   it("restores valid saved bounds and window flags", () => {
     const savedState = makeSavedState({
@@ -49,7 +59,7 @@ describe("window state", () => {
       isFullScreen: false,
     });
 
-    expect(resolveWindowState(savedState, [primaryDisplay])).toEqual({
+    deepStrictEqual(resolveWindowState(savedState, [primaryDisplay]), {
       bounds: { x: 120, y: 80, width: 1400, height: 900 },
       isMaximized: false,
       isFullScreen: false,
@@ -64,7 +74,7 @@ describe("window state", () => {
       isFullScreen: false,
     });
 
-    expect(resolveWindowState(savedState, [primaryDisplay])).toEqual({
+    deepStrictEqual(resolveWindowState(savedState, [primaryDisplay]), {
       bounds: DEFAULT_WINDOW_BOUNDS,
       isMaximized: true,
       isFullScreen: false,
@@ -76,14 +86,14 @@ describe("window state", () => {
     const bounds = { x: 40, y: 50, width: 1500, height: 920 };
     const savedState = makeWindowStateFile(bounds, true, true, new Date("2026-05-19T00:00:00Z"));
 
-    expect(savedState).toEqual({
+    deepStrictEqual(savedState, {
       schemaVersion: 1,
       bounds,
       isMaximized: true,
       isFullScreen: true,
       updatedAt: "2026-05-19T00:00:00.000Z",
     });
-    expect(resolveWindowState(savedState, [primaryDisplay])).toEqual({
+    deepStrictEqual(resolveWindowState(savedState, [primaryDisplay]), {
       bounds,
       isMaximized: true,
       isFullScreen: true,
@@ -106,8 +116,4 @@ async function makeTempDir(): Promise<string> {
   const dir = await mkdtemp(join(tmpdir(), "clawpatch-window-state-"));
   tempDirs.push(dir);
   return dir;
-}
-
-function runEffect<A, E>(effect: Effect.Effect<A, E, NodeServices.NodeServices>): Promise<A> {
-  return Effect.runPromise(effect.pipe(Effect.provide(NodeServices.layer)));
 }

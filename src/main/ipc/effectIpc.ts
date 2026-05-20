@@ -1,4 +1,5 @@
 import type { IpcMainInvokeEvent } from "electron";
+import * as Cause from "effect/Cause";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -56,11 +57,16 @@ export const EffectIpcLive = (
                     ),
                   ),
                 ),
+                Effect.tapCause((cause) =>
+                  Effect.sync(() => {
+                    ipcLogger.error(
+                      { err: Cause.squash(cause), channel: method.channel },
+                      "IPC handler failed",
+                    );
+                  }),
+                ),
               ),
-            ).catch((error: unknown) => {
-              ipcLogger.error({ err: error, channel: method.channel }, "IPC handler failed");
-              throw error;
-            }),
+            ),
           );
         }).pipe(Effect.withSpan("ipc.handle")),
     }),
