@@ -9,6 +9,7 @@ import { COMMANDS_STREAM_CHANNEL } from "../shared/ipcChannels";
 import type { CommandStreamEvent } from "../shared/types";
 import { EffectIpcLive } from "./ipc/effectIpc";
 import { installIpcHandlers } from "./ipc/handlers";
+import { childLogger, logger } from "./logger";
 import { ClawpatchRunnerLive } from "./services/clawpatchRunner";
 import { ClawpatchStateServiceLive } from "./services/clawpatchState";
 import { GitServiceLive } from "./services/gitService";
@@ -29,6 +30,9 @@ type AppRuntime = ManagedRuntime.ManagedRuntime<Layer.Success<AppLayer>, Layer.E
 let mainWindow: BrowserWindow | null = null;
 let appRuntime: AppRuntime | null = null;
 const WINDOW_STATE_SAVE_DEBOUNCE_MS = 250;
+const startupLogger = childLogger("startup");
+const windowLogger = childLogger("window");
+const commandStreamLogger = childLogger("command-stream");
 
 app.setName(APP_DISPLAY_NAME);
 app.setAppUserModelId(APP_ID);
@@ -42,6 +46,7 @@ async function createWindow(): Promise<void> {
     throw new Error("App runtime is not initialized");
   }
   const userDataPath = app.getPath("userData");
+  windowLogger.debug({ userDataPath }, "Reading window state");
   const windowState = await runtime.runPromise(
     readWindowState(
       userDataPath,
@@ -62,54 +67,93 @@ async function createWindow(): Promise<void> {
       sandbox: false,
     },
   });
+  windowLogger.info({ bounds: windowState.bounds }, "Created main window");
 
   installWindowStatePersistence(mainWindow, userDataPath);
 
   if (windowState.isFullScreen) {
+    windowLogger.debug("Restoring full-screen window state");
     mainWindow.setFullScreen(true);
   } else if (windowState.isMaximized) {
+    windowLogger.debug("Restoring maximized window state");
     mainWindow.maximize();
   }
 
+  mainWindow.webContents.on("did-finish-load", () => {
+    windowLogger.debug("Renderer finished loading");
+  });
+  mainWindow.webContents.on(
+    "did-fail-load",
+    (_event, errorCode, errorDescription, validatedURL) => {
+      windowLogger.error({ errorCode, errorDescription, validatedURL }, "Renderer failed to load");
+    },
+  );
+
   if (process.env["ELECTRON_RENDERER_URL"] !== undefined) {
+    windowLogger.info({ url: process.env["ELECTRON_RENDERER_URL"] }, "Loading renderer URL");
     void mainWindow.loadURL(process.env["ELECTRON_RENDERER_URL"]);
   } else {
-    void mainWindow.loadFile(join(import.meta.dirname, "../renderer/index.html"));
+    const rendererPath = join(import.meta.dirname, "../renderer/index.html");
+    windowLogger.info({ path: rendererPath }, "Loading bundled renderer");
+    void mainWindow.loadFile(rendererPath);
   }
 }
 
-app.whenReady().then(async () => {
-  installApplicationMenu();
-  appRuntime = makeAppRuntime(app.getPath("userData"));
-  await appRuntime.runPromise(installIpcHandlers((event) => publishCommandStream(event)));
-  await createWindow();
+app
+  .whenReady()
+  .then(async () => {
+    startupLogger.info(
+      { appName: APP_DISPLAY_NAME, isPackaged: app.isPackaged, logLevel: logger.level },
+      "Electron app ready",
+    );
+    installApplicationMenu();
+    startupLogger.debug("Application menu installed");
+    startupLogger.debug({ userDataPath: app.getPath("userData") }, "Creating app runtime");
+    appRuntime = makeAppRuntime(app.getPath("userData"));
+    startupLogger.debug("Installing IPC handlers");
+    await appRuntime.runPromise(installIpcHandlers((event) => publishCommandStream(event)));
+    startupLogger.debug("IPC handlers installed");
+    await createWindow();
 
-  app.on("activate", () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      void createWindow();
-    }
+    app.on("activate", () => {
+      if (BrowserWindow.getAllWindows().length === 0) {
+        startupLogger.debug("Recreating main window after app activation");
+        void createWindow();
+      }
+    });
+  })
+  .catch((error: unknown) => {
+    startupLogger.error({ err: error }, "Application startup failed");
+    app.exit(1);
   });
-});
 
 app.on("before-quit", (event) => {
   const runtime = appRuntime;
   if (runtime === null) {
+    startupLogger.debug("Before quit without active app runtime");
     return;
   }
+  startupLogger.info("Disposing app runtime before quit");
   appRuntime = null;
   event.preventDefault();
   void runtime.dispose().finally(() => {
+    startupLogger.debug("App runtime disposed");
     app.quit();
   });
 });
 
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") {
+    startupLogger.debug("All windows closed; quitting app");
     app.quit();
   }
 });
 
 function publishCommandStream(event: CommandStreamEvent): void {
+  commandStreamLogger.debug(
+    { runId: event.runId, stream: event.stream, repoId: event.repoId, command: event.command },
+    "Publishing command stream event",
+  );
   mainWindow?.webContents.send(COMMANDS_STREAM_CHANNEL, event);
 }
 
@@ -198,7 +242,7 @@ function installWindowStatePersistence(window: BrowserWindow, userDataPath: stri
         ),
       )
       .catch((error: unknown) => {
-        console.error("Unable to write window state", error);
+        windowLogger.error({ err: error }, "Unable to write window state");
       });
   };
 

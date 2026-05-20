@@ -4,6 +4,9 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Schema from "effect/Schema";
 import { IpcDecodeError, IpcEncodeError } from "../errors";
+import { childLogger } from "../logger";
+
+const ipcLogger = childLogger("ipc");
 
 export interface IpcMainLike {
   readonly removeHandler: (channel: string) => void;
@@ -40,6 +43,7 @@ export const EffectIpcLive = (
       handle: (method) =>
         Effect.sync(() => {
           ipcMain.removeHandler(method.channel);
+          ipcLogger.debug({ channel: method.channel }, "Registering IPC handler");
           ipcMain.handle(method.channel, (_event, raw) =>
             runPromise(
               Schema.decodeUnknownEffect(method.payload)(raw).pipe(
@@ -53,7 +57,10 @@ export const EffectIpcLive = (
                   ),
                 ),
               ),
-            ),
+            ).catch((error: unknown) => {
+              ipcLogger.error({ err: error, channel: method.channel }, "IPC handler failed");
+              throw error;
+            }),
           );
         }).pipe(Effect.withSpan("ipc.handle")),
     }),
