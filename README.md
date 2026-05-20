@@ -12,7 +12,7 @@ management. Clawpatch-owned state and mutations remain owned by the external
 
 ## Prerequisites
 
-- Node.js 22 or newer
+- Node.js 24.15.0, preferably through fnm
 - pnpm 11.1.3, preferably through Corepack
 - Git 2.x
 - The `clawpatch` CLI installed and available on your `PATH`
@@ -33,6 +33,8 @@ Clone or fork the repo, then install dependencies and start the Electron app:
 ```bash
 git clone https://github.com/lsdcapital/clawpatch-ui.git
 cd clawpatch-ui
+fnm install
+fnm use
 corepack enable
 pnpm install
 pnpm dev
@@ -111,6 +113,8 @@ target repo before adding it to the UI.
 Confirm your Node.js and pnpm versions:
 
 ```bash
+fnm install
+fnm use
 node --version
 pnpm --version
 corepack enable
