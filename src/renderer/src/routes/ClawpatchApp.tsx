@@ -188,7 +188,14 @@ export function ClawpatchApp() {
     mutationFn: ({ repo, request }: { repo: RepoSummary; request: ClawpatchCommandRequest }) =>
       window.clawpatch.commands.run(repo.id, request),
     onSuccess: (result, variables) => {
-      setCommandLog((current) => [...current, { kind: "result", result }]);
+      setCommandLog((current) => [
+        ...current,
+        { kind: "result", result },
+        ...(result.relatedResults ?? []).map((relatedResult) => ({
+          kind: "result" as const,
+          result: relatedResult,
+        })),
+      ]);
       void refreshAfterCommand(
         queryClient,
         variables.repo.id,

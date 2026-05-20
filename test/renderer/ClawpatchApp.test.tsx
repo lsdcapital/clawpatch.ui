@@ -470,7 +470,9 @@ describe("ClawpatchApp header actions", () => {
 
   it("passes current guidance when running fix", async () => {
     const run = vi.fn<Api["commands"]["run"]>(async (_repoId, request) => {
-      return makeCommandResult(request.command);
+      return request.command === "fix"
+        ? makeCommandResult("fix", [makeCommandResult("revalidate")])
+        : makeCommandResult(request.command);
     });
     const triageSet = vi.fn<Api["triage"]["set"]>(async () => {
       return makeCommandResult("triage");
@@ -495,6 +497,8 @@ describe("ClawpatchApp header actions", () => {
       }),
     );
     expect(triageSet).not.toHaveBeenCalled();
+    await screen.findByText(/\[exit 0\] clawpatch fix/);
+    await screen.findByText(/\[exit 0\] clawpatch revalidate/);
   });
 
   it("shows an active worktree indicator when a fix worktree is active", async () => {
@@ -778,7 +782,10 @@ function makeFixFinding(): FindingDetail {
   };
 }
 
-function makeCommandResult(command: string): CommandResult {
+function makeCommandResult(
+  command: string,
+  relatedResults?: CommandResult["relatedResults"],
+): CommandResult {
   return {
     runId: `run-${command}`,
     command,
@@ -789,5 +796,6 @@ function makeCommandResult(command: string): CommandResult {
     stdout: "",
     stderr: "",
     parsedJson: null,
+    ...(relatedResults === undefined ? {} : { relatedResults }),
   };
 }
