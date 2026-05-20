@@ -20,6 +20,7 @@ import type {
   PublishFixResult,
   RepoSnapshot,
   RepoSummary,
+  TerminalOpenResult,
 } from "../../shared/types";
 import {
   CommandAlreadyRunningError,
@@ -35,6 +36,7 @@ import {
   type ClawpatchStateServiceShape,
 } from "./clawpatchState";
 import { GitService, type GitLifecycleEvent } from "./gitService";
+import { TerminalLauncher, type TerminalLauncherError } from "./terminalLauncher";
 import { UiMetadataService, type UiMetadataError } from "./uiMetadata";
 
 interface RegistryFile {
@@ -53,6 +55,7 @@ export type RepoServiceError =
   | CommandSpawnError
   | ClawpatchRunnerError
   | ClawpatchStateError
+  | TerminalLauncherError
   | UiMetadataError;
 
 export interface RepoServiceShape {
@@ -92,6 +95,10 @@ export interface RepoServiceShape {
     repoId: string,
     findingId: string,
   ) => Effect.Effect<PublishFixResult, RepoServiceError>;
+  readonly openTerminal: (
+    repoId: string,
+    findingId?: string,
+  ) => Effect.Effect<TerminalOpenResult, RepoServiceError>;
 }
 
 export class RepoService extends Context.Service<RepoService, RepoServiceShape>()(
@@ -106,6 +113,7 @@ export const RepoServiceLive = (appDataDir: string) =>
       const state = yield* ClawpatchStateService;
       const metadata = yield* UiMetadataService;
       const git = yield* GitService;
+      const terminal = yield* TerminalLauncher;
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
       const registryPath = path.resolve(appDataDir, "repos.json");
@@ -814,6 +822,12 @@ export const RepoServiceLive = (appDataDir: string) =>
         publishFix: Effect.fn("repoService.publishFix")(function* (repoIdValue, findingId) {
           const repo = yield* requireRepo(repoIdValue);
           return yield* publishFixWorktree(repo, findingId);
+        }),
+        openTerminal: Effect.fn("repoService.openTerminal")(function* (repoIdValue, findingId) {
+          const repo = yield* requireRepo(repoIdValue);
+          return yield* terminal.open(
+            (yield* activeWorktreePathForFinding(repo.id, findingId)) ?? repo.path,
+          );
         }),
       });
     }),

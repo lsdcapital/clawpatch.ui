@@ -19,9 +19,11 @@ export function WorkspaceHeader({
   activeWorkspace,
   activeInspector,
   isRepoCommandBusy,
+  isOpeningTerminal,
   onToggleRepoSidebar,
   onWorkspaceChange,
   onToggleInspector,
+  onOpenTerminal,
   onRunCommand,
 }: {
   repo: RepoSummary | null;
@@ -30,9 +32,11 @@ export function WorkspaceHeader({
   activeWorkspace: ActiveWorkspace;
   activeInspector: ActiveInspector;
   isRepoCommandBusy: boolean;
+  isOpeningTerminal: boolean;
   onToggleRepoSidebar: () => void;
   onWorkspaceChange: (workspace: ActiveWorkspace) => void;
   onToggleInspector: (inspector: Exclude<ActiveInspector, null>) => void;
+  onOpenTerminal: () => void;
   onRunCommand: (request: ClawpatchCommandRequest) => void;
 }) {
   const [isCommandMenuOpen, setIsCommandMenuOpen] = useState(false);
@@ -80,6 +84,15 @@ export function WorkspaceHeader({
         </button>
       </div>
       <div className="header-actions">
+        <button
+          className="icon-button"
+          disabled={repo === null || isOpeningTerminal}
+          onClick={onOpenTerminal}
+          aria-label="Open terminal"
+          title="Open terminal"
+        >
+          <TerminalSquareIcon aria-hidden="true" />
+        </button>
         <button
           className={
             activeInspector === "diff"

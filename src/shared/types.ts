@@ -21,6 +21,7 @@ import type {
   RepoSummarySchema,
   ReviewCoverageSchema,
   ReviewRunSummarySchema,
+  TerminalOpenResultSchema,
 } from "./schemas";
 export { clawpatchStatuses } from "./constants";
 
@@ -46,6 +47,7 @@ export type FeatureMapItem = typeof FeatureMapItemSchema.Type;
 export type ReviewRunSummary = typeof ReviewRunSummarySchema.Type;
 export type ReviewCoverage = typeof ReviewCoverageSchema.Type;
 export type FeatureMapSnapshot = typeof FeatureMapSnapshotSchema.Type;
+export type TerminalOpenResult = typeof TerminalOpenResultSchema.Type;
 
 export interface Api {
   repo: {
@@ -78,5 +80,8 @@ export interface Api {
     diff: (repoId: string, findingId?: string) => Promise<string>;
     status: (repoId: string, findingId?: string) => Promise<GitStatusSummary>;
     publishFix: (repoId: string, findingId: string) => Promise<PublishFixResult>;
+  };
+  terminal: {
+    open: (repoId: string, findingId?: string) => Promise<TerminalOpenResult>;
   };
 }

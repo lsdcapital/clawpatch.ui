@@ -242,5 +242,9 @@ export const GitStatusSummarySchema = Schema.Struct({
   branch: Schema.NullOr(Schema.String),
 });
 
+export const TerminalOpenResultSchema = Schema.Struct({
+  cwd: Schema.String,
+});
+
 export const RepoListSchema = Schema.Array(RepoSummarySchema);
 export const FindingListSchema = Schema.Array(FindingListItemSchema);

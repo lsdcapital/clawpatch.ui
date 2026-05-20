@@ -13,6 +13,7 @@ import { childLogger, logger } from "./logger";
 import { ClawpatchRunnerLive } from "./services/clawpatchRunner";
 import { ClawpatchStateServiceLive } from "./services/clawpatchState";
 import { GitServiceLive } from "./services/gitService";
+import { TerminalLauncherLive } from "./services/terminalLauncher";
 import { UiMetadataServiceLive } from "./services/uiMetadata";
 import { RepoServiceLive } from "./services/repoService";
 import { makeBeforeQuitHandler } from "./shutdown";
@@ -324,6 +325,7 @@ function makeAppLayer(
     ClawpatchStateServiceLive,
     UiMetadataServiceLive(userDataPath),
     GitServiceLive,
+    TerminalLauncherLive,
   ).pipe(Layer.provide(NodeServices.layer));
   const repoLayer = RepoServiceLive(userDataPath).pipe(
     Layer.provideMerge(coreLayer),
