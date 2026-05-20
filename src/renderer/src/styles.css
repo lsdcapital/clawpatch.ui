@@ -953,6 +953,7 @@ button:disabled {
   grid-auto-rows: minmax(34px, max-content);
   min-height: 0;
   overflow: auto;
+  overflow-anchor: none;
 }
 
 .table-row {
@@ -1064,6 +1065,7 @@ button.table-row:hover:not(:disabled) {
   min-height: 0;
   min-width: 0;
   overflow: auto;
+  overflow-anchor: none;
   padding: 9px 10px 10px;
 }
 
