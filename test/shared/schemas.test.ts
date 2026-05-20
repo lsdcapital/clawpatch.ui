@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   ClawpatchCommandRequestSchema,
   ClawpatchStatusSchema,
+  CommandResultSchema,
   CommandStreamEventSchema,
   UiMetadataSchema,
 } from "../../src/shared/schemas";
@@ -61,6 +62,35 @@ describe("shared schemas", () => {
     };
 
     expect(Schema.decodeUnknownSync(CommandStreamEventSchema)(event)).toEqual(event);
+  });
+
+  it("decodes command results with related command results", () => {
+    const result = {
+      runId: "run-fix",
+      command: "clawpatch",
+      args: ["fix"],
+      cwd: "/tmp/repo-worktree",
+      exitCode: 0,
+      durationMs: 10,
+      stdout: "{}",
+      stderr: "",
+      parsedJson: {},
+      relatedResults: [
+        {
+          runId: "run-revalidate",
+          command: "clawpatch",
+          args: ["revalidate"],
+          cwd: "/tmp/repo-worktree",
+          exitCode: 0,
+          durationMs: 5,
+          stdout: "{}",
+          stderr: "",
+          parsedJson: {},
+        },
+      ],
+    };
+
+    expect(Schema.decodeUnknownSync(CommandResultSchema)(result)).toEqual(result);
   });
 
   it("rejects invalid command stream event stream literals", () => {

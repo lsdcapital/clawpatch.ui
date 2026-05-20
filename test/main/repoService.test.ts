@@ -236,7 +236,13 @@ describe("RepoService", () => {
         repoPath: fixtureRepo,
         branchName: "clawpatch/fix/fnd-1",
       });
-      expect(calls.at(-2)).toEqual({
+      expect(result.relatedResults).toMatchObject([
+        {
+          cwd: result.cwd,
+          args: ["revalidate"],
+        },
+      ]);
+      expect(calls.at(-3)).toEqual({
         repoPath: result.cwd,
         request: {
           command: "triage",
@@ -245,9 +251,13 @@ describe("RepoService", () => {
           note: "prefer parser helper",
         },
       });
-      expect(calls.at(-1)).toEqual({
+      expect(calls.at(-2)).toEqual({
         repoPath: result.cwd,
         request: { command: "fix", findingId: "fnd-1" },
+      });
+      expect(calls.at(-1)).toEqual({
+        repoPath: result.cwd,
+        request: { command: "revalidate", findingId: "fnd-1" },
       });
     }).pipe(
       Effect.provide(
@@ -335,7 +345,10 @@ describe("RepoService", () => {
         throw new Error("fix command did not start");
       }
       finishFix(makeCommandResult(worktreePath ?? "", "fix"));
-      await expect(run).resolves.toMatchObject({ cwd: worktreePath });
+      await expect(run).resolves.toMatchObject({
+        cwd: worktreePath,
+        relatedResults: [{ cwd: worktreePath, args: ["revalidate"] }],
+      });
     } finally {
       await runtime.dispose();
     }

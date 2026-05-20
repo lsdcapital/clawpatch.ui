@@ -28,7 +28,7 @@ export const ClawpatchCommandRequestSchema = Schema.Union([
   Schema.Struct({ command: Schema.Literal("doctor") }),
 ]);
 
-export const CommandResultSchema = Schema.Struct({
+const CommandResultFields = {
   runId: Schema.String,
   command: Schema.String,
   args: Schema.Array(Schema.String),
@@ -38,6 +38,13 @@ export const CommandResultSchema = Schema.Struct({
   stdout: Schema.String,
   stderr: Schema.String,
   parsedJson: Schema.NullOr(Schema.Unknown),
+};
+
+const RelatedCommandResultSchema = Schema.Struct(CommandResultFields);
+
+export const CommandResultSchema = Schema.Struct({
+  ...CommandResultFields,
+  relatedResults: Schema.optionalKey(Schema.Array(RelatedCommandResultSchema)),
 });
 
 export const CommandInterruptResultSchema = Schema.Struct({

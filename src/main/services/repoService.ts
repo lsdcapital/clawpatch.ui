@@ -32,6 +32,7 @@ interface RegistryFile {
 export type RepoServiceError =
   | InvalidRepoPathError
   | RepoNotFoundError
+  | CommandValidationError
   | ClawpatchRunnerError
   | ClawpatchStateError
   | UiMetadataError;
@@ -273,6 +274,13 @@ export const RepoServiceLive = (appDataDir: string) =>
         );
         if (result.exitCode === 0) {
           activeWorktreePaths.set(repo.id, worktreePath);
+          const revalidateResult = yield* runTrackedCommand(
+            repo.id,
+            worktreePath,
+            { command: "revalidate", findingId: request.findingId },
+            onStream,
+          );
+          return { ...result, relatedResults: [revalidateResult] };
         }
         return result;
       });
