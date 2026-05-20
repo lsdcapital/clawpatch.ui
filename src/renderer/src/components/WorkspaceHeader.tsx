@@ -9,12 +9,11 @@ import {
   StethoscopeIcon,
   TerminalSquareIcon,
 } from "lucide-react";
-import type { ActiveWorktree, ClawpatchCommandRequest, RepoSummary } from "../../../shared/types";
+import type { ClawpatchCommandRequest, RepoSummary } from "../../../shared/types";
 import type { ActiveInspector, ActiveWorkspace } from "../workspaceTypes";
 
 export function WorkspaceHeader({
   repo,
-  selectedFindingWorktree,
   repoSidebarId,
   isRepoSidebarCollapsed,
   activeWorkspace,
@@ -26,7 +25,6 @@ export function WorkspaceHeader({
   onRunCommand,
 }: {
   repo: RepoSummary | null;
-  selectedFindingWorktree: ActiveWorktree | null;
   repoSidebarId: string;
   isRepoSidebarCollapsed: boolean;
   activeWorkspace: ActiveWorkspace;
@@ -62,12 +60,6 @@ export function WorkspaceHeader({
       <div className="workspace-title">
         <h1>{repo?.name ?? "Clawpatch"}</h1>
         <p>{repo?.path ?? "Add a repository with .clawpatch state to begin."}</p>
-        {selectedFindingWorktree !== null ? (
-          <div className="workspace-worktree" title={selectedFindingWorktree.path}>
-            <span>worktree</span>
-            <code>{selectedFindingWorktree.path}</code>
-          </div>
-        ) : null}
       </div>
       <div className="workspace-switcher" role="tablist" aria-label="Workspace">
         <button

@@ -777,7 +777,7 @@ describe("ClawpatchApp header actions", () => {
     expect(run).not.toHaveBeenCalled();
   });
 
-  it("shows an active worktree indicator when a fix worktree is active", async () => {
+  it("does not show an active worktree indicator when a fix worktree is active", async () => {
     const finding = makeFixFinding();
     const worktreePath = "/tmp/clawpatch-ui/worktrees/repo-auth/fnd-bug";
     window.clawpatch = makeApi(
@@ -797,41 +797,6 @@ describe("ClawpatchApp header actions", () => {
     renderApp();
 
     await screen.findByRole("heading", { name: "auth" });
-    expect(screen.getByText("worktree")).toBeInTheDocument();
-    expect(screen.getByText(worktreePath)).toBeInTheDocument();
-  });
-
-  it("does not show an active worktree indicator for a finding without a worktree", async () => {
-    const selectedFinding = makeFinding();
-    const worktreeFinding = makeFixFinding();
-    const findingsById = new Map<string, FindingDetail>([
-      [selectedFinding.findingId, selectedFinding],
-      [worktreeFinding.findingId, worktreeFinding],
-    ]);
-    const worktreePath = "/tmp/clawpatch-ui/worktrees/repo-auth/fnd-bug";
-    window.clawpatch = makeApi(
-      vi.fn<Api["commands"]["run"]>(async () => makeCommandResult("map")),
-      {
-        findings: [selectedFinding, worktreeFinding],
-        findingGet: async (_repoId, findingId) => {
-          const finding = findingsById.get(findingId);
-          if (finding === undefined) {
-            throw new Error(`Missing finding ${findingId}`);
-          }
-          return finding;
-        },
-        repoList: async () => [
-          makeRepo({
-            activeWorktreePath: worktreePath,
-            activeWorktrees: [{ findingId: worktreeFinding.findingId, path: worktreePath }],
-          }),
-        ],
-      },
-    );
-
-    renderApp();
-
-    await screen.findByRole("heading", { name: selectedFinding.title });
     expect(screen.queryByText("worktree")).not.toBeInTheDocument();
     expect(screen.queryByText(worktreePath)).not.toBeInTheDocument();
   });
