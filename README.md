@@ -10,6 +10,8 @@ though it uses `package.json` for local development scripts and dependency
 management. Clawpatch-owned state and mutations remain owned by the external
 `clawpatch` CLI.
 
+![Clawpatch UI showing findings, review queue, evidence, reasoning, and suggested tests](docs/assets/clawpatch-ui-screenshot.webp)
+
 ## Prerequisites
 
 - Node.js 24.15.0, preferably through fnm
