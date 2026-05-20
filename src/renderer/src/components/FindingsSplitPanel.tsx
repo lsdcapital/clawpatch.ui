@@ -152,6 +152,7 @@ export function FindingsSplitPanel({
         tabIndex={0}
       />
       <FindingDetailPanel
+        selectedFindingId={selectedFindingId}
         finding={finding}
         isLoading={isDetailLoading}
         isPending={isDetailPending}

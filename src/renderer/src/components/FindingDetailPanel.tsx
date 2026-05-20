@@ -1,5 +1,11 @@
 import { ArrowUpIcon, ChevronDownIcon, ChevronRightIcon, SquareIcon } from "lucide-react";
-import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from "react";
 import type {
   ClawpatchStatus,
   FindingDetail,
@@ -9,6 +15,7 @@ import type {
 import { clawpatchStatuses } from "../../../shared/types";
 
 interface Props {
+  selectedFindingId: string | null;
   finding: FindingDetail | null;
   isLoading: boolean;
   isPending: boolean;
@@ -24,6 +31,7 @@ interface Props {
 }
 
 export function FindingDetailPanel({
+  selectedFindingId,
   finding,
   isLoading,
   isPending,
@@ -40,7 +48,15 @@ export function FindingDetailPanel({
   const [status, setStatus] = useState<ClawpatchStatus>("open");
   const [isStatusMenuOpen, setIsStatusMenuOpen] = useState(false);
   const [note, setNote] = useState("");
+  const detailBodyRef = useRef<HTMLDivElement>(null);
   const statusSelectorRef = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    const detailBody = detailBodyRef.current;
+    if (detailBody !== null) {
+      detailBody.scrollTop = 0;
+    }
+  }, [selectedFindingId]);
 
   useEffect(() => {
     if (finding !== null) {
@@ -127,7 +143,7 @@ export function FindingDetailPanel({
           <span>{finding.findingId}</span>
         </div>
       </div>
-      <div className="detail-body">
+      <div className="detail-body" ref={detailBodyRef}>
         <div className="meta-grid">
           <span>Status</span>
           <div className="detail-status-selector" ref={statusSelectorRef}>
