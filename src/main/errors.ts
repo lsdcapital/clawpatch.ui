@@ -68,6 +68,16 @@ export class TerminalUnsupportedPlatformError extends Data.TaggedError(
   }
 }
 
+export class TerminalStartupScriptUnsupportedError extends Data.TaggedError(
+  "TerminalStartupScriptUnsupportedError",
+)<{
+  readonly appName: string;
+}> {
+  override get message() {
+    return "Terminal startup scripts are only supported with Terminal.app for now";
+  }
+}
+
 export class TerminalLaunchError extends Data.TaggedError("TerminalLaunchError")<{
   readonly cwd: string;
   readonly cause: unknown;

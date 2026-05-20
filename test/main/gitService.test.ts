@@ -173,8 +173,8 @@ describe("GitService", () => {
           branchName: "clawpatch/fix/fnd-1",
           baseRef: "origin/main",
         });
-        expect(created).toBe(worktreePath);
-        expect(reused).toBe(worktreePath);
+        expect(created).toEqual({ worktreePath, created: true });
+        expect(reused).toEqual({ worktreePath, created: false });
       }).pipe(Effect.provide(layer)),
     );
 

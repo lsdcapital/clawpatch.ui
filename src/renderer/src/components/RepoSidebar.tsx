@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { PlusIcon } from "lucide-react";
+import { PlusIcon, SettingsIcon } from "lucide-react";
 import type { RepoSummary } from "../../../shared/types";
 import { appName, appVersion } from "../appInfo";
 
@@ -11,6 +11,7 @@ interface Props {
   addError: unknown;
   onAddRepo: (repoPath: string) => void;
   onSelectRepo: (repoId: string) => void;
+  onOpenRepoSettings: (repo: RepoSummary) => void;
 }
 
 export function RepoSidebar({
@@ -21,6 +22,7 @@ export function RepoSidebar({
   addError,
   onAddRepo,
   onSelectRepo,
+  onOpenRepoSettings,
 }: Props) {
   const [isPicking, setIsPicking] = useState(false);
   const [pickError, setPickError] = useState<unknown>(null);
@@ -79,17 +81,28 @@ export function RepoSidebar({
       ) : null}
       <div className="repo-list">
         {repos.map((repo) => (
-          <button
+          <div
             key={repo.id}
-            className={repo.id === selectedRepoId ? "repo-item selected" : "repo-item"}
-            onClick={() => onSelectRepo(repo.id)}
-            title={repo.path}
+            className={repo.id === selectedRepoId ? "repo-row selected" : "repo-row"}
           >
-            <span className="repo-name">{repo.name}</span>
-            <small className="repo-count">{repo.openFindingCount} open</small>
-            <span className="repo-path">{repo.path}</span>
-            {!repo.isValid ? <em className="repo-invalid">invalid</em> : null}
-          </button>
+            <button className="repo-item" onClick={() => onSelectRepo(repo.id)} title={repo.path}>
+              <span className="repo-name">{repo.name}</span>
+              <small className="repo-count">{repo.openFindingCount} open</small>
+              <span className="repo-path">{repo.path}</span>
+              {!repo.isValid ? <em className="repo-invalid">invalid</em> : null}
+            </button>
+            <button
+              className="icon-button repo-settings-button"
+              onClick={(event) => {
+                event.stopPropagation();
+                onOpenRepoSettings(repo);
+              }}
+              aria-label="Repository settings"
+              title={`Repository settings for ${repo.name}`}
+            >
+              <SettingsIcon aria-hidden="true" />
+            </button>
+          </div>
         ))}
       </div>
     </aside>

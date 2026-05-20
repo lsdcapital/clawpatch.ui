@@ -331,6 +331,55 @@ describe("ClawpatchApp header actions", () => {
     await waitFor(() => expect(pickFolder).toHaveBeenCalledTimes(1));
   });
 
+  it("opens and saves repository settings from the repo row", async () => {
+    const getSettings = vi.fn<Api["repo"]["getSettings"]>(async () => ({
+      schemaVersion: 1,
+      terminalAppName: "Terminal",
+      terminalStartupScript: "",
+      worktreeSetupScript: "",
+      updatedAt: "2026-05-19T00:00:00.000Z",
+    }));
+    const updateSettings = vi.fn<Api["repo"]["updateSettings"]>(async (_repoId, settings) => ({
+      ...settings,
+      updatedAt: "2026-05-20T00:00:00.000Z",
+    }));
+    window.clawpatch = makeApi(
+      vi.fn<Api["commands"]["run"]>(async () => makeCommandResult("map")),
+      { repoGetSettings: getSettings, repoUpdateSettings: updateSettings },
+    );
+
+    renderApp();
+
+    await screen.findByRole("heading", { name: "auth" });
+    fireEvent.click(screen.getByRole("button", { name: "Repository settings" }));
+
+    expect(await screen.findByRole("dialog", { name: "Repository Settings" })).toBeInTheDocument();
+    expect(getSettings).toHaveBeenCalledWith("repo-auth");
+
+    fireEvent.change(await screen.findByLabelText("Terminal app"), { target: { value: "iTerm" } });
+    fireEvent.change(await screen.findByLabelText("Terminal startup script"), {
+      target: { value: "pnpm dev" },
+    });
+    fireEvent.change(await screen.findByLabelText("Worktree setup script"), {
+      target: { value: "pnpm install" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() =>
+      expect(updateSettings).toHaveBeenCalledWith(
+        "repo-auth",
+        expect.objectContaining({
+          terminalAppName: "iTerm",
+          terminalStartupScript: "pnpm dev",
+          worktreeSetupScript: "pnpm install",
+        }),
+      ),
+    );
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog", { name: "Repository Settings" })).not.toBeInTheDocument(),
+    );
+  });
+
   it("keeps secondary commands reachable from the overflow menu", async () => {
     const run = vi.fn<Api["commands"]["run"]>(async (_repoId, request) =>
       makeCommandResult(request.command),
@@ -1171,7 +1220,9 @@ function makeApi(
     gitStatus?: Api["git"]["status"];
     onStream?: Api["commands"]["onStream"];
     pickFolder?: Api["repo"]["pickFolder"];
+    repoGetSettings?: Api["repo"]["getSettings"];
     repoList?: Api["repo"]["list"];
+    repoUpdateSettings?: Api["repo"]["updateSettings"];
     terminalOpen?: Api["terminal"]["open"];
     triageSet?: Api["triage"]["set"];
   } = {},
@@ -1193,6 +1244,22 @@ function makeApi(
           updatedAt: "2026-05-19T00:00:00.000Z",
         },
       }),
+      getSettings:
+        options.repoGetSettings ??
+        (async () => ({
+          schemaVersion: 1,
+          terminalAppName: "Terminal",
+          terminalStartupScript: "",
+          worktreeSetupScript: "",
+          updatedAt: "2026-05-19T00:00:00.000Z",
+        })),
+      updateSettings:
+        options.repoUpdateSettings ??
+        (async (_repoId, settings) => ({
+          ...settings,
+          schemaVersion: 1,
+          updatedAt: "2026-05-20T00:00:00.000Z",
+        })),
     },
     findings: {
       list: options.findingsList ?? (async () => options.findings ?? []),

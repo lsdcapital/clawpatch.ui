@@ -11,6 +11,7 @@ import {
   FindingListSchema,
   GitStatusSummarySchema,
   PublishFixResultSchema,
+  RepoSettingsSchema,
   RepoListSchema,
   RepoSnapshotSchema,
   RepoSummarySchema,
@@ -29,9 +30,11 @@ import {
   GIT_PUBLISH_FIX_CHANNEL,
   GIT_STATUS_CHANNEL,
   REPO_ADD_CHANNEL,
+  REPO_GET_SETTINGS_CHANNEL,
   REPO_LIST_CHANNEL,
   REPO_PICK_FOLDER_CHANNEL,
   REPO_REFRESH_CHANNEL,
+  REPO_UPDATE_SETTINGS_CHANNEL,
   TERMINAL_OPEN_CHANNEL,
   TRIAGE_SET_CHANNEL,
 } from "../../shared/ipcChannels";
@@ -43,6 +46,7 @@ const RepoFindingPayload = Schema.Struct({
   findingId: Schema.optionalKey(Schema.String),
 });
 const RepoAddPayload = Schema.Struct({ repoPath: Schema.String });
+const RepoSettingsPayload = Schema.Struct({ repoId: Schema.String, settings: RepoSettingsSchema });
 const FindingPayload = Schema.Struct({ repoId: Schema.String, findingId: Schema.String });
 const TriageSetPayload = Schema.Struct({
   repoId: Schema.String,
@@ -90,6 +94,22 @@ export const installIpcHandlers = (publishCommandStream: (event: CommandStreamEv
         payload: RepoIdPayload,
         result: RepoSnapshotSchema,
         handler: ({ repoId }) => repos.refreshRepo(repoId),
+      }),
+    );
+    yield* ipc.handle(
+      makeIpcMethod({
+        channel: REPO_GET_SETTINGS_CHANNEL,
+        payload: RepoIdPayload,
+        result: RepoSettingsSchema,
+        handler: ({ repoId }) => repos.getSettings(repoId),
+      }),
+    );
+    yield* ipc.handle(
+      makeIpcMethod({
+        channel: REPO_UPDATE_SETTINGS_CHANNEL,
+        payload: RepoSettingsPayload,
+        result: RepoSettingsSchema,
+        handler: ({ repoId, settings }) => repos.updateSettings(repoId, settings),
       }),
     );
     yield* ipc.handle(

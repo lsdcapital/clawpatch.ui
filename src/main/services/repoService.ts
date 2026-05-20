@@ -18,6 +18,7 @@ import type {
   FindingListItem,
   GitStatusSummary,
   PublishFixResult,
+  RepoSettings,
   RepoSnapshot,
   RepoSummary,
   TerminalOpenResult,
@@ -36,6 +37,8 @@ import {
   type ClawpatchStateServiceShape,
 } from "./clawpatchState";
 import { GitService, type GitLifecycleEvent } from "./gitService";
+import { RepoSettingsService, type RepoSettingsError } from "./repoSettings";
+import { SetupScriptRunner, type SetupScriptRunnerShape } from "./setupScriptRunner";
 import { TerminalLauncher, type TerminalLauncherError } from "./terminalLauncher";
 import { UiMetadataService, type UiMetadataError } from "./uiMetadata";
 
@@ -56,12 +59,18 @@ export type RepoServiceError =
   | ClawpatchRunnerError
   | ClawpatchStateError
   | TerminalLauncherError
+  | RepoSettingsError
   | UiMetadataError;
 
 export interface RepoServiceShape {
   readonly listRepos: () => Effect.Effect<RepoSummary[], RepoServiceError>;
   readonly addRepo: (repoPath: string) => Effect.Effect<RepoSummary, RepoServiceError>;
   readonly refreshRepo: (repoId: string) => Effect.Effect<RepoSnapshot, RepoServiceError>;
+  readonly getSettings: (repoId: string) => Effect.Effect<RepoSettings, RepoServiceError>;
+  readonly updateSettings: (
+    repoId: string,
+    settings: RepoSettings,
+  ) => Effect.Effect<RepoSettings, RepoServiceError>;
   readonly listFindings: (repoId: string) => Effect.Effect<FindingListItem[], RepoServiceError>;
   readonly readFeatureMap: (repoId: string) => Effect.Effect<FeatureMapSnapshot, RepoServiceError>;
   readonly getFinding: (
@@ -112,7 +121,9 @@ export const RepoServiceLive = (appDataDir: string) =>
       const runner = yield* ClawpatchRunner;
       const state = yield* ClawpatchStateService;
       const metadata = yield* UiMetadataService;
+      const repoSettings = yield* RepoSettingsService;
       const git = yield* GitService;
+      const setupScripts = yield* SetupScriptRunner;
       const terminal = yield* TerminalLauncher;
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
@@ -544,12 +555,12 @@ export const RepoServiceLive = (appDataDir: string) =>
         onLifecycle?: (event: GitLifecycleEvent) => void,
       ) {
         const { worktreePath, branchName } = managedWorktreeForFinding(repo, findingId);
-        yield* git.createOrReuseWorktree(
+        const result = yield* git.createOrReuseWorktree(
           { repoPath: repo.path, worktreePath, branchName, baseRef: TARGET_BASE_REF },
           onLifecycle,
         );
         yield* setActiveWorktreePath(repo.id, findingId, worktreePath);
-        return worktreePath;
+        return result;
       });
 
       const runFixInManagedWorktree = Effect.fn("repoService.runFixInManagedWorktree")(function* (
@@ -568,6 +579,7 @@ export const RepoServiceLive = (appDataDir: string) =>
         const { worktreePath } = managedWorktreeForFinding(repo, request.findingId);
         const lifecycleMetadata = commandLifecycleMetadata(repo.id, request);
         const emitGitLifecycle = makeGitLifecycleEmitter(onStream, lifecycleMetadata);
+        const settings = yield* repoSettings.read(repo.id);
         return yield* runFindingCommandLocked(
           repo.id,
           request.findingId,
@@ -590,26 +602,34 @@ export const RepoServiceLive = (appDataDir: string) =>
               message: `Preparing managed worktree at ${worktreePath}.`,
               cwd: repo.path,
             });
-            const createdWorktreePath = yield* createManagedWorktree(
+            const worktree = yield* createManagedWorktree(
               repo,
               request.findingId,
               emitGitLifecycle,
             );
+            yield* runWorktreeSetupIfNeeded(
+              setupScripts,
+              worktree.worktreePath,
+              worktree.created,
+              settings.worktreeSetupScript,
+              lifecycleMetadata,
+              onStream,
+            );
             emitLifecycle(onStream, lifecycleMetadata, {
               phase: "fix:worktree-ready",
-              message: `Managed worktree ready at ${createdWorktreePath}.`,
-              cwd: createdWorktreePath,
+              message: `Managed worktree ready at ${worktree.worktreePath}.`,
+              cwd: worktree.worktreePath,
             });
 
             if (status !== undefined) {
               emitLifecycle(onStream, lifecycleMetadata, {
                 phase: "fix:triage-start",
                 message: "Saving triage guidance before fix.",
-                cwd: createdWorktreePath,
+                cwd: worktree.worktreePath,
               });
               yield* runCommandAtPath(
                 repo.id,
-                createdWorktreePath,
+                worktree.worktreePath,
                 {
                   command: "triage",
                   findingId: request.findingId,
@@ -622,13 +642,13 @@ export const RepoServiceLive = (appDataDir: string) =>
               emitLifecycle(onStream, lifecycleMetadata, {
                 phase: "fix:triage-ready",
                 message: "Triage guidance saved before fix.",
-                cwd: createdWorktreePath,
+                cwd: worktree.worktreePath,
               });
             }
 
             const result = yield* runCommandAtPath(
               repo.id,
-              createdWorktreePath,
+              worktree.worktreePath,
               { command: "fix", findingId: request.findingId },
               onStream,
               request.findingId,
@@ -637,11 +657,11 @@ export const RepoServiceLive = (appDataDir: string) =>
               emitLifecycle(onStream, lifecycleMetadata, {
                 phase: "fix:revalidate-start",
                 message: "Fix completed; starting revalidation.",
-                cwd: createdWorktreePath,
+                cwd: worktree.worktreePath,
               });
               const revalidateResult = yield* runCommandAtPath(
                 repo.id,
-                createdWorktreePath,
+                worktree.worktreePath,
                 { command: "revalidate", findingId: request.findingId },
                 onStream,
                 request.findingId,
@@ -663,6 +683,7 @@ export const RepoServiceLive = (appDataDir: string) =>
         const { worktreePath } = managedWorktreeForFinding(repo, request.findingId);
         const lifecycleMetadata = commandLifecycleMetadata(repo.id, request);
         const emitGitLifecycle = makeGitLifecycleEmitter(onStream, lifecycleMetadata);
+        const settings = yield* repoSettings.read(repo.id);
         return yield* runFindingCommandLocked(
           repo.id,
           request.findingId,
@@ -673,19 +694,27 @@ export const RepoServiceLive = (appDataDir: string) =>
               message: `Preparing managed worktree at ${worktreePath}.`,
               cwd: repo.path,
             });
-            const createdWorktreePath = yield* createManagedWorktree(
+            const worktree = yield* createManagedWorktree(
               repo,
               request.findingId,
               emitGitLifecycle,
             );
+            yield* runWorktreeSetupIfNeeded(
+              setupScripts,
+              worktree.worktreePath,
+              worktree.created,
+              settings.worktreeSetupScript,
+              lifecycleMetadata,
+              onStream,
+            );
             emitLifecycle(onStream, lifecycleMetadata, {
               phase: "revalidate:worktree-ready",
-              message: `Managed worktree ready at ${createdWorktreePath}.`,
-              cwd: createdWorktreePath,
+              message: `Managed worktree ready at ${worktree.worktreePath}.`,
+              cwd: worktree.worktreePath,
             });
             return yield* runCommandAtPath(
               repo.id,
-              createdWorktreePath,
+              worktree.worktreePath,
               request,
               onStream,
               request.findingId,
@@ -749,6 +778,14 @@ export const RepoServiceLive = (appDataDir: string) =>
             diff,
             metadata: repoMetadata,
           };
+        }),
+        getSettings: Effect.fn("repoService.getSettings")(function* (repoIdValue) {
+          const repo = yield* requireRepo(repoIdValue);
+          return yield* repoSettings.read(repo.id);
+        }),
+        updateSettings: Effect.fn("repoService.updateSettings")(function* (repoIdValue, settings) {
+          const repo = yield* requireRepo(repoIdValue);
+          return yield* repoSettings.write(repo.id, settings);
         }),
         listFindings: Effect.fn("repoService.listFindings")(function* (repoIdValue) {
           const repo = yield* requireRepo(repoIdValue);
@@ -825,8 +862,13 @@ export const RepoServiceLive = (appDataDir: string) =>
         }),
         openTerminal: Effect.fn("repoService.openTerminal")(function* (repoIdValue, findingId) {
           const repo = yield* requireRepo(repoIdValue);
+          const settings = yield* repoSettings.read(repo.id);
           return yield* terminal.open(
             (yield* activeWorktreePathForFinding(repo.id, findingId)) ?? repo.path,
+            {
+              appName: settings.terminalAppName,
+              startupScript: settings.terminalStartupScript,
+            },
           );
         }),
       });
@@ -898,6 +940,20 @@ function emitLifecycle(
     cwd: event.cwd,
     argv: event.argv === undefined ? undefined : [...event.argv],
   });
+}
+
+function runWorktreeSetupIfNeeded(
+  setupScripts: SetupScriptRunnerShape,
+  worktreePath: string,
+  created: boolean,
+  script: string,
+  metadata: ReturnType<typeof commandLifecycleMetadata>,
+  onStream?: (event: CommandStreamEvent) => void,
+): Effect.Effect<CommandResult | void, CommandSpawnError> {
+  if (!created || script.trim() === "") {
+    return Effect.void;
+  }
+  return setupScripts.run(worktreePath, script, metadata, onStream);
 }
 
 function findingCommandKey(repoIdValue: string, findingId: string): string {
