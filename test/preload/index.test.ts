@@ -1,5 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { COMMANDS_INTERRUPT_CHANNEL, COMMANDS_STREAM_CHANNEL } from "../../src/shared/ipcChannels";
+import {
+  COMMANDS_INTERRUPT_CHANNEL,
+  COMMANDS_STREAM_CHANNEL,
+  TERMINAL_OPEN_CHANNEL,
+} from "../../src/shared/ipcChannels";
 import type { Api } from "../../src/shared/types";
 
 const { exposeInMainWorldMock, invokeMock, onMock, removeListenerMock } = vi.hoisted(() => ({
@@ -41,6 +45,23 @@ describe("preload api", () => {
 
     await expect(api.commands.interrupt("repo-1")).resolves.toEqual({ interrupted: true });
     expect(invokeMock).toHaveBeenCalledWith(COMMANDS_INTERRUPT_CHANNEL, { repoId: "repo-1" });
+  });
+
+  it("exposes terminal open over IPC", async () => {
+    invokeMock.mockResolvedValue({ cwd: "/tmp/worktree" });
+
+    await import("../../src/preload/index");
+
+    const api = exposeInMainWorldMock.mock.calls[0]?.[1] as Api | undefined;
+    if (api === undefined) {
+      throw new Error("preload api was not exposed");
+    }
+
+    await expect(api.terminal.open("repo-1", "fnd-1")).resolves.toEqual({ cwd: "/tmp/worktree" });
+    expect(invokeMock).toHaveBeenCalledWith(TERMINAL_OPEN_CHANNEL, {
+      repoId: "repo-1",
+      findingId: "fnd-1",
+    });
   });
 
   it("forwards command output and lifecycle stream events", async () => {

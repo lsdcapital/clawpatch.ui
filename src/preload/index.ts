@@ -18,6 +18,7 @@ import {
   REPO_LIST_CHANNEL,
   REPO_PICK_FOLDER_CHANNEL,
   REPO_REFRESH_CHANNEL,
+  TERMINAL_OPEN_CHANNEL,
   TRIAGE_SET_CHANNEL,
 } from "../shared/ipcChannels";
 
@@ -70,6 +71,10 @@ const api: Api = {
       ipcRenderer.invoke(GIT_DIFF_CHANNEL, repoFindingPayload(repoId, findingId)),
     status: (repoId, findingId) =>
       ipcRenderer.invoke(GIT_STATUS_CHANNEL, repoFindingPayload(repoId, findingId)),
+  },
+  terminal: {
+    open: (repoId, findingId) =>
+      ipcRenderer.invoke(TERMINAL_OPEN_CHANNEL, repoFindingPayload(repoId, findingId)),
   },
 };
 

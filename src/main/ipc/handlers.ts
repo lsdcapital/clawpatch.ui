@@ -13,6 +13,7 @@ import {
   RepoListSchema,
   RepoSnapshotSchema,
   RepoSummarySchema,
+  TerminalOpenResultSchema,
 } from "../../shared/schemas";
 import type { CommandStreamEvent } from "../../shared/types";
 import { DialogOpenError } from "../errors";
@@ -29,6 +30,7 @@ import {
   REPO_LIST_CHANNEL,
   REPO_PICK_FOLDER_CHANNEL,
   REPO_REFRESH_CHANNEL,
+  TERMINAL_OPEN_CHANNEL,
   TRIAGE_SET_CHANNEL,
 } from "../../shared/ipcChannels";
 import { EffectIpc, makeIpcMethod } from "./effectIpc";
@@ -152,6 +154,14 @@ export const installIpcHandlers = (publishCommandStream: (event: CommandStreamEv
         payload: RepoFindingPayload,
         result: GitStatusSummarySchema,
         handler: ({ repoId, findingId }) => repos.readGitStatus(repoId, findingId),
+      }),
+    );
+    yield* ipc.handle(
+      makeIpcMethod({
+        channel: TERMINAL_OPEN_CHANNEL,
+        payload: RepoFindingPayload,
+        result: TerminalOpenResultSchema,
+        handler: ({ repoId, findingId }) => repos.openTerminal(repoId, findingId),
       }),
     );
   }).pipe(Effect.withSpan("ipc.installHandlers"));
