@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, Menu, screen, type Rectangle } from "electron";
+import { app, BrowserWindow, ipcMain, Menu, nativeTheme, screen, type Rectangle } from "electron";
 import { join } from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import type * as Effect from "effect/Effect";
@@ -31,6 +31,8 @@ type AppRuntime = ManagedRuntime.ManagedRuntime<Layer.Success<AppLayer>, Layer.E
 let mainWindow: BrowserWindow | null = null;
 let appRuntime: AppRuntime | null = null;
 const WINDOW_STATE_SAVE_DEBOUNCE_MS = 250;
+const LIGHT_WINDOW_BACKGROUND = "#f6f7f8";
+const DARK_WINDOW_BACKGROUND = "#111318";
 const startupLogger = childLogger("startup");
 const windowLogger = childLogger("window");
 const commandStreamLogger = childLogger("command-stream");
@@ -69,6 +71,8 @@ async function createWindow(): Promise<void> {
     ...windowState.bounds,
     minWidth: MIN_WINDOW_WIDTH,
     minHeight: MIN_WINDOW_HEIGHT,
+    show: false,
+    backgroundColor: getInitialWindowBackgroundColor(),
     title: APP_DISPLAY_NAME,
     icon: getAppIconPath(),
     webPreferences: {
@@ -81,11 +85,14 @@ async function createWindow(): Promise<void> {
   windowLogger.info({ bounds: windowState.bounds }, "Created main window");
 
   const window = mainWindow;
+  const syncAppearance = (): void => syncWindowAppearance(window);
   window.on("closed", () => {
+    nativeTheme.off("updated", syncAppearance);
     if (mainWindow === window) {
       mainWindow = null;
     }
   });
+  nativeTheme.on("updated", syncAppearance);
   installWindowStatePersistence(mainWindow, userDataPath);
 
   if (windowState.isFullScreen) {
@@ -96,8 +103,11 @@ async function createWindow(): Promise<void> {
     mainWindow.maximize();
   }
 
+  const revealWindow = makeOneShotWindowReveal(mainWindow);
+  mainWindow.once("ready-to-show", revealWindow);
   mainWindow.webContents.on("did-finish-load", () => {
     windowLogger.debug("Renderer finished loading");
+    revealWindow();
   });
   mainWindow.webContents.on(
     "did-fail-load",
@@ -174,6 +184,28 @@ function getAppIconPath(): string {
     return join(process.resourcesPath, "icon.png");
   }
   return join(app.getAppPath(), "resources/build-assets/icons/icon-512.png");
+}
+
+function getInitialWindowBackgroundColor(): string {
+  return nativeTheme.shouldUseDarkColors ? DARK_WINDOW_BACKGROUND : LIGHT_WINDOW_BACKGROUND;
+}
+
+function syncWindowAppearance(window: BrowserWindow): void {
+  if (window.isDestroyed()) {
+    return;
+  }
+  window.setBackgroundColor(getInitialWindowBackgroundColor());
+}
+
+function makeOneShotWindowReveal(window: BrowserWindow): () => void {
+  let revealed = false;
+  return () => {
+    if (revealed || window.isDestroyed()) {
+      return;
+    }
+    revealed = true;
+    window.show();
+  };
 }
 
 function installApplicationMenu(): void {

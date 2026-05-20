@@ -3,10 +3,45 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#f6f7f8" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#111318" media="(prefers-color-scheme: dark)" />
+    <script>
+      (() => {
+        const LIGHT_BACKGROUND = "#f6f7f8";
+        const DARK_BACKGROUND = "#111318";
+        const isDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+        const background = isDark ? DARK_BACKGROUND : LIGHT_BACKGROUND;
+        document.documentElement.style.backgroundColor = background;
+      })();
+    </script>
+    <style>
+      html,
+      body,
+      #root {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+      }
+
+      body {
+        background: #f6f7f8;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        body {
+          background: #111318;
+        }
+      }
+
+      #boot-shell {
+        min-height: 100%;
+        background: inherit;
+      }
+    </style>
     <title>Clawpatch UI</title>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root"><div id="boot-shell"></div></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
