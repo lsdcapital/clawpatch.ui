@@ -7,6 +7,7 @@ import {
   COMMANDS_INTERRUPT_CHANNEL,
   COMMANDS_RUN_CHANNEL,
   REPO_PICK_FOLDER_CHANNEL,
+  TERMINAL_OPEN_CHANNEL,
 } from "../../src/shared/ipcChannels";
 import type {
   CommandResult,
@@ -151,6 +152,24 @@ describe("IPC handlers", () => {
       await runtime.dispose();
     }
   });
+
+  it("opens a terminal through IPC", async () => {
+    const openTerminal = vi.fn(() => Effect.succeed({ cwd: "/tmp/repo" }));
+    const { registered, runtime } = await installHandlersForTest({ openTerminal });
+    const listener = registered.get(TERMINAL_OPEN_CHANNEL);
+    if (listener === undefined) {
+      throw new Error("terminal open IPC handler was not registered");
+    }
+
+    try {
+      await expect(
+        listener({} as IpcMainInvokeEvent, { repoId: "repo-1", findingId: "fnd-1" }),
+      ).resolves.toEqual({ cwd: "/tmp/repo" });
+      expect(openTerminal).toHaveBeenCalledWith("repo-1", "fnd-1");
+    } finally {
+      await runtime.dispose();
+    }
+  });
 });
 
 type RegisteredListener = (event: IpcMainInvokeEvent, raw: unknown) => unknown | Promise<unknown>;
@@ -162,6 +181,7 @@ async function installHandlersForTest(): Promise<{
 }>;
 async function installHandlersForTest(options: {
   readonly interruptCommand?: RepoServiceShape["interruptCommand"];
+  readonly openTerminal?: RepoServiceShape["openTerminal"];
   readonly publish?: (event: CommandStreamEvent) => void;
   readonly runCommand?: RepoServiceShape["runCommand"];
 }): Promise<{
@@ -172,6 +192,7 @@ async function installHandlersForTest(options: {
 async function installHandlersForTest(
   options: {
     readonly interruptCommand?: RepoServiceShape["interruptCommand"];
+    readonly openTerminal?: RepoServiceShape["openTerminal"];
     readonly publish?: (event: CommandStreamEvent) => void;
     readonly runCommand?: RepoServiceShape["runCommand"];
   } = {},
@@ -206,6 +227,7 @@ async function installHandlersForTest(
 function makeRepoServiceLayer(
   options: {
     readonly interruptCommand?: RepoServiceShape["interruptCommand"];
+    readonly openTerminal?: RepoServiceShape["openTerminal"];
     readonly runCommand?: RepoServiceShape["runCommand"];
   } = {},
 ) {
@@ -239,6 +261,7 @@ function makeRepoServiceLayer(
       setTriage: () => Effect.succeed(makeCommandResult()),
       readDiff: () => Effect.succeed(""),
       readGitStatus: () => Effect.succeed({ staged: 0, modified: 0, untracked: 0, branch: null }),
+      openTerminal: options.openTerminal ?? ((cwd) => Effect.succeed({ cwd })),
     }),
   );
 }

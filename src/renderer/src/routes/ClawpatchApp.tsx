@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { clawpatchQueryKeys } from "../clawpatchQueries";
 import { visibleCommandLogEntries } from "../commandLogEntries";
@@ -21,6 +21,7 @@ export function ClawpatchApp() {
   const queryClient = useQueryClient();
   const [activeWorkspace, setActiveWorkspace] = useState<ActiveWorkspace>("findings");
   const [activeInspector, setActiveInspector] = useState<ActiveInspector>(null);
+  const [terminalError, setTerminalError] = useState<string | null>(null);
   const { isRepoSidebarCollapsed, toggleRepoSidebar } = useRepoSidebarState();
 
   const reposQuery = useQuery({
@@ -66,6 +67,29 @@ export function ClawpatchApp() {
   });
 
   const selectedFindingId = selectedFinding?.findingId;
+  useEffect(() => {
+    setTerminalError(null);
+  }, [selectedRepo?.id]);
+
+  const terminalMutation = useMutation({
+    mutationFn: ({ repoId, findingId }: { repoId: string; findingId?: string }) =>
+      window.clawpatch.terminal.open(repoId, findingId),
+    onSuccess: () => setTerminalError(null),
+    onError: (error) => {
+      setTerminalError(error instanceof Error ? error.message : String(error));
+    },
+  });
+
+  const openTerminal = useCallback((): void => {
+    if (selectedRepo === null) {
+      return;
+    }
+    terminalMutation.mutate({
+      repoId: selectedRepo.id,
+      findingId: selectedFinding?.findingId,
+    });
+  }, [selectedFinding?.findingId, selectedRepo, terminalMutation]);
+
   const selectedFindingCommand =
     selectedFindingId === undefined
       ? undefined
@@ -109,15 +133,18 @@ export function ClawpatchApp() {
           activeWorkspace={activeWorkspace}
           activeInspector={activeInspector}
           isRepoCommandBusy={commandRunner.isRepoCommandBusy}
+          isOpeningTerminal={terminalMutation.isPending}
           onToggleRepoSidebar={toggleRepoSidebar}
           onWorkspaceChange={setActiveWorkspace}
           onToggleInspector={toggleInspector}
+          onOpenTerminal={openTerminal}
           onRunCommand={runCommand}
         />
 
         {selectedRepo?.lastError ? (
           <div className="repo-error">{selectedRepo.lastError}</div>
         ) : null}
+        {terminalError !== null ? <div className="repo-error">{terminalError}</div> : null}
 
         {selectedRepo !== null && findingsWorkspace.gitStatusQuery.data !== undefined ? (
           <GitStatusStrip status={findingsWorkspace.gitStatusQuery.data} onViewDiff={openDiff} />

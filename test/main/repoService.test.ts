@@ -22,6 +22,10 @@ import {
   GitServiceLive,
   type GitServiceShape,
 } from "../../src/main/services/gitService";
+import {
+  TerminalLauncher,
+  type TerminalLauncherShape,
+} from "../../src/main/services/terminalLauncher";
 import { UiMetadataServiceLive } from "../../src/main/services/uiMetadata";
 import { RepoService, RepoServiceLive } from "../../src/main/services/repoService";
 
@@ -95,6 +99,83 @@ describe("RepoService", () => {
       expect(summary.findingCount).toBe(1);
       expect(findings[0].findingId).toBe("fnd-1");
       expect(calls).toContainEqual({ repoPath: fixtureRepo, request: { command: "status" } });
+    }).pipe(Effect.provide(makeRepoServiceTestLayer(fixtureRepo, calls)));
+  });
+
+  it.effect("opens a terminal at the registered checkout by default", () => {
+    const calls: RunnerCall[] = [];
+    const terminalCwds: string[] = [];
+    return Effect.gen(function* () {
+      const service = yield* RepoService;
+
+      const summary = yield* service.addRepo(fixtureRepo);
+      const result = yield* service.openTerminal(summary.id);
+
+      expect(result).toEqual({ cwd: fixtureRepo });
+      expect(terminalCwds).toEqual([fixtureRepo]);
+    }).pipe(
+      Effect.provide(
+        makeRepoServiceTestLayer(
+          fixtureRepo,
+          calls,
+          undefined,
+          false,
+          undefined,
+          undefined,
+          makeTerminalMock(terminalCwds),
+        ),
+      ),
+    );
+  });
+
+  it("opens a terminal at an active finding worktree when present", async () => {
+    const calls: RunnerCall[] = [];
+    const terminalCwds: string[] = [];
+    const appData = await makeTempDir();
+    const runtime = ManagedRuntime.make(
+      makeRepoServiceTestLayer(
+        fixtureRepo,
+        calls,
+        appData,
+        false,
+        undefined,
+        undefined,
+        makeTerminalMock(terminalCwds),
+      ),
+    );
+
+    try {
+      await runtime.runPromise(
+        Effect.gen(function* () {
+          const service = yield* RepoService;
+          const summary = yield* service.addRepo(fixtureRepo);
+          const worktreePath = join(appData, "worktrees", summary.id, "fnd-1");
+          yield* Effect.promise(() => writeFinding(worktreePath, { findingId: "fnd-1" }));
+
+          const result = yield* service.openTerminal(summary.id, "fnd-1");
+
+          expect(result).toEqual({ cwd: worktreePath });
+          expect(terminalCwds).toEqual([worktreePath]);
+        }),
+      );
+    } finally {
+      await runtime.dispose();
+    }
+  });
+
+  it.effect("fails terminal opens for unknown repos", () => {
+    const calls: RunnerCall[] = [];
+    return Effect.gen(function* () {
+      const service = yield* RepoService;
+
+      const error = yield* service.openTerminal("missing-repo").pipe(
+        Effect.match({
+          onFailure: (error) => error,
+          onSuccess: () => null,
+        }),
+      );
+
+      expect(error).toMatchObject({ message: "Repo not found: missing-repo" });
     }).pipe(Effect.provide(makeRepoServiceTestLayer(fixtureRepo, calls)));
   });
 
@@ -862,6 +943,7 @@ function makeRepoServiceTestLayer(
   isRunning = false,
   gitService?: GitServiceShape,
   runnerService?: ClawpatchRunnerShape,
+  terminalLauncherService?: TerminalLauncherShape,
 ) {
   const appDataEffect =
     appData === undefined ? Effect.promise(() => makeTempDir()) : Effect.succeed(appData);
@@ -910,6 +992,14 @@ function makeRepoServiceTestLayer(
             gitService === undefined
               ? GitServiceLive
               : Layer.succeed(GitService, GitService.of(gitService)),
+            Layer.succeed(
+              TerminalLauncher,
+              TerminalLauncher.of(
+                terminalLauncherService ?? {
+                  open: (cwd) => Effect.succeed({ cwd }),
+                },
+              ),
+            ),
           ),
         ),
         Layer.provide(NodeServices.layer),
@@ -945,6 +1035,16 @@ function makeCommandResult(cwd: string, command: string): CommandResult {
     stdout: "{}",
     stderr: "",
     parsedJson: {},
+  };
+}
+
+function makeTerminalMock(calls: string[]): TerminalLauncherShape {
+  return {
+    open: (cwd) =>
+      Effect.sync(() => {
+        calls.push(cwd);
+        return { cwd };
+      }),
   };
 }
 

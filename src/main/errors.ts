@@ -52,6 +52,31 @@ export class CommandSpawnError extends Data.TaggedError("CommandSpawnError")<{
   }
 }
 
+export class TerminalCwdError extends Data.TaggedError("TerminalCwdError")<{
+  readonly cwd: string;
+  readonly message: string;
+  readonly cause?: unknown;
+}> {}
+
+export class TerminalUnsupportedPlatformError extends Data.TaggedError(
+  "TerminalUnsupportedPlatformError",
+)<{
+  readonly platform: NodeJS.Platform;
+}> {
+  override get message() {
+    return "Opening Terminal is only supported on macOS for now";
+  }
+}
+
+export class TerminalLaunchError extends Data.TaggedError("TerminalLaunchError")<{
+  readonly cwd: string;
+  readonly cause: unknown;
+}> {
+  override get message() {
+    return this.cause instanceof Error ? this.cause.message : String(this.cause);
+  }
+}
+
 export class DialogOpenError extends Data.TaggedError("DialogOpenError")<{
   readonly cause: unknown;
 }> {
