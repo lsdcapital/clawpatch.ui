@@ -7,7 +7,11 @@ import type {
   FindingListItem,
   RepoSummary,
 } from "../../../shared/types";
-import { commandErrorLogEntry, commandResultLogEntries } from "../commandLogEntries";
+import {
+  appendCommandLogEntries,
+  commandErrorLogEntry,
+  commandResultLogEntries,
+} from "../commandLogEntries";
 import { invalidateCommandProgress, invalidateRepo } from "../clawpatchQueries";
 import type { CommandLogEntry } from "../workspaceTypes";
 
@@ -42,7 +46,7 @@ export function useCommandRunner({
 
   useEffect(() => {
     return window.clawpatch.commands.onStream((event) => {
-      setCommandLog((current) => [...current, { kind: "stream", event }]);
+      setCommandLog((current) => appendCommandLogEntries(current, [{ kind: "stream", event }]));
       void invalidateCommandProgress(queryClient);
     });
   }, [queryClient]);
@@ -51,10 +55,11 @@ export function useCommandRunner({
     mutationFn: ({ repo, findingId }: { repo: RepoSummary; findingId?: string }) =>
       window.clawpatch.commands.interrupt(repo.id, findingId),
     onError: (error) => {
-      setCommandLog((current) => [
-        ...current,
-        { kind: "error", message: error instanceof Error ? error.message : String(error) },
-      ]);
+      setCommandLog((current) =>
+        appendCommandLogEntries(current, [
+          { kind: "error", message: error instanceof Error ? error.message : String(error) },
+        ]),
+      );
     },
   });
 
@@ -71,23 +76,25 @@ export function useCommandRunner({
       note: string;
     }) => window.clawpatch.triage.set(repo.id, finding.findingId, status, note),
     onSuccess: (result, variables) => {
-      setCommandLog((current) => [
-        ...current,
-        {
-          kind: "result",
-          result,
-          repoId: variables.repo.id,
-          findingId: variables.finding.findingId,
-          command: "triage",
-        },
-      ]);
+      setCommandLog((current) =>
+        appendCommandLogEntries(current, [
+          {
+            kind: "result",
+            result,
+            repoId: variables.repo.id,
+            findingId: variables.finding.findingId,
+            command: "triage",
+          },
+        ]),
+      );
       void invalidateRepo(queryClient, variables.repo.id);
     },
     onError: (error) => {
-      setCommandLog((current) => [
-        ...current,
-        { kind: "error", message: error instanceof Error ? error.message : String(error) },
-      ]);
+      setCommandLog((current) =>
+        appendCommandLogEntries(current, [
+          { kind: "error", message: error instanceof Error ? error.message : String(error) },
+        ]),
+      );
     },
   });
 
@@ -116,14 +123,18 @@ export function useCommandRunner({
 
   const appendCommandResults = useCallback(
     (repoId: string, request: ClawpatchCommandRequest, result: CommandResult) => {
-      setCommandLog((current) => [...current, ...commandResultLogEntries(repoId, request, result)]);
+      setCommandLog((current) =>
+        appendCommandLogEntries(current, commandResultLogEntries(repoId, request, result)),
+      );
     },
     [],
   );
 
   const appendCommandError = useCallback(
     (repoId: string, request: ClawpatchCommandRequest, error: unknown) => {
-      setCommandLog((current) => [...current, commandErrorLogEntry(repoId, request, error)]);
+      setCommandLog((current) =>
+        appendCommandLogEntries(current, [commandErrorLogEntry(repoId, request, error)]),
+      );
     },
     [],
   );

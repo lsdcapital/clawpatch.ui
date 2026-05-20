@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 1,
+  "patchAttemptId": "pat_fnd-sig-feat-library-8e600da3ee-_3521e9b096",
+  "findingIds": [
+    "fnd_sig-feat-library-8e600da3ee-3a73_8afc77c93a"
+  ],
+  "featureIds": [
+    "feat_library_8e600da3ee"
+  ],
+  "status": "failed",
+  "plan": "Capped renderer command-log retention at the latest 200 entries through a shared append helper and memoized CommandPanel output formatting so unrelated renders do not rebuild the full log. Added a focused renderer regression test that streams 205 events and asserts older entries are trimmed while recent entries remain. Validation was blocked by missing dependencies in this worktree: Vitest could not resolve `vitest`, and typecheck could not resolve `@types/node` or `vitest/globals`. `git diff --check` passed.",
+  "filesChanged": [
+    "src/renderer/src/components/CommandPanel.tsx",
+    "src/renderer/src/routes/ClawpatchApp.tsx",
+    "test/renderer/ClawpatchApp.test.tsx"
+  ],
+  "commandsRun": [
+    {
+      "command": "pnpm test",
+      "cwd": "/Users/steflsd/Library/Application Support/Clawpatch UI/worktrees/20cfbef174090674/fnd_sig-feat-library-8e600da3ee-3a73_8afc77c93a",
+      "exitCode": 1,
+      "durationMs": 435,
+      "stdout": "[ELIFECYCLE] Test failed. See above for more details.\n[WARN]  Local package.json exists, but node_modules missing, did you mean to install?\n",
+      "stderr": "$ vitest run\nfailed to load config from /Users/steflsd/Library/Application Support/Clawpatch UI/worktrees/20cfbef174090674/fnd_sig-feat-library-8e600da3ee-3a73_8afc77c93a/vitest.config.ts\n\n⎯⎯⎯⎯⎯⎯⎯ Startup Error ⎯⎯⎯⎯⎯⎯⎯⎯\nError [ERR_MODULE_NOT_FOUND]: Cannot find package 'vitest' imported from /Users/steflsd/Library/Application Support/Clawpatch UI/worktrees/20cfbef174090674/fnd_sig-feat-library-8e600da3ee-3a73_8afc77c93a/vitest.config.ts.timestamp-1779256186971-4ad879734ea41.mjs\nDid you mean to import \"vitest/dist/config.cjs\"?\n    at Object.getPackageJSONURL (node:internal/modules/package_json_reader:301:9)\n    at packageResolve (node:internal/modules/esm/resolve:764:81)\n    at moduleResolve (node:internal/modules/esm/resolve:855:18)\n    at defaultResolve (node:internal/modules/esm/resolve:988:11)\n    at #cachedDefaultResolve (node:internal/modules/esm/loader:697:20)\n    at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:714:38)\n    at ModuleLoader.resolveSync (node:internal/modules/esm/loader:746:52)\n    at #resolve (node:internal/modules/esm/loader:679:17)\n    at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:599:35)\n    at ModuleJob.syncLink (node:internal/modules/esm/module_job:162:33) {\n  code: 'ERR_MODULE_NOT_FOUND'\n}\n\n\n\n"
+    }
+  ],
+  "testResults": [
+    {
+      "command": "pnpm test",
+      "cwd": "/Users/steflsd/Library/Application Support/Clawpatch UI/worktrees/20cfbef174090674/fnd_sig-feat-library-8e600da3ee-3a73_8afc77c93a",
+      "exitCode": 1,
+      "durationMs": 435,
+      "stdout": "[ELIFECYCLE] Test failed. See above for more details.\n[WARN]  Local package.json exists, but node_modules missing, did you mean to install?\n",
+      "stderr": "$ vitest run\nfailed to load config from /Users/steflsd/Library/Application Support/Clawpatch UI/worktrees/20cfbef174090674/fnd_sig-feat-library-8e600da3ee-3a73_8afc77c93a/vitest.config.ts\n\n⎯⎯⎯⎯⎯⎯⎯ Startup Error ⎯⎯⎯⎯⎯⎯⎯⎯\nError [ERR_MODULE_NOT_FOUND]: Cannot find package 'vitest' imported from /Users/steflsd/Library/Application Support/Clawpatch UI/worktrees/20cfbef174090674/fnd_sig-feat-library-8e600da3ee-3a73_8afc77c93a/vitest.config.ts.timestamp-1779256186971-4ad879734ea41.mjs\nDid you mean to import \"vitest/dist/config.cjs\"?\n    at Object.getPackageJSONURL (node:internal/modules/package_json_reader:301:9)\n    at packageResolve (node:internal/modules/esm/resolve:764:81)\n    at moduleResolve (node:internal/modules/esm/resolve:855:18)\n    at defaultResolve (node:internal/modules/esm/resolve:988:11)\n    at #cachedDefaultResolve (node:internal/modules/esm/loader:697:20)\n    at #resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:714:38)\n    at ModuleLoader.resolveSync (node:internal/modules/esm/loader:746:52)\n    at #resolve (node:internal/modules/esm/loader:679:17)\n    at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:599:35)\n    at ModuleJob.syncLink (node:internal/modules/esm/module_job:162:33) {\n  code: 'ERR_MODULE_NOT_FOUND'\n}\n\n\n\n"
+    }
+  ],
+  "provider": {
+    "name": "codex",
+    "model": null,
+    "reasoningEffort": null,
+    "requestId": null,
+    "startedAt": "2026-05-20T05:47:24.703Z",
+    "finishedAt": "2026-05-20T05:49:47.017Z"
+  },
+  "git": {
+    "baseSha": "f7acdd1f4aca4ea52a60636c3812a1e62cbd034d",
+    "commitSha": null,
+    "branchName": "clawpatch/fix/fnd_sig-feat-library-8e600da3ee-3a73_8afc77c93a",
+    "prUrl": null
+  },
+  "createdAt": "2026-05-20T05:47:24.701Z",
+  "updatedAt": "2026-05-20T05:49:47.017Z"
+}

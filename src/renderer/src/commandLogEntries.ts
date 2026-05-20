@@ -1,6 +1,16 @@
 import type { ClawpatchCommandRequest, CommandResult } from "../../shared/types";
 import type { ActiveWorkspace, CommandLogEntry } from "./workspaceTypes";
 
+export const MAX_COMMAND_LOG_ENTRIES = 200;
+
+export function appendCommandLogEntries(
+  current: readonly CommandLogEntry[],
+  entries: readonly CommandLogEntry[],
+): CommandLogEntry[] {
+  const next = [...current, ...entries];
+  return next.length > MAX_COMMAND_LOG_ENTRIES ? next.slice(-MAX_COMMAND_LOG_ENTRIES) : next;
+}
+
 export function visibleCommandLogEntries({
   entries,
   selectedRepoId,
