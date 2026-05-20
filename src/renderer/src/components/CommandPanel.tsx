@@ -1,23 +1,12 @@
 import { SquareIcon } from "lucide-react";
-import type { CommandResult, CommandStreamEvent } from "../../../shared/types";
-
-type Entry =
-  | { kind: "stream"; event: CommandStreamEvent }
-  | {
-      kind: "result";
-      result: CommandResult;
-      repoId: string;
-      findingId?: string;
-      command: string;
-    }
-  | { kind: "error"; message: string; repoId?: string; findingId?: string; command?: string };
+import type { CommandLogEntry } from "../workspaceTypes";
 
 export function CommandPanel({
   entries,
   isRunning,
   onInterrupt,
 }: {
-  entries: Entry[];
+  entries: CommandLogEntry[];
   isRunning: boolean;
   onInterrupt: () => void;
 }) {
