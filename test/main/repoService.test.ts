@@ -266,6 +266,45 @@ describe("RepoService", () => {
     );
   });
 
+  it.effect("runs manual revalidation in a managed worktree and reads follow-up diff there", () => {
+    const calls: RunnerCall[] = [];
+    const gitCalls: Array<{
+      kind: string;
+      repoPath: string;
+      worktreePath?: string;
+      branchName?: string;
+    }> = [];
+    return Effect.gen(function* () {
+      const service = yield* RepoService;
+
+      const summary = yield* service.addRepo(fixtureRepo);
+      const result = yield* service.runCommand(summary.id, {
+        command: "revalidate",
+        findingId: "fnd-1",
+      });
+      const diff = yield* service.readDiff(summary.id);
+      const worktreeCall = gitCalls.find((call) => call.kind === "worktree");
+
+      expect(worktreeCall?.worktreePath).toBe(result.cwd);
+      expect(worktreeCall?.worktreePath).toContain(join("worktrees", summary.id, "fnd-1"));
+      expect(diff).toBe(`diff:${result.cwd}`);
+      expect(gitCalls).not.toContainEqual({ kind: "clean", repoPath: fixtureRepo });
+      expect(worktreeCall).toMatchObject({
+        kind: "worktree",
+        repoPath: fixtureRepo,
+        branchName: "clawpatch/fix/fnd-1",
+      });
+      expect(calls.at(-1)).toEqual({
+        repoPath: result.cwd,
+        request: { command: "revalidate", findingId: "fnd-1" },
+      });
+    }).pipe(
+      Effect.provide(
+        makeRepoServiceTestLayer(fixtureRepo, calls, undefined, false, makeGitMock(gitCalls)),
+      ),
+    );
+  });
+
   it("interrupts a fix running in its managed worktree", async () => {
     const calls: RunnerCall[] = [];
     const gitCalls: Array<{

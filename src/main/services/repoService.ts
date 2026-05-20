@@ -226,6 +226,17 @@ export const RepoServiceLive = (appDataDir: string) =>
       const workspacePathForRepo = (repo: Pick<RepoSummary, "id" | "path">): string =>
         activeWorktreePaths.get(repo.id) ?? repo.path;
 
+      const managedWorktreeForFinding = (
+        repo: Pick<RepoSummary, "id" | "path">,
+        findingId: string,
+      ): { worktreePath: string; branchName: string } => {
+        const slug = sanitizeWorktreeFragment(findingId);
+        return {
+          worktreePath: path.join(appDataDir, "worktrees", repo.id, slug),
+          branchName: `clawpatch/fix/${slug}`,
+        };
+      };
+
       const runTrackedCommand = Effect.fn("repoService.runTrackedCommand")(function* (
         repoIdValue: string,
         commandPath: string,
@@ -252,9 +263,7 @@ export const RepoServiceLive = (appDataDir: string) =>
         }
 
         yield* git.requireCleanCheckout(repo.path);
-        const slug = sanitizeWorktreeFragment(request.findingId);
-        const worktreePath = path.join(appDataDir, "worktrees", repo.id, slug);
-        const branchName = `clawpatch/fix/${slug}`;
+        const { worktreePath, branchName } = managedWorktreeForFinding(repo, request.findingId);
         yield* git.createOrReuseWorktree({ repoPath: repo.path, worktreePath, branchName });
 
         if (status !== undefined) {
@@ -281,6 +290,23 @@ export const RepoServiceLive = (appDataDir: string) =>
             onStream,
           );
           return { ...result, relatedResults: [revalidateResult] };
+        }
+        return result;
+      });
+
+      const runRevalidateInManagedWorktree = Effect.fn(
+        "repoService.runRevalidateInManagedWorktree",
+      )(function* (
+        repo: Pick<RepoSummary, "id" | "path">,
+        request: Extract<ClawpatchCommandRequest, { command: "revalidate" }>,
+        onStream?: (event: CommandStreamEvent) => void,
+      ) {
+        const { worktreePath, branchName } = managedWorktreeForFinding(repo, request.findingId);
+        yield* git.createOrReuseWorktree({ repoPath: repo.path, worktreePath, branchName });
+
+        const result = yield* runTrackedCommand(repo.id, worktreePath, request, onStream);
+        if (result.exitCode === 0) {
+          activeWorktreePaths.set(repo.id, worktreePath);
         }
         return result;
       });
@@ -356,6 +382,9 @@ export const RepoServiceLive = (appDataDir: string) =>
           const repo = yield* requireRepo(repoIdValue);
           if (request.command === "fix") {
             return yield* runFixInManagedWorktree(repo, request, onStream);
+          }
+          if (request.command === "revalidate") {
+            return yield* runRevalidateInManagedWorktree(repo, request, onStream);
           }
           return yield* runTrackedCommand(repo.id, workspacePathForRepo(repo), request, onStream);
         }),
