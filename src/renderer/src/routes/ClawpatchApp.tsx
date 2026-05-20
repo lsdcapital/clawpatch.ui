@@ -131,8 +131,13 @@ export function ClawpatchApp() {
               filters={findingsWorkspace.findingFilters}
               filterOptions={findingsWorkspace.findingFilterOptions}
               sort={findingsWorkspace.findingSort}
-              finding={findingsWorkspace.detailQuery.data ?? null}
+              finding={
+                findingsWorkspace.selectedFinding === null
+                  ? null
+                  : (findingsWorkspace.detailQuery.data ?? null)
+              }
               isDetailLoading={findingsWorkspace.detailQuery.isLoading}
+              isDetailPending={findingsWorkspace.isSelectedDetailPending}
               isBusy={commandRunner.isTriagePending || isSelectedFindingRunning}
               commandStateLabel={selectedFindingCommand?.request.command}
               fixDisabledReason={findingsWorkspace.fixDisabledReason}
