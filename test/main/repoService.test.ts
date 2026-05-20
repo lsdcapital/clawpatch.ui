@@ -332,6 +332,125 @@ describe("RepoService", () => {
     );
   });
 
+  it("rediscovers managed worktrees by directory convention after restart", async () => {
+    const calls: RunnerCall[] = [];
+    const gitCalls: Array<{
+      kind: string;
+      repoPath: string;
+      worktreePath?: string;
+      branchName?: string;
+    }> = [];
+    const appData = await makeTempDir();
+    const repoId = "repo-fixture";
+    const worktreePath = join(appData, "worktrees", repoId, "fnd-1");
+    await writeRepoRegistry(appData, repoId);
+    await writeFinding(worktreePath, {
+      findingId: "fnd-1",
+      title: "Fixed in worktree",
+      status: "fixed",
+    });
+    await writeFinding(worktreePath, {
+      findingId: "fnd-unrelated",
+      title: "Unrelated worktree finding",
+      status: "open",
+    });
+    const runtime = ManagedRuntime.make(
+      makeRepoServiceTestLayer(fixtureRepo, calls, appData, false, makeGitMock(gitCalls)),
+    );
+
+    try {
+      const result = await runtime.runPromise(
+        Effect.gen(function* () {
+          const service = yield* RepoService;
+          const repos = yield* service.listRepos();
+          const findings = yield* service.listFindings(repoId);
+          const detail = yield* service.getFinding(repoId, "fnd-1");
+          const diff = yield* service.readDiff(repoId, "fnd-1");
+          const status = yield* service.readGitStatus(repoId, "fnd-1");
+          const unrelatedDiff = yield* service.readDiff(repoId, "fnd-unrelated");
+          return { repos, findings, detail, diff, status, unrelatedDiff };
+        }),
+      );
+
+      expect(result.repos[0]).toMatchObject({
+        id: repoId,
+        activeWorktreePath: worktreePath,
+        activeWorktrees: [{ findingId: "fnd-1", path: worktreePath }],
+        findingCount: 1,
+        openFindingCount: 0,
+      });
+      expect(result.findings).toHaveLength(1);
+      expect(result.findings[0]).toMatchObject({
+        findingId: "fnd-1",
+        title: "Fixed in worktree",
+        status: "fixed",
+      });
+      expect(result.detail).toMatchObject({
+        findingId: "fnd-1",
+        title: "Fixed in worktree",
+        status: "fixed",
+      });
+      expect(result.diff).toBe(`diff:${worktreePath}`);
+      expect(result.status.branch).toBe("main");
+      expect(result.unrelatedDiff).toBe(`diff:${fixtureRepo}`);
+      expect(gitCalls).toContainEqual({ kind: "diff", repoPath: worktreePath });
+      expect(gitCalls).toContainEqual({ kind: "status", repoPath: worktreePath });
+      expect(gitCalls).toContainEqual({ kind: "diff", repoPath: fixtureRepo });
+    } finally {
+      await runtime.dispose();
+    }
+  });
+
+  it("ignores invalid managed worktree candidates during rediscovery", async () => {
+    const calls: RunnerCall[] = [];
+    const gitCalls: Array<{
+      kind: string;
+      repoPath: string;
+      worktreePath?: string;
+      branchName?: string;
+    }> = [];
+    const appData = await makeTempDir();
+    const repoId = "repo-fixture";
+    const worktreesRoot = join(appData, "worktrees", repoId);
+    await writeRepoRegistry(appData, repoId);
+    await mkdir(join(worktreesRoot, "no-state"), { recursive: true });
+    await writeFinding(join(worktreesRoot, "wrong-slug"), {
+      findingId: "fnd-mismatch",
+      title: "Wrong slug",
+      status: "fixed",
+    });
+    await writeFile(join(worktreesRoot, "not-a-directory"), "ignored", "utf8");
+    const runtime = ManagedRuntime.make(
+      makeRepoServiceTestLayer(fixtureRepo, calls, appData, false, makeGitMock(gitCalls)),
+    );
+
+    try {
+      const result = await runtime.runPromise(
+        Effect.gen(function* () {
+          const service = yield* RepoService;
+          const repos = yield* service.listRepos();
+          const findings = yield* service.listFindings(repoId);
+          const diff = yield* service.readDiff(repoId, "fnd-mismatch");
+          return { repos, findings, diff };
+        }),
+      );
+
+      expect(result.repos[0]).toMatchObject({
+        id: repoId,
+        activeWorktreePath: null,
+        activeWorktrees: [],
+        findingCount: 1,
+        openFindingCount: 1,
+      });
+      expect(result.findings.map((finding) => finding.findingId)).toEqual(["fnd-1"]);
+      expect(result.findings[0].title).toBe("Null branch can throw");
+      expect(result.diff).toBe(`diff:${fixtureRepo}`);
+      expect(gitCalls).toContainEqual({ kind: "diff", repoPath: fixtureRepo });
+    } finally {
+      await runtime.dispose();
+    }
+  });
+
   it("runs fixes for different findings concurrently in separate worktrees", async () => {
     const calls: RunnerCall[] = [];
     const gitCalls: Array<{
@@ -675,6 +794,63 @@ interface RunnerCall {
   readonly request: ClawpatchCommandRequest;
 }
 
+async function writeRepoRegistry(
+  appData: string,
+  repoId: string,
+  repoPath = fixtureRepo,
+): Promise<void> {
+  await writeFile(
+    join(appData, "repos.json"),
+    JSON.stringify({
+      repos: [
+        {
+          id: repoId,
+          name: "clawpatch-repo",
+          path: repoPath,
+          updatedAt: "2026-05-19T00:00:00.000Z",
+        },
+      ],
+    }),
+    "utf8",
+  );
+}
+
+async function writeFinding(
+  repoPath: string,
+  overrides: {
+    readonly findingId: string;
+    readonly title?: string;
+    readonly status?: string;
+    readonly featureId?: string;
+  },
+): Promise<void> {
+  await mkdir(join(repoPath, ".clawpatch", "findings"), { recursive: true });
+  await writeFile(
+    join(repoPath, ".clawpatch", "findings", `${overrides.findingId}.json`),
+    JSON.stringify(
+      {
+        findingId: overrides.findingId,
+        featureId: overrides.featureId ?? "feat-1",
+        title: overrides.title ?? overrides.findingId,
+        category: "bug",
+        severity: "high",
+        confidence: "high",
+        evidence: [],
+        reasoning: "Reasoning",
+        reproduction: null,
+        recommendation: "Recommendation",
+        status: overrides.status ?? "open",
+        linkedPatchAttemptIds: [],
+        createdAt: "2026-01-01T00:00:00.000Z",
+        updatedAt: "2026-01-01T00:00:00.000Z",
+      },
+      null,
+      2,
+    ),
+    "utf8",
+  );
+}
+
 function makeRepoServiceTestLayer(
   cwd: string,
   calls: RunnerCall[],
@@ -772,8 +948,16 @@ function makeGitMock(
   calls: Array<{ kind: string; repoPath: string; worktreePath?: string; branchName?: string }>,
 ): GitServiceShape {
   return {
-    readDiff: (repoPath) => Effect.succeed(`diff:${repoPath}`),
-    readStatus: () => Effect.succeed({ staged: 0, modified: 0, untracked: 0, branch: "main" }),
+    readDiff: (repoPath) =>
+      Effect.sync(() => {
+        calls.push({ kind: "diff", repoPath });
+        return `diff:${repoPath}`;
+      }),
+    readStatus: (repoPath) =>
+      Effect.sync(() => {
+        calls.push({ kind: "status", repoPath });
+        return { staged: 0, modified: 0, untracked: 0, branch: "main" };
+      }),
     requireCleanCheckout: (repoPath, onLifecycle) =>
       Effect.sync(() => {
         calls.push({ kind: "clean", repoPath });
