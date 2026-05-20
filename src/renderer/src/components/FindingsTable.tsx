@@ -8,6 +8,7 @@ import {
   type FindingSortField,
   type FindingFilterOptions,
   type FindingFilters,
+  type FindingStatusFilter,
 } from "../findingsFilters";
 
 interface Props {
@@ -42,7 +43,7 @@ export function FindingsTable({
     ? "Loading"
     : filtersActive
       ? `${findings.length} of ${totalFindingCount} shown`
-      : `${totalFindingCount} total`;
+      : `${findings.length} actionable of ${totalFindingCount} total`;
 
   const updateFilters = (nextFilters: Partial<FindingFilters>): void => {
     onFiltersChange({ ...filters, ...nextFilters });
@@ -102,8 +103,7 @@ export function FindingsTable({
               Filter
             </summary>
             <div className="filter-popover">
-              <FilterGroup
-                title="Status"
+              <StatusFilterGroup
                 values={filterOptions.statuses}
                 selectedValue={filters.status}
                 onSelect={(status) => updateFilters({ status })}
@@ -134,10 +134,10 @@ export function FindingsTable({
                 onClear={() => updateFilters({ search: "" })}
               />
             ) : null}
-            {filters.status !== null ? (
+            {filters.status !== defaultFindingFilters.status ? (
               <FilterChip
-                label={labelFor(filters.status)}
-                onClear={() => updateFilters({ status: null })}
+                label={statusLabelFor(filters.status)}
+                onClear={() => updateFilters({ status: defaultFindingFilters.status })}
               />
             ) : null}
             {filters.severity !== null ? (
@@ -176,9 +176,7 @@ export function FindingsTable({
           </button>
         ))}
         {!isLoading && findings.length === 0 ? (
-          <div className="empty-state">
-            {filtersActive ? "No findings match these filters" : "No findings found"}
-          </div>
+          <div className="empty-state">{emptyStateLabel(filtersActive, totalFindingCount)}</div>
         ) : null}
       </div>
     </div>
@@ -215,6 +213,40 @@ function SortableHeader({
   );
 }
 
+function StatusFilterGroup({
+  values,
+  selectedValue,
+  onSelect,
+}: {
+  values: readonly ClawpatchStatus[];
+  selectedValue: FindingStatusFilter;
+  onSelect: (value: FindingStatusFilter) => void;
+}) {
+  return (
+    <div className="filter-group">
+      <span>Status</span>
+      <button
+        className={selectedValue === "actionable" ? "active" : ""}
+        onClick={() => onSelect("actionable")}
+      >
+        Actionable
+      </button>
+      <button className={selectedValue === null ? "active" : ""} onClick={() => onSelect(null)}>
+        All
+      </button>
+      {values.map((value) => (
+        <button
+          key={value}
+          className={selectedValue === value ? "active" : ""}
+          onClick={() => onSelect(value)}
+        >
+          {labelFor(value)}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function FilterGroup<TValue extends string>({
   title,
   values,
@@ -245,6 +277,13 @@ function FilterGroup<TValue extends string>({
   );
 }
 
+function emptyStateLabel(filtersActive: boolean, totalFindingCount: number): string {
+  if (filtersActive) {
+    return "No findings match these filters";
+  }
+  return totalFindingCount > 0 ? "No actionable findings" : "No findings found";
+}
+
 function FilterChip({ label, onClear }: { label: string; onClear: () => void }) {
   return (
     <button className="filter-chip" onClick={onClear} aria-label={`Clear ${label} filter`}>
@@ -252,6 +291,16 @@ function FilterChip({ label, onClear }: { label: string; onClear: () => void }) 
       <span aria-hidden="true">x</span>
     </button>
   );
+}
+
+function statusLabelFor(value: FindingStatusFilter): string {
+  if (value === "actionable") {
+    return "Actionable";
+  }
+  if (value === null) {
+    return "All statuses";
+  }
+  return labelFor(value);
 }
 
 function labelFor(value: ClawpatchStatus | string): string {

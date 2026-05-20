@@ -30,18 +30,28 @@ describe("FindingsTable filters", () => {
       severity: "medium",
       status: "fixed",
     }),
+    makeFinding({
+      findingId: "fnd-escape",
+      title: "Escaping already happens upstream",
+      category: "security",
+      severity: "high",
+      status: "false-positive",
+    }),
   ];
 
   it("renders filter controls, active chips, and clear behavior", () => {
     render(<FilterHarness findings={findings} />);
 
-    expect(screen.getByText("2 total")).toBeInTheDocument();
+    expect(screen.getByText("1 actionable of 3 total")).toBeInTheDocument();
+    expect(screen.getByText("Token is logged in debug output")).toBeInTheDocument();
+    expect(screen.queryByText("Null branch can throw")).not.toBeInTheDocument();
+    expect(screen.queryByText("Escaping already happens upstream")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByText("Filter"));
     fireEvent.click(screen.getByRole("button", { name: "High" }));
 
     expect(getFilterMenu()).toHaveProperty("open", true);
-    expect(screen.getByText("1 of 2 shown")).toBeInTheDocument();
+    expect(screen.getByText("1 of 3 shown")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Clear High filter" })).toBeInTheDocument();
     expect(screen.getByText("Token is logged in debug output")).toBeInTheDocument();
     expect(screen.queryByText("Null branch can throw")).not.toBeInTheDocument();
@@ -50,8 +60,38 @@ describe("FindingsTable filters", () => {
     expect(screen.getByRole("button", { name: "Clear Search: token filter" })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Clear" }));
-    expect(screen.getByText("2 total")).toBeInTheDocument();
+    expect(screen.getByText("1 actionable of 3 total")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Clear High filter" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Escaping already happens upstream")).not.toBeInTheDocument();
+  });
+
+  it("allows viewing all statuses through the status filter", () => {
+    render(<FilterHarness findings={findings} />);
+
+    fireEvent.click(screen.getByText("Filter"));
+    const statusGroup = screen
+      .getAllByText("Status")
+      .find((element) => element.closest(".filter-group"))
+      ?.closest(".filter-group");
+    expect(statusGroup).not.toBeNull();
+    expect(
+      within(statusGroup as HTMLElement).getByRole("button", { name: "Actionable" }),
+    ).toBeInTheDocument();
+    expect(
+      within(statusGroup as HTMLElement).getByRole("button", { name: "All" }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(within(statusGroup as HTMLElement).getByRole("button", { name: "All" }));
+
+    expect(screen.getByText("3 of 3 shown")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Clear All statuses filter" })).toBeInTheDocument();
+    expect(screen.getByText("Token is logged in debug output")).toBeInTheDocument();
+    expect(screen.getByText("Null branch can throw")).toBeInTheDocument();
+    expect(screen.getByText("Escaping already happens upstream")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Clear" }));
+    expect(screen.getByText("1 actionable of 3 total")).toBeInTheDocument();
+    expect(screen.queryByText("Escaping already happens upstream")).not.toBeInTheDocument();
   });
 
   it("can filter by security category through the menu", () => {
@@ -65,10 +105,11 @@ describe("FindingsTable filters", () => {
     expect(categoryGroup).not.toBeNull();
     fireEvent.click(within(categoryGroup as HTMLElement).getByRole("button", { name: "Security" }));
 
-    expect(screen.getByText("1 of 2 shown")).toBeInTheDocument();
+    expect(screen.getByText("1 of 3 shown")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Clear Security filter" })).toBeInTheDocument();
     expect(screen.getByText("Token is logged in debug output")).toBeInTheDocument();
     expect(screen.queryByText("Null branch can throw")).not.toBeInTheDocument();
+    expect(screen.queryByText("Escaping already happens upstream")).not.toBeInTheDocument();
   });
 
   it("closes the filter menu when clicking outside it", () => {
@@ -88,11 +129,20 @@ describe("FindingsTable filters", () => {
     unmount();
     render(
       <FilterHarness
+        findings={[makeFinding({ findingId: "fnd-fixed", title: "Resolved", status: "fixed" })]}
+      />,
+    );
+    expect(screen.getByText("0 actionable of 1 total")).toBeInTheDocument();
+    expect(screen.getByText("No actionable findings")).toBeInTheDocument();
+
+    unmount();
+    render(
+      <FilterHarness
         findings={findings}
         initialFilters={{ ...defaultFindingFilters, search: "missing" }}
       />,
     );
-    expect(screen.getByText("0 of 2 shown")).toBeInTheDocument();
+    expect(screen.getByText("0 of 3 shown")).toBeInTheDocument();
     expect(screen.getByText("No findings match these filters")).toBeInTheDocument();
   });
 
@@ -118,15 +168,22 @@ describe("FindingsTable filters", () => {
   });
 
   it("sorts visible rows when clicking column headings", () => {
-    const { container } = render(<FilterHarness findings={findings} />);
+    const { container } = render(
+      <FilterHarness
+        findings={findings}
+        initialFilters={{ ...defaultFindingFilters, status: null }}
+      />,
+    );
 
     expect(visibleTitles(container)).toEqual([
+      "Escaping already happens upstream",
       "Token is logged in debug output",
       "Null branch can throw",
     ]);
 
     fireEvent.click(screen.getByRole("button", { name: "Sort by Title ascending" }));
     expect(visibleTitles(container)).toEqual([
+      "Escaping already happens upstream",
       "Null branch can throw",
       "Token is logged in debug output",
     ]);
@@ -139,6 +196,7 @@ describe("FindingsTable filters", () => {
     expect(visibleTitles(container)).toEqual([
       "Token is logged in debug output",
       "Null branch can throw",
+      "Escaping already happens upstream",
     ]);
     expect(screen.getByRole("columnheader", { name: /Title/ })).toHaveAttribute(
       "aria-sort",

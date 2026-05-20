@@ -1,8 +1,10 @@
 import type { ClawpatchStatus, FindingListItem } from "../../shared/types";
 
+export type FindingStatusFilter = "actionable" | ClawpatchStatus | null;
+
 export interface FindingFilters {
   search: string;
-  status: ClawpatchStatus | null;
+  status: FindingStatusFilter;
   severity: string | null;
   category: string | null;
 }
@@ -23,7 +25,7 @@ export interface FindingSort {
 
 export const defaultFindingFilters: FindingFilters = {
   search: "",
-  status: null,
+  status: "actionable",
   severity: null,
   category: null,
 };
@@ -43,7 +45,14 @@ export function filterFindings(
   const category = normalize(filters.category ?? "");
 
   return findings.filter((finding) => {
-    if (filters.status !== null && finding.status !== filters.status) {
+    if (filters.status === "actionable" && !isActionableFindingStatus(finding.status)) {
+      return false;
+    }
+    if (
+      filters.status !== null &&
+      filters.status !== "actionable" &&
+      finding.status !== filters.status
+    ) {
       return false;
     }
     if (severity !== "" && normalize(finding.severity) !== severity) {
@@ -87,7 +96,7 @@ export function getFindingFilterOptions(
 export function isFindingFiltersActive(filters: FindingFilters): boolean {
   return (
     filters.search.trim() !== "" ||
-    filters.status !== null ||
+    filters.status !== defaultFindingFilters.status ||
     filters.severity !== null ||
     filters.category !== null
   );
@@ -125,6 +134,10 @@ function findingSearchText(finding: FindingListItem): string {
 
 function normalize(value: string): string {
   return value.trim().toLowerCase().replace(/\s+/gu, " ");
+}
+
+function isActionableFindingStatus(status: ClawpatchStatus): boolean {
+  return status === "open" || status === "uncertain";
 }
 
 function compareByActiveSort(

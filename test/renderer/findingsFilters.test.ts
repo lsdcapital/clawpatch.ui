@@ -43,7 +43,43 @@ describe("finding filters", () => {
       status: "uncertain",
       confidence: "low",
     }),
+    makeFinding({
+      findingId: "fnd-false-positive",
+      title: "Framework handles escaping",
+      category: "security",
+      severity: "high",
+      status: "false-positive",
+      confidence: "low",
+    }),
+    makeFinding({
+      findingId: "fnd-wont-fix",
+      title: "Intentional legacy behavior",
+      category: "maintainability",
+      severity: "low",
+      status: "wont-fix",
+      confidence: "medium",
+    }),
   ];
+
+  it("defaults to actionable findings only", () => {
+    expect(filterFindings(findings, defaultFindingFilters).map((item) => item.findingId)).toEqual([
+      "fnd-security",
+      "fnd-test",
+    ]);
+  });
+
+  it("allows viewing all statuses or one resolved status explicitly", () => {
+    expect(
+      filterFindings(findings, { ...defaultFindingFilters, status: null }).map(
+        (item) => item.findingId,
+      ),
+    ).toEqual(["fnd-security", "fnd-bug", "fnd-test", "fnd-false-positive", "fnd-wont-fix"]);
+    expect(
+      filterFindings(findings, { ...defaultFindingFilters, status: "false-positive" }).map(
+        (item) => item.findingId,
+      ),
+    ).toEqual(["fnd-false-positive"]);
+  });
 
   it("filters by status", () => {
     expect(
@@ -76,7 +112,7 @@ describe("finding filters", () => {
       ),
     ).toEqual(["fnd-security"]);
     expect(
-      filterFindings(findings, { ...defaultFindingFilters, search: "readvalue" }).map(
+      filterFindings(findings, { ...defaultFindingFilters, status: null, search: "readvalue" }).map(
         (item) => item.findingId,
       ),
     ).toEqual(["fnd-bug"]);
@@ -89,11 +125,12 @@ describe("finding filters", () => {
 
   it("reports active filters and derived options", () => {
     expect(isFindingFiltersActive(defaultFindingFilters)).toBe(false);
+    expect(isFindingFiltersActive({ ...defaultFindingFilters, status: null })).toBe(true);
     expect(isFindingFiltersActive({ ...defaultFindingFilters, category: "security" })).toBe(true);
     expect(getFindingFilterOptions(findings, clawpatchStatuses)).toEqual({
       statuses: clawpatchStatuses,
       severities: ["high", "low", "medium"],
-      categories: ["bug", "security", "test-gap"],
+      categories: ["bug", "maintainability", "security", "test-gap"],
     });
   });
 
