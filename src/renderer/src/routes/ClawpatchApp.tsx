@@ -45,8 +45,24 @@ import { clawpatchStatuses } from "../../../shared/constants";
 
 type LogEntry =
   | { kind: "stream"; event: CommandStreamEvent }
-  | { kind: "result"; result: CommandResult }
-  | { kind: "error"; message: string };
+  | {
+      kind: "result";
+      result: CommandResult;
+      repoId: string;
+      findingId?: string;
+      command: string;
+    }
+  | { kind: "error"; message: string; repoId?: string; findingId?: string; command?: string };
+
+type FindingCommandRequest = Extract<ClawpatchCommandRequest, { command: "fix" | "revalidate" }>;
+type RunningRepoCommand = {
+  request: ClawpatchCommandRequest;
+  invocationId: string;
+};
+type RunningFindingCommand = {
+  request: FindingCommandRequest;
+  invocationId: string;
+};
 
 type ActiveWorkspace = "findings" | "reviewQueue";
 type ActiveInspector = "diff" | "output" | null;
@@ -75,7 +91,14 @@ export function ClawpatchApp() {
   const [isCommandMenuOpen, setIsCommandMenuOpen] = useState(false);
   const [isRepoSidebarCollapsed, setIsRepoSidebarCollapsed] = useState(readStoredSidebarState);
   const [diffJump, setDiffJump] = useState<{ path: string; epoch: number } | null>(null);
+  const [runningRepoCommand, setRunningRepoCommand] = useState<RunningRepoCommand | null>(null);
+  const [runningFindingCommands, setRunningFindingCommands] = useState<
+    Record<string, RunningFindingCommand>
+  >({});
   const workspaceBodyRef = useRef<HTMLDivElement>(null);
+  const commandInvocationSeqRef = useRef(0);
+  const runningRepoCommandRef = useRef<RunningRepoCommand | null>(null);
+  const runningFindingCommandsRef = useRef<Record<string, RunningFindingCommand>>({});
 
   const reposQuery = useQuery({
     queryKey: ["repos"],
@@ -137,6 +160,13 @@ export function ClawpatchApp() {
       null,
     [selectedFindingId, sortedFindings],
   );
+  const selectedFindingIdForWorkspace = selectedFinding?.findingId;
+  const selectedFindingCommand =
+    selectedFindingIdForWorkspace === undefined
+      ? undefined
+      : runningFindingCommands[selectedFindingIdForWorkspace];
+  const firstRunningFindingId = Object.keys(runningFindingCommands)[0];
+  const isSelectedFindingRunning = selectedFindingCommand !== undefined;
 
   useEffect(() => {
     if (findingsQuery.data === undefined) {
@@ -155,16 +185,16 @@ export function ClawpatchApp() {
   });
 
   const diffQuery = useQuery({
-    queryKey: ["diff", selectedRepo?.id],
-    queryFn: () => window.clawpatch.git.diff(selectedRepo!.id),
+    queryKey: ["diff", selectedRepo?.id, selectedFinding?.findingId],
+    queryFn: () => window.clawpatch.git.diff(selectedRepo!.id, selectedFinding?.findingId),
     enabled: selectedRepo !== null,
   });
 
   const filesInDiff = useMemo(() => extractDiffFilePaths(diffQuery.data ?? ""), [diffQuery.data]);
 
   const gitStatusQuery = useQuery({
-    queryKey: ["gitStatus", selectedRepo?.id],
-    queryFn: () => window.clawpatch.git.status(selectedRepo!.id),
+    queryKey: ["gitStatus", selectedRepo?.id, selectedFinding?.findingId],
+    queryFn: () => window.clawpatch.git.status(selectedRepo!.id, selectedFinding?.findingId),
     enabled: selectedRepo !== null,
   });
 
@@ -184,36 +214,9 @@ export function ClawpatchApp() {
     },
   });
 
-  const commandMutation = useMutation({
-    mutationFn: ({ repo, request }: { repo: RepoSummary; request: ClawpatchCommandRequest }) =>
-      window.clawpatch.commands.run(repo.id, request),
-    onSuccess: (result, variables) => {
-      setCommandLog((current) => [
-        ...current,
-        { kind: "result", result },
-        ...(result.relatedResults ?? []).map((relatedResult) => ({
-          kind: "result" as const,
-          result: relatedResult,
-        })),
-      ]);
-      void refreshAfterCommand(
-        queryClient,
-        variables.repo.id,
-        variables.request,
-        setActiveInspector,
-        setDiffJump,
-      );
-    },
-    onError: (error) => {
-      setCommandLog((current) => [
-        ...current,
-        { kind: "error", message: error instanceof Error ? error.message : String(error) },
-      ]);
-    },
-  });
-
   const commandInterruptMutation = useMutation({
-    mutationFn: (repo: RepoSummary) => window.clawpatch.commands.interrupt(repo.id),
+    mutationFn: ({ repo, findingId }: { repo: RepoSummary; findingId?: string }) =>
+      window.clawpatch.commands.interrupt(repo.id, findingId),
     onError: (error) => {
       setCommandLog((current) => [
         ...current,
@@ -234,8 +237,17 @@ export function ClawpatchApp() {
       status: ClawpatchStatus;
       note: string;
     }) => window.clawpatch.triage.set(repo.id, finding.findingId, status, note),
-    onSuccess: (result) => {
-      setCommandLog((current) => [...current, { kind: "result", result }]);
+    onSuccess: (result, variables) => {
+      setCommandLog((current) => [
+        ...current,
+        {
+          kind: "result",
+          result,
+          repoId: variables.repo.id,
+          findingId: variables.finding.findingId,
+          command: "triage",
+        },
+      ]);
       void invalidateRepo(queryClient, selectedRepo?.id ?? null);
     },
     onError: (error) => {
@@ -246,10 +258,14 @@ export function ClawpatchApp() {
     },
   });
 
-  const isCommandBusy = commandMutation.isPending || triageMutation.isPending;
+  const isAnyCommandRunning =
+    runningRepoCommand !== null ||
+    Object.keys(runningFindingCommands).length > 0 ||
+    triageMutation.isPending;
+  const isRepoCommandBusy = runningRepoCommand !== null || triageMutation.isPending;
 
   useEffect(() => {
-    if (!isCommandBusy) {
+    if (!isAnyCommandRunning) {
       return;
     }
 
@@ -258,21 +274,126 @@ export function ClawpatchApp() {
     }, 1000);
 
     return () => window.clearInterval(intervalId);
-  }, [isCommandBusy, queryClient]);
+  }, [isAnyCommandRunning, queryClient]);
 
   const runCommand = (request: ClawpatchCommandRequest): void => {
     if (selectedRepo === null) {
       return;
     }
+    const repo = selectedRepo;
     setActiveInspector("output");
-    commandMutation.mutate({ repo: selectedRepo, request });
+    if (request.command === "fix" || request.command === "revalidate") {
+      runFindingCommand(repo, request);
+      return;
+    }
+    runRepoCommand(repo, request);
   };
 
-  const interruptCommand = (): void => {
+  const runRepoCommand = (repo: RepoSummary, request: ClawpatchCommandRequest): void => {
+    if (runningRepoCommandRef.current !== null) {
+      return;
+    }
+    const runningCommand = { request, invocationId: nextCommandInvocationId() };
+    runningRepoCommandRef.current = runningCommand;
+    setRunningRepoCommand(runningCommand);
+    void window.clawpatch.commands
+      .run(repo.id, request)
+      .then((result) => {
+        appendCommandResults(repo.id, request, result);
+        void refreshAfterCommand(queryClient, repo.id, request, setActiveInspector, setDiffJump);
+      })
+      .catch((error: unknown) => {
+        appendCommandError(repo.id, request, error);
+      })
+      .finally(() => {
+        if (runningRepoCommandRef.current?.invocationId === runningCommand.invocationId) {
+          runningRepoCommandRef.current = null;
+          setRunningRepoCommand(null);
+        }
+      });
+  };
+
+  const runFindingCommand = (repo: RepoSummary, request: FindingCommandRequest): void => {
+    if (runningFindingCommandsRef.current[request.findingId] !== undefined) {
+      return;
+    }
+    const runningCommand = { request, invocationId: nextCommandInvocationId() };
+    runningFindingCommandsRef.current = {
+      ...runningFindingCommandsRef.current,
+      [request.findingId]: runningCommand,
+    };
+    setRunningFindingCommands(runningFindingCommandsRef.current);
+    void window.clawpatch.commands
+      .run(repo.id, request)
+      .then((result) => {
+        appendCommandResults(repo.id, request, result);
+        void refreshAfterCommand(queryClient, repo.id, request, setActiveInspector, setDiffJump);
+      })
+      .catch((error: unknown) => {
+        appendCommandError(repo.id, request, error);
+      })
+      .finally(() => {
+        if (
+          runningFindingCommandsRef.current[request.findingId]?.invocationId ===
+          runningCommand.invocationId
+        ) {
+          const next = { ...runningFindingCommandsRef.current };
+          delete next[request.findingId];
+          runningFindingCommandsRef.current = next;
+          setRunningFindingCommands(next);
+        }
+      });
+  };
+
+  const nextCommandInvocationId = (): string => {
+    commandInvocationSeqRef.current += 1;
+    return String(commandInvocationSeqRef.current);
+  };
+
+  const appendCommandResults = (
+    repoId: string,
+    request: ClawpatchCommandRequest,
+    result: CommandResult,
+  ): void => {
+    const findingId = "findingId" in request ? request.findingId : undefined;
+    setCommandLog((current) => [
+      ...current,
+      { kind: "result", result, repoId, findingId, command: request.command },
+      ...(result.relatedResults ?? []).map((relatedResult) => ({
+        kind: "result" as const,
+        result: relatedResult,
+        repoId,
+        findingId,
+        command:
+          relatedResult.args.at(-2) === "revalidate"
+            ? "revalidate"
+            : (relatedResult.args.at(-1) ?? request.command),
+      })),
+    ]);
+  };
+
+  const appendCommandError = (
+    repoId: string,
+    request: ClawpatchCommandRequest,
+    error: unknown,
+  ): void => {
+    setCommandLog((current) => [
+      ...current,
+      {
+        kind: "error",
+        message: error instanceof Error ? error.message : String(error),
+        repoId,
+        findingId: "findingId" in request ? request.findingId : undefined,
+        command: request.command,
+      },
+    ]);
+  };
+
+  const interruptCommand = (findingId?: string): void => {
     if (selectedRepo === null) {
       return;
     }
-    commandInterruptMutation.mutate(selectedRepo);
+    commandInterruptMutation.mutate({ repo: selectedRepo, findingId });
   };
 
   const runFixWithSavedGuidance = (
@@ -287,12 +408,12 @@ export function ClawpatchApp() {
     const repo = selectedRepo;
     setActiveInspector("output");
     const shouldSaveGuidance = note.trim() !== "" || status !== finding.status;
-    commandMutation.mutate({
+    runFindingCommand(
       repo,
-      request: shouldSaveGuidance
+      shouldSaveGuidance
         ? { command: "fix", findingId: finding.findingId, status, note }
         : { command: "fix", findingId: finding.findingId },
-    });
+    );
   };
 
   const inspectorMaxWidth = (): number => {
@@ -422,10 +543,17 @@ export function ClawpatchApp() {
           <div className="workspace-title">
             <h1>{selectedRepo?.name ?? "Clawpatch"}</h1>
             <p>{selectedRepo?.path ?? "Add a repository with .clawpatch state to begin."}</p>
-            {selectedRepo?.activeWorktreePath ? (
-              <div className="workspace-worktree" title={selectedRepo.activeWorktreePath}>
-                <span>worktree</span>
-                <code>{selectedRepo.activeWorktreePath}</code>
+            {selectedRepo !== null && selectedRepo.activeWorktrees.length > 0 ? (
+              <div
+                className="workspace-worktree"
+                title={selectedRepo.activeWorktrees.map((worktree) => worktree.path).join("\n")}
+              >
+                <span>{selectedRepo.activeWorktrees.length === 1 ? "worktree" : "worktrees"}</span>
+                <code>
+                  {selectedRepo.activeWorktrees.length === 1
+                    ? selectedRepo.activeWorktrees[0]?.path
+                    : String(selectedRepo.activeWorktrees.length)}
+                </code>
               </div>
             ) : null}
           </div>
@@ -478,7 +606,7 @@ export function ClawpatchApp() {
             <div className="command-menu">
               <button
                 className="icon-button"
-                disabled={selectedRepo === null || commandMutation.isPending}
+                disabled={selectedRepo === null || isRepoCommandBusy}
                 onClick={() => setIsCommandMenuOpen((current) => !current)}
                 aria-expanded={isCommandMenuOpen}
                 aria-haspopup="menu"
@@ -491,7 +619,7 @@ export function ClawpatchApp() {
                 <div className="command-menu-popover" role="menu" aria-label="Repository commands">
                   <button
                     role="menuitem"
-                    disabled={selectedRepo === null || commandMutation.isPending}
+                    disabled={selectedRepo === null || isRepoCommandBusy}
                     onClick={() => {
                       setIsCommandMenuOpen(false);
                       runCommand({ command: "status" });
@@ -502,7 +630,7 @@ export function ClawpatchApp() {
                   </button>
                   <button
                     role="menuitem"
-                    disabled={selectedRepo === null || commandMutation.isPending}
+                    disabled={selectedRepo === null || isRepoCommandBusy}
                     onClick={() => {
                       setIsCommandMenuOpen(false);
                       runCommand({ command: "report" });
@@ -513,7 +641,7 @@ export function ClawpatchApp() {
                   </button>
                   <button
                     role="menuitem"
-                    disabled={selectedRepo === null || commandMutation.isPending}
+                    disabled={selectedRepo === null || isRepoCommandBusy}
                     onClick={() => {
                       setIsCommandMenuOpen(false);
                       runCommand({ command: "doctor" });
@@ -562,7 +690,13 @@ export function ClawpatchApp() {
                 sort={findingSort}
                 finding={detailQuery.data ?? null}
                 isDetailLoading={detailQuery.isLoading}
-                isBusy={triageMutation.isPending || commandMutation.isPending}
+                isBusy={triageMutation.isPending || isSelectedFindingRunning}
+                commandStateLabel={selectedFindingCommand?.request.command}
+                onInterrupt={() => {
+                  if (selectedFinding !== null) {
+                    interruptCommand(selectedFinding.findingId);
+                  }
+                }}
                 onFiltersChange={setFindingFilters}
                 onSortChange={setFindingSort}
                 onSelectFinding={setSelectedFindingId}
@@ -597,7 +731,7 @@ export function ClawpatchApp() {
               <ReviewMapPanel
                 snapshot={featureMapQuery.data ?? null}
                 isLoading={featureMapQuery.isLoading}
-                isBusy={commandMutation.isPending || triageMutation.isPending}
+                isBusy={isRepoCommandBusy}
                 onReviewFeature={(featureId) => runCommand({ command: "review", featureId })}
                 onReviewPending={(limit) => runCommand({ command: "review", limit })}
                 onUpdateMap={() => runCommand({ command: "map" })}
@@ -633,8 +767,12 @@ export function ClawpatchApp() {
               ) : (
                 <CommandPanel
                   entries={commandLog}
-                  isRunning={commandMutation.isPending || triageMutation.isPending}
-                  onInterrupt={interruptCommand}
+                  isRunning={isAnyCommandRunning}
+                  onInterrupt={() =>
+                    interruptCommand(
+                      selectedFindingCommand?.request.findingId ?? firstRunningFindingId,
+                    )
+                  }
                 />
               )}
             </aside>

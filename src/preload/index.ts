@@ -42,7 +42,8 @@ const api: Api = {
   commands: {
     run: (repoId: string, request: ClawpatchCommandRequest) =>
       ipcRenderer.invoke(COMMANDS_RUN_CHANNEL, { repoId, request }),
-    interrupt: (repoId: string) => ipcRenderer.invoke(COMMANDS_INTERRUPT_CHANNEL, { repoId }),
+    interrupt: (repoId: string, findingId?: string) =>
+      ipcRenderer.invoke(COMMANDS_INTERRUPT_CHANNEL, { repoId, findingId }),
     onStream: (listener: (event: CommandStreamEvent) => void) => {
       const handler = (_event: Electron.IpcRendererEvent, payload: CommandStreamEvent): void =>
         listener(payload);
@@ -51,8 +52,8 @@ const api: Api = {
     },
   },
   git: {
-    diff: (repoId) => ipcRenderer.invoke(GIT_DIFF_CHANNEL, { repoId }),
-    status: (repoId) => ipcRenderer.invoke(GIT_STATUS_CHANNEL, { repoId }),
+    diff: (repoId, findingId) => ipcRenderer.invoke(GIT_DIFF_CHANNEL, { repoId, findingId }),
+    status: (repoId, findingId) => ipcRenderer.invoke(GIT_STATUS_CHANNEL, { repoId, findingId }),
   },
 };
 

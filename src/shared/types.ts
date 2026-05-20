@@ -5,6 +5,7 @@ import type {
   CommandResultSchema,
   CommandStreamEventSchema,
   EvidenceRefSchema,
+  ActiveWorktreeSchema,
   FeatureMapItemSchema,
   FeatureMapSnapshotSchema,
   FindingDetailSchema,
@@ -27,6 +28,7 @@ export type ClawpatchCommandRequest = typeof ClawpatchCommandRequestSchema.Type;
 export type CommandInterruptResult = typeof CommandInterruptResultSchema.Type;
 export type CommandResult = typeof CommandResultSchema.Type;
 export type CommandStreamEvent = typeof CommandStreamEventSchema.Type;
+export type ActiveWorktree = typeof ActiveWorktreeSchema.Type;
 export type RepoSummary = typeof RepoSummarySchema.Type;
 export type RepoSnapshot = typeof RepoSnapshotSchema.Type;
 export type UiMetadata = typeof UiMetadataSchema.Type;
@@ -67,11 +69,11 @@ export interface Api {
   };
   commands: {
     run: (repoId: string, request: ClawpatchCommandRequest) => Promise<CommandResult>;
-    interrupt: (repoId: string) => Promise<CommandInterruptResult>;
+    interrupt: (repoId: string, findingId?: string) => Promise<CommandInterruptResult>;
     onStream: (listener: (event: CommandStreamEvent) => void) => () => void;
   };
   git: {
-    diff: (repoId: string) => Promise<string>;
-    status: (repoId: string) => Promise<GitStatusSummary>;
+    diff: (repoId: string, findingId?: string) => Promise<string>;
+    status: (repoId: string, findingId?: string) => Promise<GitStatusSummary>;
   };
 }

@@ -1,4 +1,4 @@
-import { ArrowUpIcon, ChevronDownIcon, ChevronRightIcon } from "lucide-react";
+import { ArrowUpIcon, ChevronDownIcon, ChevronRightIcon, SquareIcon } from "lucide-react";
 import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import type {
   ClawpatchStatus,
@@ -12,9 +12,11 @@ interface Props {
   finding: FindingDetail | null;
   isLoading: boolean;
   isBusy: boolean;
+  commandStateLabel?: string;
   onTriage: (status: ClawpatchStatus, note: string) => void;
   onFix: (status: ClawpatchStatus, note: string) => void;
   onRevalidate: () => void;
+  onInterrupt?: () => void;
   onOpenDiffFile?: (filePath: string) => void;
   filesInDiff?: ReadonlySet<string>;
 }
@@ -23,9 +25,11 @@ export function FindingDetailPanel({
   finding,
   isLoading,
   isBusy,
+  commandStateLabel,
   onTriage,
   onFix,
   onRevalidate,
+  onInterrupt,
   onOpenDiffFile,
   filesInDiff,
 }: Props) {
@@ -216,6 +220,9 @@ export function FindingDetailPanel({
             </button>
           </div>
           <div className="detail-actions">
+            {isBusy && commandStateLabel !== undefined ? (
+              <span className="detail-command-state">{commandStateLabel} running</span>
+            ) : null}
             <button
               disabled={isBusy || finding.status === "fixed"}
               onClick={() => onFix(status, note)}
@@ -225,6 +232,17 @@ export function FindingDetailPanel({
             <button disabled={isBusy} onClick={onRevalidate}>
               Revalidate
             </button>
+            {isBusy && onInterrupt !== undefined ? (
+              <button
+                aria-label="Interrupt finding command"
+                className="icon-button danger"
+                onClick={onInterrupt}
+                title="Interrupt finding command"
+                type="button"
+              >
+                <SquareIcon aria-hidden="true" />
+              </button>
+            ) : null}
           </div>
         </div>
       </div>
