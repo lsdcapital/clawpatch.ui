@@ -52,6 +52,22 @@ export class CommandSpawnError extends Data.TaggedError("CommandSpawnError")<{
   }
 }
 
+export class CommandExecutionError extends Data.TaggedError("CommandExecutionError")<{
+  readonly command: string;
+  readonly exitCode: number | null;
+  readonly stdout: string;
+  readonly stderr: string;
+}> {
+  override get message() {
+    const details = [
+      `clawpatch ${this.command} failed with exit ${this.exitCode ?? "unknown"}`,
+      this.stderr.trim() === "" ? null : `stderr: ${this.stderr.trim()}`,
+      this.stdout.trim() === "" ? null : `stdout: ${this.stdout.trim()}`,
+    ].filter((line): line is string => line !== null);
+    return details.join("\n");
+  }
+}
+
 export class TerminalCwdError extends Data.TaggedError("TerminalCwdError")<{
   readonly cwd: string;
   readonly message: string;

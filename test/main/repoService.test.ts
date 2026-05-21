@@ -438,6 +438,58 @@ describe("RepoService", () => {
     }).pipe(Effect.provide(makeRepoServiceTestLayer(fixtureRepo, calls)));
   });
 
+  it.effect("rejects failed clawpatch triage results with command output", () => {
+    const calls: RunnerCall[] = [];
+    const runnerService: ClawpatchRunnerShape = {
+      run: (repoPath, request) =>
+        Effect.sync(() => {
+          calls.push({ repoPath, request });
+          return {
+            ...makeCommandResult(repoPath, request.command),
+            exitCode: 1,
+            stdout: "{\"error\":\"not saved\"}",
+            stderr: "triage failed",
+          };
+        }),
+      interrupt: () => Effect.succeed({ interrupted: true }),
+      interruptAll: () => Effect.succeed(0),
+      isRunning: () => Effect.succeed(false),
+    };
+
+    return Effect.gen(function* () {
+      const service = yield* RepoService;
+
+      const summary = yield* service.addRepo(fixtureRepo);
+      const error = yield* service.setTriage(summary.id, "fnd-1", "wont-fix", "").pipe(
+        Effect.match({
+          onFailure: (error) => error,
+          onSuccess: () => null,
+        }),
+      );
+
+      expect(error).toMatchObject({
+        message:
+          "clawpatch triage failed with exit 1\nstderr: triage failed\nstdout: {\"error\":\"not saved\"}",
+      });
+      expect(calls.at(-1)?.request).toMatchObject({
+        command: "triage",
+        findingId: "fnd-1",
+        status: "wont-fix",
+      });
+    }).pipe(
+      Effect.provide(
+        makeRepoServiceTestLayer(
+          fixtureRepo,
+          calls,
+          undefined,
+          false,
+          undefined,
+          runnerService,
+        ),
+      ),
+    );
+  });
+
   it.effect("runs fixes in a managed worktree and reads follow-up diff there", () => {
     const calls: RunnerCall[] = [];
     const events: CommandStreamEvent[] = [];

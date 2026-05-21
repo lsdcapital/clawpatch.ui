@@ -1270,12 +1270,73 @@ describe("ClawpatchApp header actions", () => {
       ),
     );
 
+    expect(screen.getByRole("button", { name: "Finding status: open" })).toBeInTheDocument();
     await waitFor(() =>
       expect(triageSet).toHaveBeenCalledWith("repo-auth", "fnd-bug", "wont-fix", ""),
     );
     await screen.findByText("0 actionable of 1 total");
     expect(screen.queryByText("Null branch can throw")).not.toBeInTheDocument();
     expect(screen.getByText("No actionable findings")).toBeInTheDocument();
+  });
+
+  it("restores persisted status and shows an error when triage verification mismatches", async () => {
+    const currentFinding = makeFixFinding();
+    const triageSet = vi.fn<Api["triage"]["set"]>(async () => makeCommandResult("triage"));
+    window.clawpatch = makeApi(
+      vi.fn<Api["commands"]["run"]>(async (_repoId, request) => makeCommandResult(request.command)),
+      {
+        findingsList: async () => [currentFinding],
+        findingGet: async () => currentFinding,
+        triageSet,
+      },
+    );
+
+    renderApp();
+
+    await screen.findByRole("heading", { name: "Null branch can throw" });
+    fireEvent.click(screen.getByRole("button", { name: "Finding status: open" }));
+    fireEvent.click(
+      within(screen.getByRole("menu", { name: "Finding status options" })).getByRole(
+        "menuitemradio",
+        { name: "wont-fix" },
+      ),
+    );
+
+    await screen.findByText("Status was not saved; persisted status is open");
+    expect(screen.getByRole("button", { name: "Finding status: open" })).toBeInTheDocument();
+    expect(screen.getByText("1 actionable of 1 total")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Null branch can throw" })).toBeInTheDocument();
+  });
+
+  it("restores persisted status and shows command output when triage fails", async () => {
+    const currentFinding = makeFixFinding();
+    const triageSet = vi.fn<Api["triage"]["set"]>(async () => {
+      throw new Error("clawpatch triage failed with exit 1\nstderr: triage failed");
+    });
+    window.clawpatch = makeApi(
+      vi.fn<Api["commands"]["run"]>(async (_repoId, request) => makeCommandResult(request.command)),
+      {
+        findingsList: async () => [currentFinding],
+        findingGet: async () => currentFinding,
+        triageSet,
+      },
+    );
+
+    renderApp();
+
+    await screen.findByRole("heading", { name: "Null branch can throw" });
+    fireEvent.click(screen.getByRole("button", { name: "Finding status: open" }));
+    fireEvent.click(
+      within(screen.getByRole("menu", { name: "Finding status options" })).getByRole(
+        "menuitemradio",
+        { name: "wont-fix" },
+      ),
+    );
+
+    await screen.findByText(/clawpatch triage failed with exit 1/);
+    expect(screen.getByText(/stderr: triage failed/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Finding status: open" })).toBeInTheDocument();
+    expect(screen.getByText("1 actionable of 1 total")).toBeInTheDocument();
   });
 
   it("shows command output for the selected finding context", async () => {

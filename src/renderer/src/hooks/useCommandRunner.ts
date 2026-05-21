@@ -12,7 +12,7 @@ import {
   commandErrorLogEntry,
   commandResultLogEntries,
 } from "../commandLogEntries";
-import { invalidateCommandProgress, invalidateRepo } from "../clawpatchQueries";
+import { clawpatchQueryKeys, invalidateCommandProgress, invalidateRepo } from "../clawpatchQueries";
 import type { CommandLogEntry } from "../workspaceTypes";
 
 type FindingCommandRequest = Extract<ClawpatchCommandRequest, { command: "fix" | "revalidate" }>;
@@ -44,6 +44,10 @@ export function useCommandRunner({
   >({});
   const [bulkRevalidationProgress, setBulkRevalidationProgress] =
     useState<BulkRevalidationProgress | null>(null);
+  const [triageError, setTriageError] = useState<{
+    readonly findingId: string;
+    readonly message: string;
+  } | null>(null);
   const commandInvocationSeqRef = useRef(0);
   const runningRepoCommandRef = useRef<RunningRepoCommand | null>(null);
   const runningFindingCommandsRef = useRef<Record<string, RunningFindingCommand>>({});
@@ -69,7 +73,7 @@ export function useCommandRunner({
   });
 
   const triageMutation = useMutation({
-    mutationFn: ({
+    mutationFn: async ({
       repo,
       finding,
       status,
@@ -79,8 +83,36 @@ export function useCommandRunner({
       finding: FindingListItem;
       status: ClawpatchStatus;
       note: string;
-    }) => window.clawpatch.triage.set(repo.id, finding.findingId, status, note),
-    onSuccess: (result, variables) => {
+    }) => {
+      const result = await window.clawpatch.triage.set(repo.id, finding.findingId, status, note);
+      const persisted = await window.clawpatch.findings.get(repo.id, finding.findingId);
+      if (persisted.status !== status) {
+        throw new Error(`Status was not saved; persisted status is ${persisted.status}`);
+      }
+      return { persisted, result };
+    },
+    onMutate: () => {
+      setTriageError(null);
+    },
+    onSuccess: ({ persisted, result }, variables) => {
+      queryClient.setQueryData(
+        clawpatchQueryKeys.finding(variables.repo.id, variables.finding.findingId),
+        persisted,
+      );
+      queryClient.setQueryData<readonly FindingListItem[]>(
+        clawpatchQueryKeys.findings(variables.repo.id),
+        (current) =>
+          current?.map((finding) =>
+            finding.findingId === persisted.findingId
+              ? {
+                  ...finding,
+                  status: persisted.status,
+                  updatedAt: persisted.updatedAt,
+                  triage: persisted.triage,
+                }
+              : finding,
+          ),
+      );
       setCommandLog((current) =>
         appendCommandLogEntries(current, [
           {
@@ -92,14 +124,27 @@ export function useCommandRunner({
           },
         ]),
       );
+      setTriageError(null);
       void invalidateRepo(queryClient, variables.repo.id);
     },
-    onError: (error) => {
+    onError: (error, variables) => {
+      const message = error instanceof Error ? error.message : String(error);
+      setTriageError({ findingId: variables.finding.findingId, message });
       setCommandLog((current) =>
         appendCommandLogEntries(current, [
-          { kind: "error", message: error instanceof Error ? error.message : String(error) },
+          commandErrorLogEntry(
+            variables.repo.id,
+            {
+              command: "triage",
+              findingId: variables.finding.findingId,
+              status: variables.status,
+              note: variables.note,
+            },
+            error,
+          ),
         ]),
       );
+      void invalidateRepo(queryClient, variables.repo.id);
     },
   });
 
@@ -315,6 +360,7 @@ export function useCommandRunner({
     isBulkRevalidationRunning,
     isRepoCommandBusy,
     isTriagePending: triageMutation.isPending,
+    triageError,
     revalidateFindings,
     runCommand,
     runFixWithSavedGuidance,
