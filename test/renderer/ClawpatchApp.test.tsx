@@ -53,12 +53,13 @@ describe("ClawpatchApp header actions", () => {
     const rail = screen.getByRole("complementary", { name: "Repositories sidebar" });
     expect(screen.queryByText("Clawpatch UI")).not.toBeInTheDocument();
     expect(screen.queryByText("Repositories (1)")).not.toBeInTheDocument();
+    expect(rail.querySelector(".sidebar-logo-mark")).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "auth" })).toBeInTheDocument();
     expect(within(rail).getByRole("button", { name: "Show repositories panel" })).toHaveAttribute(
       "aria-expanded",
       "false",
     );
-    expect(within(rail).getByRole("button", { name: "General settings" })).toBeInTheDocument();
+    expect(within(rail).getByRole("button", { name: "Settings" })).toBeInTheDocument();
     expect(window.localStorage.getItem(repoSidebarCollapsedStorageKey)).toBe("true");
 
     fireEvent.click(within(rail).getByRole("button", { name: "Show repositories panel" }));
@@ -83,11 +84,12 @@ describe("ClawpatchApp header actions", () => {
     const rail = screen.getByRole("complementary", { name: "Repositories sidebar" });
     expect(screen.queryByText("Clawpatch UI")).not.toBeInTheDocument();
     expect(screen.queryByText("Repositories (1)")).not.toBeInTheDocument();
+    expect(rail.querySelector(".sidebar-logo-mark")).not.toBeInTheDocument();
     expect(within(rail).getByRole("button", { name: "Show repositories panel" })).toHaveAttribute(
       "aria-expanded",
       "false",
     );
-    expect(within(rail).getByRole("button", { name: "General settings" })).toBeInTheDocument();
+    expect(within(rail).getByRole("button", { name: "Settings" })).toBeInTheDocument();
   });
 
   it("opens a terminal for the selected finding context from the header", async () => {
@@ -429,7 +431,7 @@ describe("ClawpatchApp header actions", () => {
 
     await screen.findByRole("heading", { name: "auth" });
     expect(screen.getByRole("button", { name: "Add repository" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "General settings" }));
+    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
 
     expect(screen.getByRole("heading", { name: "General" })).toBeInTheDocument();
     expect(screen.getByText("Clawpatch UI")).toBeInTheDocument();

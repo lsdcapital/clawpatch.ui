@@ -24,6 +24,7 @@ describe("renderer layout styles", () => {
     expect(repoSidebarRailRule).toContain("min-width: 52px;");
     expect(repoSidebarRailRule).toContain("width: 52px;");
     expect(ruleFor("\\.sidebar-collapse-button")).toContain("flex: none;");
+    expect(ruleFor("\\.sidebar-rail-settings-button")).toContain("margin-top: auto;");
     const repoListRule = ruleFor("\\.repo-list");
     expect(repoListRule).toContain("align-content: start;");
     expect(repoListRule).toContain("flex: 1 1 0;");
