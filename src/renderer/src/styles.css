@@ -675,6 +675,9 @@ button:disabled {
 }
 
 .action-icon-button {
+  background: transparent;
+  border-color: transparent;
+  color: var(--text);
   flex: 0 0 auto;
   min-height: 28px;
   min-width: 28px;
@@ -682,24 +685,9 @@ button:disabled {
   width: 28px;
 }
 
-.action-icon-button-primary {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--primary-text);
-}
-
-.action-icon-button-primary:hover:not(:disabled) {
-  background: var(--primary-hover);
-  border-color: var(--primary-hover);
-}
-
-.action-icon-button-danger {
-  color: var(--danger);
-}
-
-.action-icon-button-danger:hover:not(:disabled) {
-  background: var(--danger-soft);
-  border-color: #f1b8b1;
+.action-icon-button:hover:not(:disabled) {
+  background: var(--button-hover-bg);
+  border-color: transparent;
 }
 
 .drawer-toggle.active {

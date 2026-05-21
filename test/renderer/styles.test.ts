@@ -81,7 +81,17 @@ describe("renderer layout styles", () => {
     expect(activeDrawerToggleRule).toContain("background: var(--accent-soft);");
     expect(activeDrawerToggleRule).toContain("border-color: var(--accent-border);");
 
-    expect(ruleFor("\\.action-icon-button")).not.toContain("border-color: transparent;");
+    const actionIconButtonRule = ruleFor("\\.action-icon-button");
+    expect(actionIconButtonRule).toContain("background: transparent;");
+    expect(actionIconButtonRule).toContain("border-color: transparent;");
+    expect(actionIconButtonRule).toContain("color: var(--text);");
+
+    const actionIconButtonHoverRule = ruleFor("\\.action-icon-button:hover:not\\(:disabled\\)");
+    expect(actionIconButtonHoverRule).toContain("background: var(--button-hover-bg);");
+    expect(actionIconButtonHoverRule).toContain("border-color: transparent;");
+
+    expect(styles).not.toMatch(/\.action-icon-button-primary\s*\{/);
+    expect(styles).not.toMatch(/\.action-icon-button-danger\s*\{/);
   });
 
   it("shows icon control tooltips immediately", () => {
