@@ -462,7 +462,7 @@ describe("ClawpatchApp header actions", () => {
     expect(getSettings).not.toHaveBeenCalled();
   });
 
-  it("keeps secondary commands reachable from the overflow menu", async () => {
+  it("keeps primary header actions visible without an overflow command menu", async () => {
     const run = vi.fn<Api["commands"]["run"]>(async (_repoId, request) =>
       makeCommandResult(request.command),
     );
@@ -472,17 +472,12 @@ describe("ClawpatchApp header actions", () => {
 
     await screen.findByRole("heading", { name: "auth" });
 
-    const moreButton = screen.getByRole("button", { name: "More commands" });
-    fireEvent.click(moreButton);
-
-    const menu = screen.getByRole("menu", { name: "Repository commands" });
-    expect(within(menu).queryByRole("menuitem", { name: "Update map" })).not.toBeInTheDocument();
-    expect(within(menu).getByRole("menuitem", { name: "Status" })).toBeInTheDocument();
-    expect(within(menu).queryByRole("menuitem", { name: "Report" })).not.toBeInTheDocument();
-    expect(within(menu).queryByRole("menuitem", { name: "Doctor" })).not.toBeInTheDocument();
-
-    fireEvent.click(within(menu).getByRole("menuitem", { name: "Status" }));
-    await waitFor(() => expect(run).toHaveBeenCalledWith("repo-auth", { command: "status" }));
+    expect(screen.getByRole("button", { name: "Open terminal" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Toggle diff panel" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Toggle command output" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "More commands" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("menu", { name: "Repository commands" })).not.toBeInTheDocument();
+    expect(run).not.toHaveBeenCalled();
     expect(screen.queryByRole("button", { name: "Review next" })).not.toBeInTheDocument();
   });
 
@@ -847,29 +842,38 @@ describe("ClawpatchApp header actions", () => {
         }),
     );
     const interrupt = vi.fn<Api["commands"]["interrupt"]>(async () => ({ interrupted: true }));
-    window.clawpatch = makeApi(run, { interrupt });
+    const finding = makeFinding();
+    window.clawpatch = makeApi(run, {
+      findings: [finding],
+      findingDetail: finding,
+      interrupt,
+    });
 
     renderApp();
 
-    await screen.findByRole("heading", { name: "auth" });
+    await screen.findByRole("heading", { name: "Token is logged in debug output" });
     fireEvent.click(screen.getByRole("button", { name: "Toggle command output" }));
     expect(screen.queryByRole("button", { name: "Interrupt command" })).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "More commands" }));
-    fireEvent.click(screen.getByRole("menuitem", { name: "Status" }));
+    fireEvent.click(screen.getByRole("button", { name: "Revalidate" }));
 
-    await waitFor(() => expect(run).toHaveBeenCalledWith("repo-auth", { command: "status" }));
+    await waitFor(() =>
+      expect(run).toHaveBeenCalledWith("repo-auth", {
+        command: "revalidate",
+        findingId: "fnd-security",
+      }),
+    );
     expect(screen.getByText("Command starting...")).toBeInTheDocument();
     expect(screen.queryByText("No commands run yet.")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Interrupt command" }));
 
-    await waitFor(() => expect(interrupt).toHaveBeenCalledWith("repo-auth", undefined));
+    await waitFor(() => expect(interrupt).toHaveBeenCalledWith("repo-auth", "fnd-security"));
 
     const finish = resolveRun;
     if (finish === undefined) {
       throw new Error("command did not start");
     }
-    finish(makeCommandResult("status"));
+    finish(makeCommandResult("revalidate"));
   });
 
   it("renders lifecycle events while a fix is still running", async () => {
@@ -1543,7 +1547,6 @@ function makeApi(
       pickFolder: options.pickFolder ?? (async () => null),
       refresh: async () => ({
         repo: makeRepo(),
-        status: null,
         findings: [],
         diff: "",
         metadata: {
