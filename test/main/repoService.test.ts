@@ -11,6 +11,7 @@ import type {
   ClawpatchCommandRequest,
   CommandResult,
   CommandStreamEvent,
+  GitStatusSummary,
 } from "../../src/shared/types";
 import { CommandSpawnError } from "../../src/main/errors";
 import {
@@ -759,6 +760,12 @@ describe("RepoService", () => {
       findingId: "fnd-1",
       title: "Fixed in worktree",
       status: "fixed",
+      linkedPatchAttemptIds: ["pat-1"],
+    });
+    await writePatch(worktreePath, {
+      patchAttemptId: "pat-1",
+      findingIds: ["fnd-1"],
+      prUrl: "https://github.com/acme/repo/compare/main...clawpatch/fix/fnd-1?expand=1",
     });
     await writeFinding(worktreePath, {
       findingId: "fnd-unrelated",
@@ -778,8 +785,9 @@ describe("RepoService", () => {
           const detail = yield* service.getFinding(repoId, "fnd-1");
           const diff = yield* service.readDiff(repoId, "fnd-1");
           const status = yield* service.readGitStatus(repoId, "fnd-1");
+          const workStatuses = yield* service.listFindingWorkStatuses(repoId);
           const unrelatedDiff = yield* service.readDiff(repoId, "fnd-unrelated");
-          return { repos, findings, detail, diff, status, unrelatedDiff };
+          return { repos, findings, detail, diff, status, workStatuses, unrelatedDiff };
         }),
       );
 
@@ -803,10 +811,100 @@ describe("RepoService", () => {
       });
       expect(result.diff).toBe(`diff:${worktreePath}`);
       expect(result.status.branch).toBe("main");
+      expect(result.workStatuses).toEqual([
+        {
+          findingId: "fnd-1",
+          worktreePath,
+          gitStatus: { staged: 0, modified: 0, untracked: 0, branch: "main" },
+          prUrl: "https://github.com/acme/repo/compare/main...clawpatch/fix/fnd-1?expand=1",
+          error: null,
+        },
+      ]);
       expect(result.unrelatedDiff).toBe(`diff:${fixtureRepo}`);
       expect(gitCalls).toContainEqual({ kind: "diff", repoPath: worktreePath });
       expect(gitCalls).toContainEqual({ kind: "status", repoPath: worktreePath });
       expect(gitCalls).toContainEqual({ kind: "diff", repoPath: fixtureRepo });
+    } finally {
+      await runtime.dispose();
+    }
+  });
+
+  it("returns work status entries when one worktree status read fails", async () => {
+    const calls: RunnerCall[] = [];
+    const gitCalls: Array<{
+      kind: string;
+      repoPath: string;
+      worktreePath?: string;
+      branchName?: string;
+    }> = [];
+    const appData = await makeTempDir();
+    const repoId = "repo-fixture";
+    const firstWorktreePath = join(appData, "worktrees", repoId, "fnd-1");
+    const secondWorktreePath = join(appData, "worktrees", repoId, "fnd-2");
+    await writeRepoRegistry(appData, repoId);
+    await writeFinding(firstWorktreePath, {
+      findingId: "fnd-1",
+      title: "First finding",
+      status: "open",
+    });
+    await writeFinding(secondWorktreePath, {
+      findingId: "fnd-2",
+      title: "Second finding",
+      status: "open",
+    });
+    const runtime = ManagedRuntime.make(
+      makeRepoServiceTestLayer(
+        fixtureRepo,
+        calls,
+        appData,
+        false,
+        makeGitMock(gitCalls, {
+          readStatus: (repoPath) =>
+            repoPath === secondWorktreePath
+              ? Effect.fail(
+                  new CommandSpawnError({
+                    repoPath,
+                    cause: new Error("status failed"),
+                  }),
+                )
+              : Effect.succeed({
+                  staged: 0,
+                  modified: 1,
+                  untracked: 0,
+                  branch: "clawpatch/fix/fnd-1",
+                }),
+        }),
+      ),
+    );
+
+    try {
+      const result = await runtime.runPromise(
+        Effect.gen(function* () {
+          const service = yield* RepoService;
+          return yield* service.listFindingWorkStatuses(repoId);
+        }),
+      );
+
+      expect(result).toHaveLength(2);
+      expect(result).toContainEqual({
+        findingId: "fnd-1",
+        worktreePath: firstWorktreePath,
+        gitStatus: {
+          staged: 0,
+          modified: 1,
+          untracked: 0,
+          branch: "clawpatch/fix/fnd-1",
+        },
+        prUrl: null,
+        error: null,
+      });
+      expect(result).toContainEqual({
+        findingId: "fnd-2",
+        worktreePath: secondWorktreePath,
+        gitStatus: null,
+        prUrl: null,
+        error: "status failed",
+      });
     } finally {
       await runtime.dispose();
     }
@@ -1233,6 +1331,7 @@ async function writeFinding(
     readonly title?: string;
     readonly status?: string;
     readonly featureId?: string;
+    readonly linkedPatchAttemptIds?: readonly string[];
   },
 ): Promise<void> {
   await mkdir(join(repoPath, ".clawpatch", "findings"), { recursive: true });
@@ -1251,9 +1350,47 @@ async function writeFinding(
         reproduction: null,
         recommendation: "Recommendation",
         status: overrides.status ?? "open",
-        linkedPatchAttemptIds: [],
+        linkedPatchAttemptIds: overrides.linkedPatchAttemptIds ?? [],
         createdAt: "2026-01-01T00:00:00.000Z",
         updatedAt: "2026-01-01T00:00:00.000Z",
+      },
+      null,
+      2,
+    ),
+    "utf8",
+  );
+}
+
+async function writePatch(
+  repoPath: string,
+  overrides: {
+    readonly patchAttemptId: string;
+    readonly findingIds: readonly string[];
+    readonly prUrl?: string | null;
+    readonly createdAt?: string;
+  },
+): Promise<void> {
+  await mkdir(join(repoPath, ".clawpatch", "patches"), { recursive: true });
+  await writeFile(
+    join(repoPath, ".clawpatch", "patches", `${overrides.patchAttemptId}.json`),
+    JSON.stringify(
+      {
+        patchAttemptId: overrides.patchAttemptId,
+        findingIds: overrides.findingIds,
+        featureIds: ["feat-1"],
+        status: "applied",
+        plan: null,
+        filesChanged: [],
+        commandsRun: [],
+        testResults: [],
+        git: {
+          baseSha: null,
+          commitSha: null,
+          branchName: "clawpatch/fix/fnd-1",
+          prUrl: overrides.prUrl ?? null,
+        },
+        createdAt: overrides.createdAt ?? "2026-01-01T00:00:00.000Z",
+        updatedAt: overrides.createdAt ?? "2026-01-01T00:00:00.000Z",
       },
       null,
       2,
@@ -1394,6 +1531,9 @@ function makeGitMock(
     baseRef?: string;
     commitMessage?: string;
   }>,
+  options: {
+    readonly readStatus?: (repoPath: string) => Effect.Effect<GitStatusSummary, CommandSpawnError>;
+  } = {},
 ): GitServiceShape {
   return {
     readDiff: (repoPath) =>
@@ -1401,11 +1541,13 @@ function makeGitMock(
         calls.push({ kind: "diff", repoPath });
         return `diff:${repoPath}`;
       }),
-    readStatus: (repoPath) =>
-      Effect.sync(() => {
-        calls.push({ kind: "status", repoPath });
-        return { staged: 0, modified: 0, untracked: 0, branch: "main" };
-      }),
+    readStatus: (repoPath) => {
+      calls.push({ kind: "status", repoPath });
+      return (
+        options.readStatus?.(repoPath) ??
+        Effect.succeed({ staged: 0, modified: 0, untracked: 0, branch: "main" })
+      );
+    },
     requireCleanCheckout: (repoPath, onLifecycle) =>
       Effect.sync(() => {
         calls.push({ kind: "clean", repoPath });

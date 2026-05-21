@@ -14,7 +14,7 @@ import { useDiffInspector } from "../hooks/useDiffInspector";
 import { useFindingsWorkspace } from "../hooks/useFindingsWorkspace";
 import { useRepoSidebarState } from "../hooks/useRepoSidebarState";
 import { useSelectedRepo } from "../hooks/useSelectedRepo";
-import type { PublishFixResult, RepoSettings } from "../../../shared/types";
+import type { FindingWorkStatus, PublishFixResult, RepoSettings } from "../../../shared/types";
 import type { ActiveInspector, ActiveWorkspace } from "../workspaceTypes";
 
 const REPO_SIDEBAR_ID = "repo-sidebar";
@@ -158,6 +158,25 @@ export function ClawpatchApp() {
     publishedFix !== null && publishedFix.findingId === selectedFindingId
       ? publishedFix.result
       : null;
+  const workStatusByFindingId = useMemo(() => {
+    const nextStatuses = new Map(findingsWorkspace.workStatusByFindingId);
+    if (publishedFix !== null) {
+      const current = nextStatuses.get(publishedFix.findingId);
+      nextStatuses.set(publishedFix.findingId, {
+        findingId: publishedFix.findingId,
+        worktreePath: publishedFix.result.worktreePath,
+        gitStatus: current?.gitStatus ?? {
+          staged: 0,
+          modified: 0,
+          untracked: 0,
+          branch: publishedFix.result.branchName,
+        },
+        prUrl: publishedFix.result.prUrl,
+        error: current?.gitStatus === null ? null : (current?.error ?? null),
+      } satisfies FindingWorkStatus);
+    }
+    return nextStatuses;
+  }, [findingsWorkspace.workStatusByFindingId, publishedFix]);
   const selectedFindingPublishError =
     publishFixMutation.variables?.findingId === selectedFindingId ? publishFixMutation.error : null;
   const canPublishSelectedFix =
@@ -253,6 +272,7 @@ export function ClawpatchApp() {
               filters={findingsWorkspace.findingFilters}
               filterOptions={findingsWorkspace.findingFilterOptions}
               sort={findingsWorkspace.findingSort}
+              workStatusByFindingId={workStatusByFindingId}
               finding={findingsWorkspace.detailQuery.data ?? null}
               isDetailLoading={findingsWorkspace.detailQuery.isLoading}
               isBusy={

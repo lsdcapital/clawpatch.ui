@@ -245,6 +245,7 @@ function renderSplitPanel({
       filters={defaultFindingFilters}
       filterOptions={getFindingFilterOptions(findings, clawpatchStatuses)}
       sort={defaultFindingSort}
+      workStatusByFindingId={new Map()}
       finding={finding}
       isDetailLoading={false}
       isBusy={false}
