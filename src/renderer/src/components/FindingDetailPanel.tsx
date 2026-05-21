@@ -149,7 +149,10 @@ export function FindingDetailPanel({
             />
           ) : null}
           {isBusy && commandStateLabel !== undefined ? (
-            <span className="detail-command-state">{commandStateLabel} running</span>
+            <span className="detail-command-state">
+              <span className="detail-command-spinner" aria-hidden="true" />
+              {commandStateLabel} running
+            </span>
           ) : null}
         </div>
         {fixDisabledReason !== null ? (

@@ -31,11 +31,9 @@ export interface BulkRevalidationProgress {
 
 export function useCommandRunner({
   selectedRepo,
-  onOpenOutput,
   onRevealFirstChangedFile,
 }: {
   selectedRepo: RepoSummary | null;
-  onOpenOutput: () => void;
   onRevealFirstChangedFile: (findingId: string) => Promise<void>;
 }) {
   const queryClient = useQueryClient();
@@ -230,14 +228,13 @@ export function useCommandRunner({
       if (selectedRepo === null) {
         return;
       }
-      onOpenOutput();
       if (request.command === "fix" || request.command === "revalidate") {
         runFindingCommand(selectedRepo, request);
         return;
       }
       runRepoCommand(selectedRepo, request);
     },
-    [onOpenOutput, runFindingCommand, runRepoCommand, selectedRepo],
+    [runFindingCommand, runRepoCommand, selectedRepo],
   );
 
   const interruptCommand = useCallback(
@@ -263,7 +260,6 @@ export function useCommandRunner({
         return;
       }
 
-      onOpenOutput();
       isBulkRevalidationRunningRef.current = true;
       void (async () => {
         try {
@@ -280,7 +276,7 @@ export function useCommandRunner({
         }
       })();
     },
-    [onOpenOutput, runFindingCommandOnce, selectedRepo],
+    [runFindingCommandOnce, selectedRepo],
   );
 
   const runFixWithSavedGuidance = useCallback(
@@ -289,7 +285,6 @@ export function useCommandRunner({
         return;
       }
 
-      onOpenOutput();
       const shouldSaveGuidance = note.trim() !== "" || status !== finding.status;
       runFindingCommand(
         selectedRepo,
@@ -298,7 +293,7 @@ export function useCommandRunner({
           : { command: "fix", findingId: finding.findingId },
       );
     },
-    [onOpenOutput, runFindingCommand, selectedRepo],
+    [runFindingCommand, selectedRepo],
   );
 
   const triageFinding = useCallback(
@@ -306,10 +301,9 @@ export function useCommandRunner({
       if (selectedRepo === null) {
         return;
       }
-      onOpenOutput();
       triageMutation.mutate({ repo: selectedRepo, finding, status, note });
     },
-    [onOpenOutput, selectedRepo, triageMutation],
+    [selectedRepo, triageMutation],
   );
 
   return {
