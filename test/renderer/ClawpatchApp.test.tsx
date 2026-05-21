@@ -531,7 +531,9 @@ describe("ClawpatchApp header actions", () => {
     );
     expect(screen.getByRole("heading", { name: "Review Queue" })).toBeInTheDocument();
     expect(screen.getByText("2 pending/error of 3 map items")).toBeInTheDocument();
-    expect(screen.getByText("Review pending")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Review all 2 pending and error map items" }),
+    ).toBeInTheDocument();
     expect(screen.queryByText(/Review \d+ remaining/)).not.toBeInTheDocument();
     expect(screen.getByRole("table", { name: "Review queue map" })).toBeInTheDocument();
   });

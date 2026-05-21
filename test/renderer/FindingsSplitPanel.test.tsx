@@ -1,6 +1,11 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { ClawpatchStatus, FindingDetail, FindingListItem } from "../../src/shared/types";
+import type {
+  ClawpatchStatus,
+  FindingDetail,
+  FindingListItem,
+  PublishFixResult,
+} from "../../src/shared/types";
 import { clawpatchStatuses } from "../../src/shared/constants";
 import { FindingsSplitPanel } from "../../src/renderer/src/components/FindingsSplitPanel";
 import {
@@ -53,6 +58,61 @@ describe("FindingsSplitPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: "Revalidate" }));
 
     expect(onRevalidate).toHaveBeenCalledOnce();
+  });
+
+  it("runs selected finding actions from the detail toolbar", () => {
+    const onFix = vi.fn();
+    const onPublishFix = vi.fn();
+    const onInterrupt = vi.fn();
+
+    const { unmount } = renderSplitPanel({
+      canPublishFix: true,
+      isBusy: true,
+      onFix,
+      onInterrupt,
+      onPublishFix,
+    });
+
+    expect(screen.getByText("fix running")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Run fix" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Revalidate" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Publish PR" })).toBeDisabled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Interrupt finding command" }));
+    expect(onInterrupt).toHaveBeenCalledOnce();
+
+    unmount();
+    renderSplitPanel({ canPublishFix: true, onFix, onPublishFix });
+
+    fireEvent.click(screen.getByRole("button", { name: "Run fix" }));
+    expect(onFix).toHaveBeenCalledWith("open", "");
+
+    fireEvent.click(screen.getByRole("button", { name: "Publish PR" }));
+    expect(onPublishFix).toHaveBeenCalledOnce();
+  });
+
+  it("shows disabled reasons and publish results near the detail actions", () => {
+    renderSplitPanel({
+      fixDisabledReason: "Working tree has unrelated changes.",
+      publishFixError: new Error("Unable to publish PR."),
+      publishFixResult: {
+        branchName: "clawpatch/fix/fnd-security",
+        baseBranch: "main",
+        commitSha: "abcdef1234567890",
+        remoteName: "origin",
+        prUrl: "https://github.com/acme/repo/pull/1",
+        worktreePath: "/tmp/worktree",
+      },
+    });
+
+    expect(screen.getByText("Working tree has unrelated changes.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Run fix" })).toHaveAccessibleDescription(
+      "Working tree has unrelated changes.",
+    );
+    expect(screen.getByText("Unable to publish PR.")).toBeInTheDocument();
+    expect(
+      screen.getByText(/PR draft opened for clawpatch\/fix\/fnd-security/),
+    ).toBeInTheDocument();
   });
 
   it("keeps status in the metadata card and saves it with the current note", () => {
@@ -227,14 +287,32 @@ function installLocalStorage(): void {
 
 function renderSplitPanel({
   finding = makeFindingDetail(),
+  canPublishFix = false,
+  commandStateLabel = "fix",
+  fixDisabledReason = null,
+  isBusy = false,
+  onFix = vi.fn(),
+  onInterrupt,
+  onPublishFix = vi.fn(),
   onTriage = vi.fn(),
   onRevalidate = vi.fn(),
   onOpenDiffFile,
+  publishFixError = null,
+  publishFixResult = null,
 }: {
   finding?: FindingDetail;
+  canPublishFix?: boolean;
+  commandStateLabel?: string;
+  fixDisabledReason?: string | null;
+  isBusy?: boolean;
+  onFix?: (status: ClawpatchStatus, note: string) => void;
+  onInterrupt?: () => void;
+  onPublishFix?: () => void;
   onTriage?: (status: ClawpatchStatus, note: string) => void;
   onRevalidate?: () => void;
   onOpenDiffFile?: (filePath: string) => void;
+  publishFixError?: Error | null;
+  publishFixResult?: PublishFixResult | null;
 } = {}) {
   return render(
     <FindingsSplitPanel
@@ -249,19 +327,21 @@ function renderSplitPanel({
       workStatusByFindingId={new Map()}
       finding={finding}
       isDetailLoading={false}
-      isBusy={false}
-      fixDisabledReason={null}
-      canPublishFix={false}
-      publishFixResult={null}
-      publishFixError={null}
+      isBusy={isBusy}
+      commandStateLabel={commandStateLabel}
+      fixDisabledReason={fixDisabledReason}
+      canPublishFix={canPublishFix}
+      publishFixResult={publishFixResult}
+      publishFixError={publishFixError}
       onFiltersChange={vi.fn()}
       onSortChange={vi.fn()}
       onSelectFinding={vi.fn()}
       onRevalidateShown={vi.fn()}
       onTriage={onTriage}
-      onFix={vi.fn()}
+      onFix={onFix}
       onRevalidate={onRevalidate}
-      onPublishFix={vi.fn()}
+      onPublishFix={onPublishFix}
+      onInterrupt={onInterrupt}
       onOpenDiffFile={onOpenDiffFile}
     />,
   );

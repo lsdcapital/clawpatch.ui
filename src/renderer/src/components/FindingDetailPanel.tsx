@@ -1,4 +1,12 @@
-import { ArrowUpIcon, ChevronDownIcon, ChevronRightIcon, SquareIcon } from "lucide-react";
+import {
+  ArrowUpIcon,
+  ChevronDownIcon,
+  ChevronRightIcon,
+  GitPullRequestIcon,
+  RefreshCwIcon,
+  SquareIcon,
+  WrenchIcon,
+} from "lucide-react";
 import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import type {
   ClawpatchStatus,
@@ -15,6 +23,7 @@ import {
   formatGitStatusCounts,
   isGitStatusDirty,
 } from "../findingWorkStatus";
+import { ActionIconButton } from "./ActionIconButton";
 
 interface Props {
   finding: FindingDetail | null;
@@ -132,6 +141,60 @@ export function FindingDetailPanel({
           <span>{finding.findingId}</span>
         </div>
       </div>
+      <div className="detail-action-bar">
+        <div className="action-toolbar detail-actions" aria-label="Finding actions">
+          <ActionIconButton
+            aria-describedby={fixDisabledReason !== null ? "fix-disabled-reason" : undefined}
+            disabled={fixButtonDisabled}
+            icon={<WrenchIcon aria-hidden="true" />}
+            label="Run fix"
+            onClick={() => onFix(status, note)}
+            title={fixDisabledReason ?? "Run fix"}
+            variant="primary"
+          />
+          <ActionIconButton
+            disabled={isBusy}
+            icon={<RefreshCwIcon aria-hidden="true" />}
+            label="Revalidate"
+            onClick={onRevalidate}
+          />
+          {canPublishFix ? (
+            <ActionIconButton
+              disabled={isBusy}
+              icon={<GitPullRequestIcon aria-hidden="true" />}
+              label="Publish PR"
+              onClick={onPublishFix}
+            />
+          ) : null}
+          {isBusy && onInterrupt !== undefined ? (
+            <ActionIconButton
+              icon={<SquareIcon aria-hidden="true" />}
+              label="Interrupt finding command"
+              onClick={onInterrupt}
+              variant="danger"
+            />
+          ) : null}
+          {isBusy && commandStateLabel !== undefined ? (
+            <span className="detail-command-state">{commandStateLabel} running</span>
+          ) : null}
+        </div>
+        {fixDisabledReason !== null ? (
+          <span className="detail-action-reason" id="fix-disabled-reason">
+            {fixDisabledReason}
+          </span>
+        ) : null}
+        {publishFixError !== null ? (
+          <p className="detail-action-message error">{publishFixError.message}</p>
+        ) : null}
+        {publishFixResult !== null ? (
+          <p className="detail-action-message success">
+            PR draft opened for {publishFixResult.branchName}.{" "}
+            <a href={publishFixResult.prUrl} rel="noreferrer" target="_blank">
+              Open PR
+            </a>
+          </p>
+        ) : null}
+      </div>
       <div className="detail-body">
         <div className="meta-grid">
           <span>Status</span>
@@ -243,54 +306,6 @@ export function FindingDetailPanel({
               <ArrowUpIcon aria-hidden="true" />
             </button>
           </div>
-          <div className="detail-actions">
-            {isBusy && commandStateLabel !== undefined ? (
-              <span className="detail-command-state">{commandStateLabel} running</span>
-            ) : null}
-            {fixDisabledReason !== null ? (
-              <span className="detail-action-reason" id="fix-disabled-reason">
-                {fixDisabledReason}
-              </span>
-            ) : null}
-            <button
-              aria-describedby={fixDisabledReason !== null ? "fix-disabled-reason" : undefined}
-              disabled={fixButtonDisabled}
-              onClick={() => onFix(status, note)}
-              title={fixDisabledReason ?? undefined}
-            >
-              Run fix
-            </button>
-            <button disabled={isBusy} onClick={onRevalidate}>
-              Revalidate
-            </button>
-            {canPublishFix ? (
-              <button disabled={isBusy} onClick={onPublishFix}>
-                Publish PR
-              </button>
-            ) : null}
-            {isBusy && onInterrupt !== undefined ? (
-              <button
-                aria-label="Interrupt finding command"
-                className="icon-button danger"
-                onClick={onInterrupt}
-                title="Interrupt finding command"
-                type="button"
-              >
-                <SquareIcon aria-hidden="true" />
-              </button>
-            ) : null}
-          </div>
-          {publishFixError !== null ? (
-            <p className="detail-action-message error">{publishFixError.message}</p>
-          ) : null}
-          {publishFixResult !== null ? (
-            <p className="detail-action-message success">
-              PR draft opened for {publishFixResult.branchName}.{" "}
-              <a href={publishFixResult.prUrl} rel="noreferrer" target="_blank">
-                Open PR
-              </a>
-            </p>
-          ) : null}
         </div>
       </div>
     </div>

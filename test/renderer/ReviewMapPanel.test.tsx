@@ -11,7 +11,9 @@ describe("ReviewMapPanel", () => {
 
     expect(screen.getByRole("heading", { name: "Review Queue" })).toBeInTheDocument();
     expect(screen.getByText("2 pending/error of 3 map items")).toBeInTheDocument();
-    expect(screen.getByText("Review pending")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Review all 2 pending and error map items" }),
+    ).toBeInTheDocument();
     expect(screen.queryByText(/Review \d+ remaining/)).not.toBeInTheDocument();
 
     fireEvent.click(
@@ -30,8 +32,19 @@ describe("ReviewMapPanel", () => {
     const billingRow = screen.getByText("Billing").closest('[role="row"]');
     expect(billingRow).not.toBeNull();
 
-    fireEvent.click(within(billingRow as HTMLElement).getByRole("button", { name: "Review" }));
+    fireEvent.click(
+      within(billingRow as HTMLElement).getByRole("button", { name: "Review Billing" }),
+    );
     expect(onReviewFeature).toHaveBeenCalledWith("feat-billing");
+  });
+
+  it("updates the map from the toolbar action", () => {
+    const onUpdateMap = vi.fn();
+
+    renderPanel({ onUpdateMap });
+
+    fireEvent.click(screen.getByRole("button", { name: "Update map" }));
+    expect(onUpdateMap).toHaveBeenCalledOnce();
   });
 
   it("filters visible map rows without changing the bulk review request", () => {

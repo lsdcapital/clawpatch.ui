@@ -19,6 +19,7 @@ import {
   type FindingStatusFilter,
 } from "../findingsFilters";
 import { findingWorkLabel, findingWorkState, findingWorkTitle } from "../findingWorkStatus";
+import { ActionIconButton } from "./ActionIconButton";
 
 interface Props {
   findings: readonly FindingListItem[];
@@ -100,25 +101,14 @@ export function FindingsTable({
     <div className="findings-list-pane">
       <div className="panel-header">
         <h2>Findings</h2>
-        <div className="findings-header-actions">
-          <span>
-            {bulkRevalidationProgress === null
-              ? countLabel
-              : `Revalidating ${bulkRevalidationProgress.current}/${bulkRevalidationProgress.total}`}
-          </span>
-          <button
-            className="findings-revalidate-button"
-            disabled={isBulkRevalidating || revalidatableFindingCount === 0}
-            onClick={onRevalidateShown}
-            type="button"
-          >
-            <RefreshCwIcon aria-hidden="true" />
-            <span>Revalidate shown</span>
-          </button>
-        </div>
+        <span>
+          {bulkRevalidationProgress === null
+            ? countLabel
+            : `Revalidating ${bulkRevalidationProgress.current}/${bulkRevalidationProgress.total}`}
+        </span>
       </div>
       <div className="findings-toolbar">
-        <div className="findings-filter-row">
+        <div className="findings-filter-row findings-filter-row-with-action">
           <input
             aria-label="Search findings"
             value={filters.search}
@@ -157,6 +147,14 @@ export function FindingsTable({
           <button disabled={!filtersActive} onClick={() => onFiltersChange(defaultFindingFilters)}>
             Clear
           </button>
+          <div className="action-toolbar findings-toolbar-actions" aria-label="Findings actions">
+            <ActionIconButton
+              disabled={isBulkRevalidating || revalidatableFindingCount === 0}
+              icon={<RefreshCwIcon aria-hidden="true" />}
+              label="Revalidate shown"
+              onClick={onRevalidateShown}
+            />
+          </div>
         </div>
         {filtersActive ? (
           <div className="filter-chips" aria-label="Active filters">

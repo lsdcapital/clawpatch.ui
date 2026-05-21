@@ -146,6 +146,17 @@ describe("FindingsTable filters", () => {
     expect(screen.getByText("No findings match these filters")).toBeInTheDocument();
   });
 
+  it("disables revalidate shown when no visible finding can be revalidated", () => {
+    render(
+      <FilterHarness
+        findings={[makeFinding({ findingId: "fnd-fixed", title: "Resolved", status: "fixed" })]}
+        initialFilters={{ ...defaultFindingFilters, status: null }}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "Revalidate shown" })).toBeDisabled();
+  });
+
   it("selects visible rows", () => {
     const onSelectFinding = vi.fn();
     render(

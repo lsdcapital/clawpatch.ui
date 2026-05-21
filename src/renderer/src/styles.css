@@ -609,6 +609,42 @@ button:disabled {
   border-color: #f1b8b1;
 }
 
+.action-toolbar {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+}
+
+.action-icon-button {
+  flex: 0 0 auto;
+  min-height: 28px;
+  min-width: 28px;
+  padding: 5px;
+  width: 28px;
+}
+
+.action-icon-button-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--primary-text);
+}
+
+.action-icon-button-primary:hover:not(:disabled) {
+  background: var(--primary-hover);
+  border-color: var(--primary-hover);
+}
+
+.action-icon-button-danger {
+  color: var(--danger);
+}
+
+.action-icon-button-danger:hover:not(:disabled) {
+  background: var(--danger-soft);
+  border-color: #f1b8b1;
+}
+
 .command-menu {
   position: relative;
 }
@@ -1044,22 +1080,7 @@ button:disabled {
 }
 
 .review-queue-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
   justify-content: flex-start;
-  min-width: 0;
-}
-
-.review-queue-actions button:first-child {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--primary-text);
-}
-
-.review-queue-actions button:first-child:hover:not(:disabled) {
-  background: var(--primary-hover);
-  border-color: var(--primary-hover);
 }
 
 .review-queue-summary-row {
@@ -1204,34 +1225,6 @@ button:disabled {
   font-weight: 500;
 }
 
-.findings-header-actions {
-  align-items: center;
-  display: flex;
-  flex-shrink: 0;
-  gap: 8px;
-  min-width: 0;
-}
-
-.findings-revalidate-button {
-  align-items: center;
-  display: inline-flex;
-  gap: 5px;
-  min-height: 26px;
-  padding: 4px 8px;
-}
-
-.findings-revalidate-button svg {
-  height: 13px;
-  width: 13px;
-}
-
-.findings-revalidate-button span {
-  color: inherit;
-  flex-shrink: 1;
-  font-size: inherit;
-  font-weight: inherit;
-}
-
 .command-panel-status {
   align-items: center;
   display: flex;
@@ -1321,6 +1314,14 @@ button:disabled {
   gap: 6px;
   grid-template-columns: minmax(0, 1fr) auto auto;
   min-width: 0;
+}
+
+.findings-filter-row-with-action {
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
+}
+
+.findings-toolbar-actions {
+  justify-content: flex-end;
 }
 
 .findings-filter-row input {
@@ -1845,10 +1846,17 @@ button.table-row:hover:not(:disabled) {
   right: 6px;
 }
 
-.detail-actions {
-  align-items: center;
-  display: flex;
+.detail-action-bar {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  display: grid;
   gap: 6px;
+  min-width: 0;
+  padding: 8px 10px;
+}
+
+.detail-actions {
+  justify-content: flex-start;
 }
 
 .detail-command-state {
@@ -1860,21 +1868,9 @@ button.table-row:hover:not(:disabled) {
 
 .detail-action-reason {
   color: var(--muted);
-  flex: 1 1 180px;
   font-size: 11px;
   line-height: 1.35;
   min-width: 0;
-}
-
-.detail-actions button:nth-of-type(2) {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--primary-text);
-}
-
-.detail-actions button:nth-of-type(2):hover:not(:disabled) {
-  background: var(--primary-hover);
-  border-color: var(--primary-hover);
 }
 
 .detail-action-message {
