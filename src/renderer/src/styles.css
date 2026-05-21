@@ -181,10 +181,11 @@ button:disabled {
   height: 100%;
   min-height: 0;
   min-width: 0;
+  overflow: hidden;
 }
 
 .app-shell.sidebar-collapsed {
-  grid-template-columns: minmax(0, 1fr);
+  grid-template-columns: 52px minmax(0, 1fr);
 }
 
 .repo-sidebar {
@@ -194,16 +195,70 @@ button:disabled {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  height: 100%;
+  max-height: 100%;
   min-height: 0;
   min-width: 0;
   overflow: hidden;
   padding: 12px;
 }
 
+.repo-sidebar-rail {
+  align-items: center;
+  background: var(--sidebar);
+  border-right: 1px solid var(--border);
+  color: var(--text);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+  min-width: 52px;
+  overflow: hidden;
+  padding: 12px;
+  width: 52px;
+}
+
 .sidebar-header {
   align-items: center;
   display: flex;
+  gap: 8px;
+  justify-content: space-between;
   min-height: 28px;
+}
+
+.sidebar-collapse-button {
+  flex: none;
+}
+
+.sidebar-logo-mark {
+  align-items: center;
+  background: #101418;
+  border-radius: 7px;
+  display: flex;
+  flex: none;
+  height: 28px;
+  justify-content: center;
+  width: 28px;
+}
+
+.sidebar-logo-mark span {
+  background: #f5f0e8;
+  border-radius: 5px;
+  display: block;
+  height: 16px;
+  position: relative;
+  width: 16px;
+}
+
+.sidebar-logo-mark span::after {
+  background: #2dbe7e;
+  border-radius: 999px;
+  content: "";
+  height: 4px;
+  left: 7px;
+  position: absolute;
+  top: 6px;
+  width: 13px;
 }
 
 .brand {
@@ -343,7 +398,7 @@ button:disabled {
 
 .repo-list {
   display: grid;
-  flex: 1 1 auto;
+  flex: 1 1 0;
   gap: 4px;
   min-height: 0;
   min-width: 0;
@@ -573,10 +628,6 @@ button:disabled {
 .icon-button.danger:hover:not(:disabled) {
   background: var(--danger-soft);
   border-color: #f1b8b1;
-}
-
-.sidebar-toggle {
-  flex-shrink: 0;
 }
 
 .command-menu {
