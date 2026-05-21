@@ -3,6 +3,7 @@ import {
   COMMANDS_INTERRUPT_CHANNEL,
   COMMANDS_STREAM_CHANNEL,
   GIT_PUBLISH_FIX_CHANNEL,
+  REPO_DOCTOR_CHANNEL,
   REPO_GET_SETTINGS_CHANNEL,
   REPO_UPDATE_SETTINGS_CHANNEL,
   TERMINAL_OPEN_CHANNEL,
@@ -127,6 +128,33 @@ describe("preload api", () => {
       repoId: "repo-1",
       settings,
     });
+  });
+
+  it("exposes repo doctor diagnostics over IPC", async () => {
+    invokeMock.mockResolvedValue({
+      runId: "run-doctor",
+      command: "clawpatch",
+      args: ["doctor"],
+      cwd: "/tmp/repo",
+      exitCode: 0,
+      durationMs: 1,
+      stdout: "{}",
+      stderr: "",
+      parsedJson: {},
+    });
+
+    await import("../../src/preload/index");
+
+    const api = exposeInMainWorldMock.mock.calls[0]?.[1] as Api | undefined;
+    if (api === undefined) {
+      throw new Error("preload api was not exposed");
+    }
+
+    await expect(api.repo.doctor("repo-1")).resolves.toMatchObject({
+      runId: "run-doctor",
+      args: ["doctor"],
+    });
+    expect(invokeMock).toHaveBeenCalledWith(REPO_DOCTOR_CHANNEL, { repoId: "repo-1" });
   });
 
   it("forwards command output and lifecycle stream events", async () => {

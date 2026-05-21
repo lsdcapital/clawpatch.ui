@@ -57,6 +57,7 @@ export interface Api {
     add: (repoPath: string) => Promise<RepoSummary>;
     pickFolder: () => Promise<string | null>;
     refresh: (repoId: string) => Promise<RepoSnapshot>;
+    doctor: (repoId: string) => Promise<CommandResult>;
     getSettings: (repoId: string) => Promise<RepoSettings>;
     updateSettings: (repoId: string, settings: RepoSettings) => Promise<RepoSettings>;
   };
