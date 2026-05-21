@@ -3,7 +3,7 @@ import {
   ChevronDownIcon,
   ChevronRightIcon,
   GitPullRequestIcon,
-  RefreshCwIcon,
+  FileCheck2Icon,
   SquareIcon,
   WrenchIcon,
 } from "lucide-react";
@@ -154,7 +154,7 @@ export function FindingDetailPanel({
           />
           <ActionIconButton
             disabled={isBusy}
-            icon={<RefreshCwIcon aria-hidden="true" />}
+            icon={<FileCheck2Icon aria-hidden="true" />}
             label="Revalidate"
             onClick={onRevalidate}
           />

@@ -3,7 +3,7 @@ import {
   FilePenLineIcon,
   GitBranchIcon,
   GitPullRequestIcon,
-  RefreshCwIcon,
+  FileCheck2Icon,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { ClawpatchStatus, FindingListItem, FindingWorkStatus } from "../../../shared/types";
@@ -150,7 +150,7 @@ export function FindingsTable({
           <div className="action-toolbar findings-toolbar-actions" aria-label="Findings actions">
             <ActionIconButton
               disabled={isBulkRevalidating || revalidatableFindingCount === 0}
-              icon={<RefreshCwIcon aria-hidden="true" />}
+              icon={<FileCheck2Icon aria-hidden="true" />}
               label="Revalidate shown"
               onClick={onRevalidateShown}
             />
