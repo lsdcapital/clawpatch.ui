@@ -1,13 +1,9 @@
 import { useMemo, useState } from "react";
-import {
-  PanelLeftCloseIcon,
-  PanelLeftOpenIcon,
-  PlusIcon,
-  SearchIcon,
-  SettingsIcon,
-} from "lucide-react";
+import { PanelLeftCloseIcon, PanelLeftOpenIcon, PlusIcon, SettingsIcon } from "lucide-react";
 import type { RepoSummary } from "../../../shared/types";
 import { appName, appVersion } from "../appInfo";
+
+type RepoSort = "created" | "updated";
 
 interface Props {
   id?: string;
@@ -36,8 +32,8 @@ export function RepoSidebar({
 }: Props) {
   const [isPicking, setIsPicking] = useState(false);
   const [pickError, setPickError] = useState<unknown>(null);
-  const [repoFilter, setRepoFilter] = useState("");
-  const visibleRepos = useMemo(() => filterRepos(repos, repoFilter), [repoFilter, repos]);
+  const [repoSort, setRepoSort] = useState<RepoSort>("created");
+  const visibleRepos = useMemo(() => sortRepos(repos, repoSort), [repoSort, repos]);
 
   const pickRepo = async (): Promise<void> => {
     if (isAdding || isPicking) {
@@ -89,14 +85,15 @@ export function RepoSidebar({
           </button>
         </div>
       </div>
-      <label className="repo-filter">
-        <SearchIcon aria-hidden="true" />
-        <span className="sr-only">Filter repositories</span>
-        <input
-          value={repoFilter}
-          onChange={(event) => setRepoFilter(event.target.value)}
-          placeholder="Filter repos"
-        />
+      <label className="repo-sort">
+        <span>Sort by</span>
+        <select
+          value={repoSort}
+          onChange={(event) => setRepoSort(event.currentTarget.value as RepoSort)}
+        >
+          <option value="created">Created</option>
+          <option value="updated">Updated</option>
+        </select>
       </label>
       {pickError || addError ? (
         <div className="repo-form">
@@ -138,7 +135,7 @@ export function RepoSidebar({
           </div>
         ))}
         {visibleRepos.length === 0 ? (
-          <div className="repo-list-empty">No repositories match this filter.</div>
+          <div className="repo-list-empty">No repositories added.</div>
         ) : null}
       </div>
       <div className="repo-sidebar-footer">
@@ -189,12 +186,20 @@ export function RepoSidebarRail({
   );
 }
 
-function filterRepos(repos: readonly RepoSummary[], query: string): readonly RepoSummary[] {
-  const normalizedQuery = query.trim().toLocaleLowerCase();
-  if (normalizedQuery === "") {
+function sortRepos(repos: readonly RepoSummary[], sort: RepoSort): readonly RepoSummary[] {
+  if (sort === "created") {
     return repos;
   }
-  return repos.filter((repo) =>
-    `${repo.name} ${repo.path}`.toLocaleLowerCase().includes(normalizedQuery),
-  );
+  return repos
+    .map((repo, index) => ({ index, repo }))
+    .toSorted((left, right) => {
+      const timestampDelta = timestamp(right.repo.updatedAt) - timestamp(left.repo.updatedAt);
+      return timestampDelta === 0 ? left.index - right.index : timestampDelta;
+    })
+    .map(({ repo }) => repo);
+}
+
+function timestamp(value: string): number {
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : 0;
 }

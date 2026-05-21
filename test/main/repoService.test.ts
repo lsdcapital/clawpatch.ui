@@ -108,6 +108,52 @@ describe("RepoService", () => {
     }).pipe(Effect.provide(makeRepoServiceTestLayer(fixtureRepo, calls)));
   });
 
+  it.effect("summarizes repo updates from latest finding activity", () => {
+    const calls: RunnerCall[] = [];
+    return Effect.gen(function* () {
+      const repoDir = yield* Effect.promise(() => makeTempDir());
+      yield* Effect.promise(() =>
+        writeFinding(repoDir, {
+          findingId: "fnd-old",
+          updatedAt: "2026-01-01T00:00:00.000Z",
+        }),
+      );
+      yield* Effect.promise(() =>
+        writeFinding(repoDir, {
+          findingId: "fnd-new",
+          updatedAt: "2026-03-01T00:00:00.000Z",
+        }),
+      );
+
+      const service = yield* RepoService;
+      const summary = yield* service.addRepo(repoDir);
+
+      expect(summary.updatedAt).toBe("2026-03-01T00:00:00.000Z");
+    }).pipe(Effect.provide(makeRepoServiceTestLayer(fixtureRepo, calls)));
+  });
+
+  it("falls back to the registry timestamp when a repo has no findings", async () => {
+    const calls: RunnerCall[] = [];
+    const appData = await makeTempDir();
+    const repoDir = await makeTempDir();
+    await mkdir(join(repoDir, ".clawpatch", "findings"), { recursive: true });
+    await writeRepoRegistry(appData, "repo-empty", repoDir);
+    const runtime = ManagedRuntime.make(makeRepoServiceTestLayer(fixtureRepo, calls, appData));
+
+    try {
+      const repos = await runtime.runPromise(
+        Effect.gen(function* () {
+          const service = yield* RepoService;
+          return yield* service.listRepos();
+        }),
+      );
+
+      expect(repos[0]?.updatedAt).toBe("2026-05-19T00:00:00.000Z");
+    } finally {
+      await runtime.dispose();
+    }
+  });
+
   it.effect("runs Doctor diagnostics for a registered repo", () => {
     const calls: RunnerCall[] = [];
     return Effect.gen(function* () {
@@ -1233,6 +1279,7 @@ async function writeFinding(
     readonly title?: string;
     readonly status?: string;
     readonly featureId?: string;
+    readonly updatedAt?: string;
   },
 ): Promise<void> {
   await mkdir(join(repoPath, ".clawpatch", "findings"), { recursive: true });
@@ -1253,7 +1300,7 @@ async function writeFinding(
         status: overrides.status ?? "open",
         linkedPatchAttemptIds: [],
         createdAt: "2026-01-01T00:00:00.000Z",
-        updatedAt: "2026-01-01T00:00:00.000Z",
+        updatedAt: overrides.updatedAt ?? "2026-01-01T00:00:00.000Z",
       },
       null,
       2,
