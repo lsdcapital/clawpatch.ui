@@ -90,7 +90,7 @@ async function createWindow(): Promise<void> {
     title: APP_DISPLAY_NAME,
     icon: getAppIconPath(),
     webPreferences: {
-      preload: join(import.meta.dirname, "../preload/index.mjs"),
+      preload: join(import.meta.dirname, "../preload/index.js"),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,
