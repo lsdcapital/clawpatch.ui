@@ -245,6 +245,7 @@ function renderSplitPanel({
       filters={defaultFindingFilters}
       filterOptions={getFindingFilterOptions(findings, clawpatchStatuses)}
       sort={defaultFindingSort}
+      bulkRevalidationProgress={null}
       finding={finding}
       isDetailLoading={false}
       isBusy={false}
@@ -255,6 +256,7 @@ function renderSplitPanel({
       onFiltersChange={vi.fn()}
       onSortChange={vi.fn()}
       onSelectFinding={vi.fn()}
+      onRevalidateShown={vi.fn()}
       onTriage={onTriage}
       onFix={vi.fn()}
       onRevalidate={onRevalidate}

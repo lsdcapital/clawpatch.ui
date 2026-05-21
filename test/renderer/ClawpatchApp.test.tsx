@@ -654,6 +654,90 @@ describe("ClawpatchApp header actions", () => {
     expect(screen.getByRole("complementary", { name: "Command output" })).toBeInTheDocument();
   });
 
+  it("revalidates visible actionable findings sequentially from the findings header", async () => {
+    const highRiskFinding = makeFinding();
+    const lowerRiskFinding: FindingDetail = { ...makeFixFinding(), status: "uncertain" };
+    const fixedFinding: FindingDetail = {
+      ...makeFixFinding(),
+      findingId: "fnd-fixed",
+      title: "Already fixed branch",
+      severity: "low",
+      status: "fixed",
+    };
+    const findingsById = new Map(
+      [highRiskFinding, lowerRiskFinding, fixedFinding].map((finding) => [
+        finding.findingId,
+        finding,
+      ]),
+    );
+    const resolvers = new Map<string, (result: CommandResult) => void>();
+    const run = vi.fn<Api["commands"]["run"]>(
+      (_repoId, request) =>
+        new Promise<CommandResult>((resolve) => {
+          if ("findingId" in request) {
+            resolvers.set(request.findingId, resolve);
+            return;
+          }
+          resolve(makeCommandResult(request.command));
+        }),
+    );
+    window.clawpatch = makeApi(run, {
+      findings: [fixedFinding, lowerRiskFinding, highRiskFinding],
+      findingGet: async (_repoId, findingId) => {
+        const finding = findingsById.get(findingId);
+        if (finding === undefined) {
+          throw new Error(`Missing finding ${findingId}`);
+        }
+        return finding;
+      },
+    });
+
+    renderApp();
+
+    await screen.findByRole("heading", { name: "Token is logged in debug output" });
+    fireEvent.click(screen.getByText("Filter"));
+    const statusGroup = screen
+      .getAllByText("Status")
+      .find((element) => element.closest(".filter-group"))
+      ?.closest(".filter-group");
+    expect(statusGroup).not.toBeNull();
+    fireEvent.click(within(statusGroup as HTMLElement).getByRole("button", { name: "All" }));
+    expect(screen.getByText("Already fixed branch")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Revalidate shown" }));
+
+    await waitFor(() =>
+      expect(run).toHaveBeenCalledWith("repo-auth", {
+        command: "revalidate",
+        findingId: "fnd-security",
+      }),
+    );
+    expect(run).toHaveBeenCalledTimes(1);
+    expect(screen.getByText("Revalidating 1/2")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Revalidate shown" })).toBeDisabled();
+    expect(screen.getByRole("complementary", { name: "Command output" })).toBeInTheDocument();
+
+    resolvers.get("fnd-security")?.(makeCommandResult("revalidate"));
+
+    await waitFor(() =>
+      expect(run).toHaveBeenCalledWith("repo-auth", {
+        command: "revalidate",
+        findingId: "fnd-bug",
+      }),
+    );
+    expect(run).toHaveBeenCalledTimes(2);
+    expect(screen.getByText("Revalidating 2/2")).toBeInTheDocument();
+
+    resolvers.get("fnd-bug")?.(makeCommandResult("revalidate"));
+
+    await waitFor(() => expect(screen.queryByText(/Revalidating/)).not.toBeInTheDocument());
+    expect(screen.getByRole("button", { name: "Revalidate shown" })).not.toBeDisabled();
+    expect(run).not.toHaveBeenCalledWith("repo-auth", {
+      command: "revalidate",
+      findingId: "fnd-fixed",
+    });
+  });
+
   it("keeps other finding fix controls available while one finding is running", async () => {
     const highRiskFinding = makeFinding();
     const lowerRiskFinding = makeFixFinding();

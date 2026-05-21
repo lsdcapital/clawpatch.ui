@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
+import { RefreshCwIcon } from "lucide-react";
 import type { ClawpatchStatus, FindingListItem } from "../../../shared/types";
+import type { BulkRevalidationProgress } from "../hooks/useCommandRunner";
 import {
   defaultFindingFilters,
   isFindingFiltersActive,
@@ -19,9 +21,11 @@ interface Props {
   filters: FindingFilters;
   filterOptions: FindingFilterOptions;
   sort: FindingSort;
+  bulkRevalidationProgress: BulkRevalidationProgress | null;
   onFiltersChange: (filters: FindingFilters) => void;
   onSortChange: (sort: FindingSort) => void;
   onSelectFinding: (findingId: string) => void;
+  onRevalidateShown: () => void;
 }
 
 export function FindingsTable({
@@ -32,9 +36,11 @@ export function FindingsTable({
   filters,
   filterOptions,
   sort,
+  bulkRevalidationProgress,
   onFiltersChange,
   onSortChange,
   onSelectFinding,
+  onRevalidateShown,
 }: Props) {
   const filterMenuRef = useRef<HTMLDetailsElement>(null);
   const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
@@ -44,6 +50,8 @@ export function FindingsTable({
     : filtersActive
       ? `${findings.length} of ${totalFindingCount} shown`
       : `${findings.length} actionable of ${totalFindingCount} total`;
+  const revalidatableFindingCount = findings.filter(isRevalidatableFinding).length;
+  const isBulkRevalidating = bulkRevalidationProgress !== null;
 
   const updateFilters = (nextFilters: Partial<FindingFilters>): void => {
     onFiltersChange({ ...filters, ...nextFilters });
@@ -83,7 +91,22 @@ export function FindingsTable({
     <div className="findings-list-pane">
       <div className="panel-header">
         <h2>Findings</h2>
-        <span>{countLabel}</span>
+        <div className="findings-header-actions">
+          <span>
+            {bulkRevalidationProgress === null
+              ? countLabel
+              : `Revalidating ${bulkRevalidationProgress.current}/${bulkRevalidationProgress.total}`}
+          </span>
+          <button
+            className="findings-revalidate-button"
+            disabled={isBulkRevalidating || revalidatableFindingCount === 0}
+            onClick={onRevalidateShown}
+            type="button"
+          >
+            <RefreshCwIcon aria-hidden="true" />
+            <span>Revalidate shown</span>
+          </button>
+        </div>
       </div>
       <div className="findings-toolbar">
         <div className="findings-filter-row">
@@ -181,6 +204,10 @@ export function FindingsTable({
       </div>
     </div>
   );
+}
+
+function isRevalidatableFinding(finding: FindingListItem): boolean {
+  return finding.status === "open" || finding.status === "uncertain";
 }
 
 function SortableHeader({
