@@ -91,11 +91,13 @@ describe("renderer layout styles", () => {
     expect(tooltipRule).not.toContain("transition");
 
     const visibleTooltipRule = ruleFor(
-      "\\.header-tooltip-trigger:hover \\.header-icon-tooltip,\\s*\\.header-tooltip-trigger:focus-within \\.header-icon-tooltip",
+      "\\.header-tooltip-trigger > button:hover \\+ \\.header-icon-tooltip,\\s*\\.header-tooltip-trigger > button:focus-visible \\+ \\.header-icon-tooltip",
     );
     expect(visibleTooltipRule).toContain("opacity: 1;");
     expect(visibleTooltipRule).toContain("visibility: visible;");
     expect(visibleTooltipRule).not.toContain("transition-delay");
+    expect(styles).not.toMatch(/\.header-tooltip-trigger:hover \.header-icon-tooltip/);
+    expect(styles).not.toMatch(/\.header-tooltip-trigger:focus-within \.header-icon-tooltip/);
 
     expect(
       ruleFor('\\.header-tooltip-trigger\\[data-tooltip-hidden="true"\\] \\.header-icon-tooltip'),
