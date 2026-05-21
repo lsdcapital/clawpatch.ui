@@ -84,24 +84,22 @@ describe("renderer layout styles", () => {
     expect(ruleFor("\\.action-icon-button")).not.toContain("border-color: transparent;");
   });
 
-  it("shows workspace header tooltips immediately on hover or focus", () => {
-    const tooltipRule = ruleFor("\\.header-icon-tooltip");
+  it("shows icon control tooltips immediately", () => {
+    const triggerRule = ruleFor("\\.icon-tooltip-trigger");
+    expect(triggerRule).toContain("display: inline-flex;");
+
+    const tooltipRule = ruleFor("\\.icon-tooltip");
     expect(tooltipRule).toContain("opacity: 0;");
+    expect(tooltipRule).toContain("position: fixed;");
     expect(tooltipRule).toContain("visibility: hidden;");
     expect(tooltipRule).not.toContain("transition");
 
-    const visibleTooltipRule = ruleFor(
-      "\\.header-tooltip-trigger > button:hover \\+ \\.header-icon-tooltip,\\s*\\.header-tooltip-trigger > button:focus-visible \\+ \\.header-icon-tooltip",
-    );
+    const visibleTooltipRule = ruleFor('\\.icon-tooltip\\[data-visible="true"\\]');
     expect(visibleTooltipRule).toContain("opacity: 1;");
     expect(visibleTooltipRule).toContain("visibility: visible;");
     expect(visibleTooltipRule).not.toContain("transition-delay");
-    expect(styles).not.toMatch(/\.header-tooltip-trigger:hover \.header-icon-tooltip/);
-    expect(styles).not.toMatch(/\.header-tooltip-trigger:focus-within \.header-icon-tooltip/);
-
-    expect(
-      ruleFor('\\.header-tooltip-trigger\\[data-tooltip-hidden="true"\\] \\.header-icon-tooltip'),
-    ).toContain("display: none;");
+    expect(styles).not.toMatch(/header-tooltip-trigger/);
+    expect(styles).not.toMatch(/header-icon-tooltip/);
   });
 });
 

@@ -9,6 +9,7 @@ import {
 import type { RepoSummary } from "../../../shared/types";
 import { appName, appVersion } from "../appInfo";
 import { useDismissiblePopover } from "../hooks/useDismissiblePopover";
+import { IconButton } from "./IconButton";
 
 type RepoSort = "created" | "updated";
 
@@ -77,31 +78,28 @@ export function RepoSidebar({
           <span className="brand-name">{appName}</span>
           <span className="brand-version">v{appVersion}</span>
         </div>
-        <button
-          className="icon-button sidebar-collapse-button"
+        <IconButton
+          className="icon-button"
+          containerClassName="sidebar-collapse-button"
           onClick={onCollapse}
           aria-controls={id}
           aria-expanded="true"
-          aria-label="Hide repositories panel"
-          title="Hide repositories panel"
-        >
-          <PanelLeftCloseIcon aria-hidden="true" />
-        </button>
+          icon={<PanelLeftCloseIcon aria-hidden="true" />}
+          label="Hide repositories panel"
+        />
       </div>
       <div className="repo-section-header">
         <span>Repositories ({repos.length})</span>
         <div className="repo-section-actions">
           <div className="repo-sort-menu" ref={sortMenuRef}>
-            <button
+            <IconButton
               className="icon-button"
               onClick={() => setIsSortMenuOpen((isOpen) => !isOpen)}
               aria-expanded={isSortMenuOpen}
               aria-haspopup="menu"
-              aria-label="Sort repositories"
-              title="Sort repositories"
-            >
-              <ListFilterIcon aria-hidden="true" />
-            </button>
+              icon={<ListFilterIcon aria-hidden="true" />}
+              label="Sort repositories"
+            />
             {isSortMenuOpen ? (
               <div className="repo-sort-menu-popover" role="menu" aria-label="Repository sort">
                 <button
@@ -121,15 +119,13 @@ export function RepoSidebar({
               </div>
             ) : null}
           </div>
-          <button
+          <IconButton
             className="icon-button"
             disabled={isAdding || isPicking}
             onClick={() => void pickRepo()}
-            aria-label="Add repository"
-            title="Add repository"
-          >
-            <FolderPlusIcon aria-hidden="true" />
-          </button>
+            icon={<FolderPlusIcon aria-hidden="true" />}
+            label="Add repository"
+          />
         </div>
       </div>
       {pickError || addError ? (
@@ -158,17 +154,17 @@ export function RepoSidebar({
               <span className="repo-path">{repo.path}</span>
               {!repo.isValid ? <em className="repo-invalid">invalid</em> : null}
             </button>
-            <button
-              className="icon-button repo-settings-button"
+            <IconButton
+              className="icon-button"
+              containerClassName="repo-settings-button"
               onClick={(event) => {
                 event.stopPropagation();
                 onOpenRepoSettings(repo);
               }}
-              aria-label="Repository settings"
-              title={`Repository settings for ${repo.name}`}
-            >
-              <SettingsIcon aria-hidden="true" />
-            </button>
+              icon={<SettingsIcon aria-hidden="true" />}
+              label="Repository settings"
+              tooltip={`Repository settings for ${repo.name}`}
+            />
           </div>
         ))}
         {visibleRepos.length === 0 ? (
@@ -201,24 +197,22 @@ export function RepoSidebarRail({
 }) {
   return (
     <aside className="repo-sidebar-rail" id={id} aria-label="Repositories sidebar">
-      <button
-        className="icon-button sidebar-collapse-button"
+      <IconButton
+        className="icon-button"
+        containerClassName="sidebar-collapse-button"
         onClick={onExpand}
         aria-controls={id}
         aria-expanded="false"
-        aria-label="Show repositories panel"
-        title="Show repositories panel"
-      >
-        <PanelLeftOpenIcon aria-hidden="true" />
-      </button>
-      <button
-        className="icon-button sidebar-rail-settings-button"
+        icon={<PanelLeftOpenIcon aria-hidden="true" />}
+        label="Show repositories panel"
+      />
+      <IconButton
+        className="icon-button"
+        containerClassName="sidebar-rail-settings-button"
         onClick={onOpenSettings}
-        aria-label="Settings"
-        title="Settings"
-      >
-        <SettingsIcon aria-hidden="true" />
-      </button>
+        icon={<SettingsIcon aria-hidden="true" />}
+        label="Settings"
+      />
     </aside>
   );
 }

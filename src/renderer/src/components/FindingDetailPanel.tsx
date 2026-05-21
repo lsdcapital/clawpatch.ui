@@ -25,6 +25,7 @@ import {
 } from "../findingWorkStatus";
 import { useDismissiblePopover } from "../hooks/useDismissiblePopover";
 import { ActionIconButton } from "./ActionIconButton";
+import { IconButton } from "./IconButton";
 
 interface Props {
   finding: FindingDetail | null;
@@ -268,16 +269,15 @@ export function FindingDetailPanel({
               onChange={(event) => setNote(event.currentTarget.value)}
               onKeyDown={handleNoteKeyDown}
             />
-            <button
-              aria-label="Save triage note"
-              className="icon-button note-send-button"
+            <IconButton
+              className="icon-button"
+              containerClassName="note-send-button"
               disabled={isBusy}
+              icon={<ArrowUpIcon aria-hidden="true" />}
+              label="Save triage note"
               onClick={saveTriageNote}
-              title="Save triage note"
               type="button"
-            >
-              <ArrowUpIcon aria-hidden="true" />
-            </button>
+            />
           </div>
         </div>
       </div>

@@ -54,15 +54,40 @@ describe("ClawpatchApp header actions", () => {
     expect(outputButton.querySelector(".lucide-logs")).toBeInTheDocument();
 
     for (const button of [openTerminalButton, outputButton, diffButton]) {
-      const tooltip = within(button.parentElement as HTMLElement).getByText(
-        button.getAttribute("aria-label") ?? "",
-      );
-      expect(tooltip).toHaveClass("header-icon-tooltip");
+      expect(button.parentElement).toHaveClass("icon-tooltip-trigger");
+      fireEvent.mouseEnter(button.parentElement as HTMLElement);
+      const tooltip = screen.getByText(button.getAttribute("aria-label") ?? "");
+      expect(tooltip).toHaveClass("icon-tooltip");
       expect(tooltip).toHaveAttribute("aria-hidden", "true");
+      fireEvent.mouseLeave(button.parentElement as HTMLElement);
     }
 
     expect(screen.queryByRole("button", { name: "More commands" })).not.toBeInTheDocument();
     expect(screen.queryByRole("menu", { name: "Repository commands" })).not.toBeInTheDocument();
+  });
+
+  it("uses custom instant tooltips for sidebar icon controls", async () => {
+    window.clawpatch = makeApi(vi.fn<Api["commands"]["run"]>(async () => makeCommandResult("map")));
+
+    renderApp();
+
+    await screen.findByRole("heading", { name: "auth" });
+
+    const sortButton = screen.getByRole("button", { name: "Sort repositories" });
+    const addButton = screen.getByRole("button", { name: "Add repository" });
+    const repoSettingsButton = screen.getByRole("button", { name: "Repository settings" });
+
+    expect(sortButton).not.toHaveAttribute("title");
+    expect(addButton).not.toHaveAttribute("title");
+    expect(repoSettingsButton).not.toHaveAttribute("title");
+    fireEvent.mouseEnter(sortButton.parentElement as HTMLElement);
+    expect(screen.getByText("Sort repositories")).toHaveClass("icon-tooltip");
+    fireEvent.mouseLeave(sortButton.parentElement as HTMLElement);
+    fireEvent.mouseEnter(addButton.parentElement as HTMLElement);
+    expect(screen.getByText("Add repository")).toHaveClass("icon-tooltip");
+    fireEvent.mouseLeave(addButton.parentElement as HTMLElement);
+    fireEvent.mouseEnter(repoSettingsButton.parentElement as HTMLElement);
+    expect(screen.getByText("Repository settings for auth")).toHaveClass("icon-tooltip");
   });
 
   it("hides and restores the repositories panel from the left sidebar rail", async () => {
@@ -359,7 +384,7 @@ describe("ClawpatchApp header actions", () => {
     expect(screen.queryByRole("button", { name: "Add repo" })).not.toBeInTheDocument();
 
     const addButton = screen.getByRole("button", { name: "Add repository" });
-    expect(addButton).toHaveAttribute("title", "Add repository");
+    expect(addButton).not.toHaveAttribute("title");
 
     fireEvent.click(addButton);
 
@@ -1286,10 +1311,13 @@ describe("ClawpatchApp header actions", () => {
     );
     const fixButton = screen.getByRole("button", { name: "Run fix" });
     expect(fixButton).toBeDisabled();
-    expect(fixButton).toHaveAttribute(
-      "title",
-      "Commit, stash, or discard registered checkout changes before running fix.",
-    );
+    expect(fixButton).not.toHaveAttribute("title");
+    fireEvent.mouseEnter(fixButton.parentElement as HTMLElement);
+    expect(
+      screen.getAllByText(
+        "Commit, stash, or discard registered checkout changes before running fix.",
+      ),
+    ).toHaveLength(2);
     expect(screen.getByRole("button", { name: "Revalidate" })).not.toBeDisabled();
 
     fireEvent.click(fixButton);

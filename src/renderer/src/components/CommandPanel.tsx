@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { SquareIcon } from "lucide-react";
 import type { CommandLogEntry } from "../workspaceTypes";
+import { IconButton } from "./IconButton";
 
 export function CommandPanel({
   entries,
@@ -20,14 +21,12 @@ export function CommandPanel({
         <div className="command-panel-status">
           <span>{isRunning ? "Running" : "Idle"}</span>
           {isRunning ? (
-            <button
+            <IconButton
               className="icon-button danger"
               onClick={onInterrupt}
-              aria-label="Interrupt command"
-              title="Interrupt command"
-            >
-              <SquareIcon aria-hidden="true" />
-            </button>
+              icon={<SquareIcon aria-hidden="true" />}
+              label="Interrupt command"
+            />
           ) : null}
         </div>
       </div>
