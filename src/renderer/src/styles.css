@@ -97,6 +97,18 @@
   box-sizing: border-box;
 }
 
+.sr-only {
+  border: 0;
+  clip: rect(0, 0, 0, 0);
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  padding: 0;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
+}
+
 html,
 body,
 #root {
@@ -290,6 +302,44 @@ button:disabled {
   color: var(--muted);
 }
 
+.repo-section-actions {
+  align-items: center;
+  display: flex;
+  gap: 2px;
+}
+
+.repo-filter {
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--subtle);
+  display: grid;
+  gap: 6px;
+  grid-template-columns: 14px minmax(0, 1fr);
+  min-height: 30px;
+  padding: 0 8px;
+}
+
+.repo-filter svg {
+  height: 14px;
+  width: 14px;
+}
+
+.repo-filter input {
+  background: transparent;
+  border: 0;
+  color: var(--text);
+  min-width: 0;
+  outline: 0;
+  padding: 6px 0;
+  width: 100%;
+}
+
+.repo-filter input::placeholder {
+  color: var(--subtle);
+}
+
 .repo-list {
   display: grid;
   gap: 4px;
@@ -352,6 +402,12 @@ button:disabled {
 .repo-settings-button:hover:not(:disabled) {
   background: var(--button-hover-bg);
   border-color: transparent;
+}
+
+.repo-list-empty {
+  color: var(--muted);
+  font-size: 12px;
+  padding: 8px;
 }
 
 .repo-name,
@@ -534,64 +590,226 @@ button:disabled {
   border-color: var(--primary-hover);
 }
 
-.modal-backdrop {
-  align-items: center;
-  background: rgba(20, 24, 31, 0.38);
-  display: flex;
-  inset: 0;
-  justify-content: center;
-  padding: 24px;
-  position: fixed;
-  z-index: 50;
-}
-
-.settings-dialog {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  box-shadow: var(--popover-shadow);
+.settings-page {
+  background: var(--bg);
   color: var(--text);
   display: grid;
-  gap: 14px;
-  max-height: min(720px, calc(100vh - 48px));
-  max-width: 680px;
-  min-width: 520px;
-  overflow: auto;
-  padding: 18px;
-  width: min(680px, calc(100vw - 48px));
+  grid-template-columns: 280px minmax(0, 1fr);
+  height: 100%;
+  min-height: 0;
 }
 
-.settings-dialog-header {
-  align-items: flex-start;
+.settings-sidebar {
+  background: var(--sidebar);
+  border-right: 1px solid var(--border);
   display: flex;
-  gap: 12px;
-  justify-content: space-between;
+  flex-direction: column;
+  gap: 24px;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+  padding: 18px 12px;
+}
+
+.settings-back-button {
+  align-self: flex-start;
+  background: transparent;
+  border-color: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  gap: 8px;
+}
+
+.settings-back-button:hover:not(:disabled) {
+  border-color: transparent;
+}
+
+.settings-nav {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 0;
   min-width: 0;
 }
 
-.settings-dialog h2 {
+.settings-nav-item,
+.settings-repo-nav-item {
+  background: transparent;
+  border-color: transparent;
+  color: var(--muted);
+  justify-content: flex-start;
+  width: 100%;
+}
+
+.settings-nav-item {
+  font-size: 13px;
+  gap: 10px;
+  min-height: 34px;
+  padding: 7px 8px;
+}
+
+.settings-nav-item.active,
+.settings-repo-nav-item.active {
+  background: var(--accent-soft);
+  border-color: var(--accent-border);
+  color: var(--accent-text);
+}
+
+.settings-nav-group-label {
+  color: var(--subtle);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  margin: 18px 2px 4px;
+  text-transform: uppercase;
+}
+
+.settings-repo-nav-list {
+  display: grid;
+  gap: 4px;
+  min-height: 0;
+  overflow: auto;
+}
+
+.settings-repo-nav-item {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 24px minmax(0, 1fr);
+  min-height: 40px;
+  padding: 6px 8px;
+  text-align: left;
+}
+
+.settings-repo-nav-icon,
+.settings-repo-heading-icon {
+  align-items: center;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-border);
+  border-radius: 6px;
+  color: var(--accent-text);
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 800;
+  justify-content: center;
+}
+
+.settings-repo-nav-icon {
+  height: 24px;
+  width: 24px;
+}
+
+.settings-repo-nav-copy {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+
+.settings-repo-nav-copy span,
+.settings-repo-nav-copy small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.settings-repo-nav-copy span {
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.settings-repo-nav-copy small {
+  color: var(--subtle);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.settings-content {
+  min-height: 0;
+  overflow: auto;
+  padding: 44px clamp(32px, 7vw, 88px);
+}
+
+.settings-panel {
+  display: grid;
+  gap: 28px;
+  max-width: 820px;
+}
+
+.settings-panel-header {
+  align-items: center;
+  display: flex;
+  gap: 14px;
+  min-width: 0;
+}
+
+.settings-panel-header > svg {
+  color: var(--muted);
+  height: 24px;
+  width: 24px;
+}
+
+.settings-panel-header h1 {
   color: var(--text-heading);
-  font-size: 16px;
+  font-size: 28px;
+  line-height: 1.15;
   margin: 0;
 }
 
-.settings-dialog p {
+.settings-panel-header p {
   color: var(--muted);
-  margin: 2px 0 0;
+  font-size: 13px;
+  margin: 6px 0 0;
   overflow-wrap: anywhere;
 }
 
-.settings-form {
+.settings-repo-heading-icon {
+  flex: none;
+  font-size: 18px;
+  height: 46px;
+  width: 46px;
+}
+
+.settings-facts {
+  border-top: 1px solid var(--border);
+  display: grid;
+  gap: 0;
+  margin: 0;
+}
+
+.settings-facts div {
+  border-bottom: 1px solid var(--border);
   display: grid;
   gap: 12px;
+  grid-template-columns: 180px minmax(0, 1fr);
+  padding: 16px 0;
+}
+
+.settings-facts dt {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.settings-facts dd {
+  color: var(--text);
+  font-size: 13px;
+  margin: 0;
+}
+
+.settings-form {
+  border-top: 1px solid var(--border);
+  display: grid;
+  gap: 18px;
+  padding-top: 24px;
 }
 
 .settings-form label {
-  color: var(--muted);
+  color: var(--text-heading);
   display: grid;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 700;
-  gap: 5px;
+  gap: 7px;
 }
 
 .settings-form input,
@@ -601,7 +819,7 @@ button:disabled {
   border-radius: 6px;
   color: var(--text);
   min-width: 0;
-  padding: 7px 8px;
+  padding: 8px 9px;
   width: 100%;
 }
 
@@ -618,6 +836,23 @@ button:disabled {
   display: flex;
   gap: 8px;
   justify-content: flex-end;
+}
+
+.settings-empty-state {
+  color: var(--muted);
+  display: grid;
+  gap: 10px;
+  justify-items: start;
+}
+
+.settings-empty-state h1 {
+  color: var(--text-heading);
+  font-size: 20px;
+  margin: 0;
+}
+
+.settings-empty-state p {
+  margin: 0;
 }
 
 .workspace-body {

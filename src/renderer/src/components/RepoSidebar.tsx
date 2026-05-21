@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { PlusIcon, SettingsIcon } from "lucide-react";
+import { useMemo, useState } from "react";
+import { PlusIcon, SearchIcon, SettingsIcon } from "lucide-react";
 import type { RepoSummary } from "../../../shared/types";
 import { appName, appVersion } from "../appInfo";
 
@@ -10,6 +10,7 @@ interface Props {
   isAdding: boolean;
   addError: unknown;
   onAddRepo: (repoPath: string) => void;
+  onOpenSettings: () => void;
   onSelectRepo: (repoId: string) => void;
   onOpenRepoSettings: (repo: RepoSummary) => void;
 }
@@ -21,11 +22,14 @@ export function RepoSidebar({
   isAdding,
   addError,
   onAddRepo,
+  onOpenSettings,
   onSelectRepo,
   onOpenRepoSettings,
 }: Props) {
   const [isPicking, setIsPicking] = useState(false);
   const [pickError, setPickError] = useState<unknown>(null);
+  const [repoFilter, setRepoFilter] = useState("");
+  const visibleRepos = useMemo(() => filterRepos(repos, repoFilter), [repoFilter, repos]);
 
   const pickRepo = async (): Promise<void> => {
     if (isAdding || isPicking) {
@@ -55,16 +59,35 @@ export function RepoSidebar({
       </div>
       <div className="repo-section-header">
         <span>Repositories ({repos.length})</span>
-        <button
-          className="icon-button"
-          disabled={isAdding || isPicking}
-          onClick={() => void pickRepo()}
-          aria-label="Add repository"
-          title="Add repository"
-        >
-          <PlusIcon aria-hidden="true" />
-        </button>
+        <div className="repo-section-actions">
+          <button
+            className="icon-button"
+            onClick={onOpenSettings}
+            aria-label="App settings"
+            title="App settings"
+          >
+            <SettingsIcon aria-hidden="true" />
+          </button>
+          <button
+            className="icon-button"
+            disabled={isAdding || isPicking}
+            onClick={() => void pickRepo()}
+            aria-label="Add repository"
+            title="Add repository"
+          >
+            <PlusIcon aria-hidden="true" />
+          </button>
+        </div>
       </div>
+      <label className="repo-filter">
+        <SearchIcon aria-hidden="true" />
+        <span className="sr-only">Filter repositories</span>
+        <input
+          value={repoFilter}
+          onChange={(event) => setRepoFilter(event.target.value)}
+          placeholder="Filter repos"
+        />
+      </label>
       {pickError || addError ? (
         <div className="repo-form">
           {pickError ? (
@@ -80,7 +103,7 @@ export function RepoSidebar({
         </div>
       ) : null}
       <div className="repo-list">
-        {repos.map((repo) => (
+        {visibleRepos.map((repo) => (
           <div
             key={repo.id}
             className={repo.id === selectedRepoId ? "repo-row selected" : "repo-row"}
@@ -104,7 +127,20 @@ export function RepoSidebar({
             </button>
           </div>
         ))}
+        {visibleRepos.length === 0 ? (
+          <div className="repo-list-empty">No repositories match this filter.</div>
+        ) : null}
       </div>
     </aside>
+  );
+}
+
+function filterRepos(repos: readonly RepoSummary[], query: string): readonly RepoSummary[] {
+  const normalizedQuery = query.trim().toLocaleLowerCase();
+  if (normalizedQuery === "") {
+    return repos;
+  }
+  return repos.filter((repo) =>
+    `${repo.name} ${repo.path}`.toLocaleLowerCase().includes(normalizedQuery),
   );
 }

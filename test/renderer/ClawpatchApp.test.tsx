@@ -331,7 +331,30 @@ describe("ClawpatchApp header actions", () => {
     await waitFor(() => expect(pickFolder).toHaveBeenCalledTimes(1));
   });
 
-  it("opens and saves repository settings from the repo row", async () => {
+  it("filters repositories from the sidebar search field", async () => {
+    window.clawpatch = makeApi(
+      vi.fn<Api["commands"]["run"]>(async () => makeCommandResult("map")),
+      {
+        repoList: async () => [
+          makeRepo(),
+          makeRepo({ id: "repo-billing", name: "billing", path: "/work/billing-api" }),
+        ],
+      },
+    );
+
+    renderApp();
+
+    await screen.findByRole("heading", { name: "auth" });
+    expect(screen.getByTitle("/tmp/auth")).toBeInTheDocument();
+    expect(screen.getByTitle("/work/billing-api")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByPlaceholderText("Filter repos"), { target: { value: "billing" } });
+
+    expect(screen.queryByTitle("/tmp/auth")).not.toBeInTheDocument();
+    expect(screen.getByTitle("/work/billing-api")).toBeInTheDocument();
+  });
+
+  it("opens and saves repository settings from a full settings page", async () => {
     const getSettings = vi.fn<Api["repo"]["getSettings"]>(async () => ({
       schemaVersion: 1,
       terminalAppName: "Terminal",
@@ -353,7 +376,9 @@ describe("ClawpatchApp header actions", () => {
     await screen.findByRole("heading", { name: "auth" });
     fireEvent.click(screen.getByRole("button", { name: "Repository settings" }));
 
-    expect(await screen.findByRole("dialog", { name: "Repository Settings" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "auth" })).toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: "Repository Settings" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Back to app" })).toBeInTheDocument();
     expect(getSettings).toHaveBeenCalledWith("repo-auth");
 
     fireEvent.change(await screen.findByLabelText("Terminal app"), { target: { value: "iTerm" } });
@@ -375,9 +400,37 @@ describe("ClawpatchApp header actions", () => {
         }),
       ),
     );
-    await waitFor(() =>
-      expect(screen.queryByRole("dialog", { name: "Repository Settings" })).not.toBeInTheDocument(),
+    expect(screen.getByRole("heading", { name: "auth" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Back to app" }));
+
+    expect(await screen.findByRole("heading", { name: "auth" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Findings" })).toBeInTheDocument();
+  });
+
+  it("shows read-only General settings without loading repository settings", async () => {
+    const getSettings = vi.fn<Api["repo"]["getSettings"]>(async () => ({
+      schemaVersion: 1,
+      terminalAppName: "Terminal",
+      terminalStartupScript: "",
+      worktreeSetupScript: "",
+      updatedAt: "2026-05-19T00:00:00.000Z",
+    }));
+    window.clawpatch = makeApi(
+      vi.fn<Api["commands"]["run"]>(async () => makeCommandResult("map")),
+      { repoGetSettings: getSettings },
     );
+
+    renderApp();
+
+    await screen.findByRole("heading", { name: "auth" });
+    fireEvent.click(screen.getByRole("button", { name: "App settings" }));
+
+    expect(screen.getByRole("heading", { name: "General" })).toBeInTheDocument();
+    expect(screen.getByText("Clawpatch UI")).toBeInTheDocument();
+    expect(screen.getByText(`v${packageJson.version}`)).toBeInTheDocument();
+    expect(screen.getAllByText("Repositories").length).toBeGreaterThan(0);
+    expect(getSettings).not.toHaveBeenCalled();
   });
 
   it("keeps secondary commands reachable from the overflow menu", async () => {

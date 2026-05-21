@@ -35,6 +35,13 @@ describe("renderer layout styles", () => {
     const gitStatusBranchRule = ruleFor("\\.git-status-branch");
     expect(gitStatusBranchRule).toContain("text-overflow: ellipsis;");
     expect(gitStatusBranchRule).toContain("white-space: nowrap;");
+    const settingsPageRule = ruleFor("\\.settings-page");
+    expect(settingsPageRule).toContain("grid-template-columns: 280px minmax(0, 1fr);");
+    expect(settingsPageRule).toContain("height: 100%;");
+    const settingsSidebarRule = ruleFor("\\.settings-sidebar");
+    expect(settingsSidebarRule).toContain("border-right: 1px solid var(--border);");
+    expect(settingsSidebarRule).toContain("overflow: hidden;");
+    expect(ruleFor("\\.settings-content")).toContain("overflow: auto;");
   });
 });
 
