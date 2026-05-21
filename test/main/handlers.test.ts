@@ -388,7 +388,6 @@ function makeRepoServiceLayer(
       refreshRepo: () =>
         Effect.succeed({
           repo: makeRepoSummary(),
-          status: {},
           findings: [],
           diff: "",
           metadata: {

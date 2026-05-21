@@ -821,12 +821,6 @@ export const RepoServiceLive = (appDataDir: string) =>
               findingCount: findings.length,
               openFindingCount: findings.filter((item) => item.status === "open").length,
             },
-            status:
-              summary.lastError === null &&
-              !(yield* isRepoCommandRunning(repo.id)) &&
-              !(yield* hasRunningFindingCommand(repo.id))
-                ? (yield* runner.run(repo.path, { command: "status" })).parsedJson
-                : null,
             findings,
             diff,
             metadata: repoMetadata,

@@ -1,40 +1,25 @@
-import { useState } from "react";
-import { ActivityIcon, DiffIcon, MoreHorizontalIcon, TerminalSquareIcon } from "lucide-react";
-import type { ClawpatchCommandRequest, RepoSummary } from "../../../shared/types";
-import { useDismissiblePopover } from "../hooks/useDismissiblePopover";
+import type { ButtonHTMLAttributes, ReactNode } from "react";
+import { DiffIcon, LogsIcon, TerminalSquareIcon } from "lucide-react";
+import type { RepoSummary } from "../../../shared/types";
 import type { ActiveInspector, ActiveWorkspace } from "../workspaceTypes";
 
 export function WorkspaceHeader({
   repo,
   activeWorkspace,
   activeInspector,
-  isRepoCommandBusy,
   isOpeningTerminal,
   onWorkspaceChange,
   onToggleInspector,
   onOpenTerminal,
-  onRunCommand,
 }: {
   repo: RepoSummary | null;
   activeWorkspace: ActiveWorkspace;
   activeInspector: ActiveInspector;
-  isRepoCommandBusy: boolean;
   isOpeningTerminal: boolean;
   onWorkspaceChange: (workspace: ActiveWorkspace) => void;
   onToggleInspector: (inspector: Exclude<ActiveInspector, null>) => void;
   onOpenTerminal: () => void;
-  onRunCommand: (request: ClawpatchCommandRequest) => void;
 }) {
-  const [isCommandMenuOpen, setIsCommandMenuOpen] = useState(false);
-  const commandMenuRef = useDismissiblePopover<HTMLDivElement>({
-    isOpen: isCommandMenuOpen,
-    onDismiss: () => setIsCommandMenuOpen(false),
-  });
-  const runMenuCommand = (request: ClawpatchCommandRequest): void => {
-    setIsCommandMenuOpen(false);
-    onRunCommand(request);
-  };
-
   return (
     <header className="workspace-header">
       <div className="workspace-title">
@@ -60,68 +45,68 @@ export function WorkspaceHeader({
         </button>
       </div>
       <div className="header-actions">
-        <button
+        <HeaderIconButton
           className="icon-button"
           disabled={repo === null || isOpeningTerminal}
+          icon={<TerminalSquareIcon aria-hidden="true" />}
+          label="Open terminal"
           onClick={onOpenTerminal}
-          aria-label="Open terminal"
-          title="Open terminal"
-        >
-          <TerminalSquareIcon aria-hidden="true" />
-        </button>
-        <button
+        />
+        <HeaderIconButton
           className={
             activeInspector === "diff"
               ? "icon-button drawer-toggle active"
               : "icon-button drawer-toggle"
           }
           disabled={repo === null}
+          icon={<DiffIcon aria-hidden="true" />}
+          label="Toggle diff panel"
           onClick={() => onToggleInspector("diff")}
           aria-pressed={activeInspector === "diff"}
-          aria-label="Toggle diff panel"
-          title="Toggle diff panel"
-        >
-          <DiffIcon aria-hidden="true" />
-        </button>
-        <button
+        />
+        <HeaderIconButton
           className={
             activeInspector === "output"
               ? "icon-button drawer-toggle active"
               : "icon-button drawer-toggle"
           }
+          icon={<LogsIcon aria-hidden="true" />}
+          label="Toggle command output"
           onClick={() => onToggleInspector("output")}
           aria-pressed={activeInspector === "output"}
-          aria-label="Toggle command output"
-          title="Toggle command output"
-        >
-          <TerminalSquareIcon aria-hidden="true" />
-        </button>
-        <div className="command-menu" ref={commandMenuRef}>
-          <button
-            className="icon-button"
-            disabled={repo === null || isRepoCommandBusy}
-            onClick={() => setIsCommandMenuOpen((current) => !current)}
-            aria-expanded={isCommandMenuOpen}
-            aria-haspopup="menu"
-            aria-label="More commands"
-            title="More commands"
-          >
-            <MoreHorizontalIcon aria-hidden="true" />
-          </button>
-          {isCommandMenuOpen ? (
-            <div className="command-menu-popover" role="menu" aria-label="Repository commands">
-              <button
-                role="menuitem"
-                disabled={repo === null || isRepoCommandBusy}
-                onClick={() => runMenuCommand({ command: "status" })}
-              >
-                <ActivityIcon aria-hidden="true" />
-                Status
-              </button>
-            </div>
-          ) : null}
-        </div>
+        />
       </div>
     </header>
+  );
+}
+
+interface HeaderIconButtonProps extends Omit<
+  ButtonHTMLAttributes<HTMLButtonElement>,
+  "children" | "title"
+> {
+  readonly icon: ReactNode;
+  readonly label: string;
+  readonly tooltipHidden?: boolean;
+}
+
+function HeaderIconButton({
+  icon,
+  label,
+  tooltipHidden = false,
+  type = "button",
+  ...props
+}: HeaderIconButtonProps) {
+  return (
+    <span
+      className="header-tooltip-trigger"
+      data-tooltip-hidden={tooltipHidden ? "true" : undefined}
+    >
+      <button {...props} aria-label={label} type={type}>
+        {icon}
+      </button>
+      <span className="header-icon-tooltip" aria-hidden="true">
+        {label}
+      </span>
+    </span>
   );
 }
