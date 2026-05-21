@@ -36,6 +36,35 @@ describe("ClawpatchApp header actions", () => {
     expect(screen.getByText(`v${packageJson.version}`)).toBeInTheDocument();
   });
 
+  it("uses distinct header icons with custom instant tooltips", async () => {
+    window.clawpatch = makeApi(vi.fn<Api["commands"]["run"]>(async () => makeCommandResult("map")));
+
+    renderApp();
+
+    await screen.findByRole("heading", { name: "auth" });
+
+    const openTerminalButton = screen.getByRole("button", { name: "Open terminal" });
+    const outputButton = screen.getByRole("button", { name: "Toggle command output" });
+    const diffButton = screen.getByRole("button", { name: "Toggle diff panel" });
+
+    expect(openTerminalButton).not.toHaveAttribute("title");
+    expect(outputButton).not.toHaveAttribute("title");
+    expect(diffButton).not.toHaveAttribute("title");
+    expect(openTerminalButton.querySelector(".lucide-square-terminal")).toBeInTheDocument();
+    expect(outputButton.querySelector(".lucide-logs")).toBeInTheDocument();
+
+    for (const button of [openTerminalButton, outputButton, diffButton]) {
+      const tooltip = within(button.parentElement as HTMLElement).getByText(
+        button.getAttribute("aria-label") ?? "",
+      );
+      expect(tooltip).toHaveClass("header-icon-tooltip");
+      expect(tooltip).toHaveAttribute("aria-hidden", "true");
+    }
+
+    expect(screen.queryByRole("button", { name: "More commands" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("menu", { name: "Repository commands" })).not.toBeInTheDocument();
+  });
+
   it("hides and restores the repositories panel from the left sidebar rail", async () => {
     window.clawpatch = makeApi(vi.fn<Api["commands"]["run"]>(async () => makeCommandResult("map")));
 
