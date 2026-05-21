@@ -42,8 +42,15 @@ import { SetupScriptRunner, type SetupScriptRunnerShape } from "./setupScriptRun
 import { TerminalLauncher, type TerminalLauncherError } from "./terminalLauncher";
 import { UiMetadataService, type UiMetadataError } from "./uiMetadata";
 
+interface RegistryRepo {
+  readonly id: string;
+  readonly name: string;
+  readonly path: string;
+  readonly updatedAt?: string;
+}
+
 interface RegistryFile {
-  repos: Array<Pick<RepoSummary, "id" | "name" | "path" | "updatedAt">>;
+  repos: RegistryRepo[];
 }
 
 const TARGET_BASE_REF = "origin/main";
@@ -223,6 +230,7 @@ export const RepoServiceLive = (appDataDir: string) =>
       const summarizeRepo = Effect.fn("repoService.summarizeRepo")(function* (
         repoPath: string,
         id: string,
+        registryUpdatedAt: string | undefined,
       ) {
         const activeWorktrees = yield* activeWorktreesForRepo(id);
         const activeWorktreePath = activeWorktrees[0]?.path ?? null;
@@ -269,7 +277,7 @@ export const RepoServiceLive = (appDataDir: string) =>
           openFindingCount: findings.filter((item) => item.status === "open").length,
           activeWorktreePath,
           activeWorktrees,
-          updatedAt: new Date().toISOString(),
+          updatedAt: latestFindingUpdatedAt(findings, registryUpdatedAt),
         } satisfies RepoSummary;
       });
 
@@ -727,7 +735,7 @@ export const RepoServiceLive = (appDataDir: string) =>
         listRepos: Effect.fn("repoService.listRepos")(function* () {
           const registry = yield* readRegistry();
           return yield* Effect.all(
-            registry.repos.map((repo) => summarizeRepo(repo.path, repo.id)),
+            registry.repos.map((repo) => summarizeRepo(repo.path, repo.id, repo.updatedAt)),
             { concurrency: "unbounded" },
           );
         }),
@@ -752,13 +760,13 @@ export const RepoServiceLive = (appDataDir: string) =>
               return repo;
             }),
           );
-          return yield* summarizeRepo(repo.path, repo.id);
+          return yield* summarizeRepo(repo.path, repo.id, repo.updatedAt);
         }),
         refreshRepo: Effect.fn("repoService.refreshRepo")(function* (repoIdValue) {
           const repo = yield* requireRepo(repoIdValue);
           const repoMetadata = yield* metadata.read(repo.id, repo.path);
           const [summary, diff] = yield* Effect.all([
-            summarizeRepo(repo.path, repo.id),
+            summarizeRepo(repo.path, repo.id, repo.updatedAt),
             git.readDiff(repo.path),
           ]);
           const findings = yield* readFindingListWithActiveWorktrees(repo.id, repo.path);
@@ -887,6 +895,33 @@ function expandHomePath(inputPath: string, path: Path.Path): string {
 
 function repoId(repoPath: string): string {
   return createHash("sha256").update(repoPath).digest("hex").slice(0, 16);
+}
+
+function latestFindingUpdatedAt(
+  findings: readonly FindingListItem[],
+  fallbackUpdatedAt: string | undefined,
+): string {
+  if (findings.length === 0) {
+    return fallbackUpdatedAt ?? new Date(0).toISOString();
+  }
+  let latestTimestamp = 0;
+  let latestUpdatedAt = findings[0]?.updatedAt ?? new Date(0).toISOString();
+  for (const finding of findings) {
+    const findingTimestamp = timestamp(finding.updatedAt);
+    if (findingTimestamp > latestTimestamp) {
+      latestTimestamp = findingTimestamp;
+      latestUpdatedAt = finding.updatedAt;
+    }
+  }
+  return latestUpdatedAt;
+}
+
+function timestamp(value: string | undefined): number {
+  if (value === undefined) {
+    return 0;
+  }
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : 0;
 }
 
 function commandLifecycleMetadata(

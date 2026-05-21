@@ -364,36 +364,34 @@ button:disabled {
   gap: 2px;
 }
 
-.repo-filter {
+.repo-sort {
   align-items: center;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 6px;
   color: var(--subtle);
   display: grid;
-  gap: 6px;
-  grid-template-columns: 14px minmax(0, 1fr);
-  min-height: 30px;
-  padding: 0 8px;
+  gap: 10px;
+  grid-template-columns: auto minmax(0, 1fr);
+  min-height: 34px;
+  padding: 4px 6px 4px 9px;
 }
 
-.repo-filter svg {
-  height: 14px;
-  width: 14px;
+.repo-sort span {
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
 }
 
-.repo-filter input {
-  background: transparent;
-  border: 0;
+.repo-sort select {
+  appearance: auto;
+  background: var(--bg);
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
   color: var(--text);
   min-width: 0;
-  outline: 0;
-  padding: 6px 0;
+  padding: 5px 8px;
   width: 100%;
-}
-
-.repo-filter input::placeholder {
-  color: var(--subtle);
 }
 
 .repo-list {
