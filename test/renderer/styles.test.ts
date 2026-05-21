@@ -89,6 +89,12 @@ describe("renderer layout styles", () => {
     expect(triggerRule).toContain("display: inline-flex;");
 
     const tooltipRule = ruleFor("\\.icon-tooltip");
+    expect(tooltipRule).toContain("background: var(--surface-muted);");
+    expect(tooltipRule).toContain("border: 1px solid var(--border);");
+    expect(tooltipRule).toContain("border-radius: 3px;");
+    expect(tooltipRule).toContain("box-shadow: var(--tooltip-shadow);");
+    expect(tooltipRule).toContain("color: var(--text);");
+    expect(tooltipRule).toContain("font-weight: 500;");
     expect(tooltipRule).toContain("opacity: 0;");
     expect(tooltipRule).toContain("position: fixed;");
     expect(tooltipRule).toContain("visibility: hidden;");
