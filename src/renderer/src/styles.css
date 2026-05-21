@@ -194,8 +194,9 @@ button:disabled {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  min-height: 0;
   min-width: 0;
-  overflow-x: hidden;
+  overflow: hidden;
   padding: 12px;
 }
 
@@ -342,8 +343,12 @@ button:disabled {
 
 .repo-list {
   display: grid;
+  flex: 1 1 auto;
   gap: 4px;
+  min-height: 0;
   min-width: 0;
+  overflow: auto;
+  padding-bottom: 4px;
 }
 
 .repo-row {
@@ -408,6 +413,37 @@ button:disabled {
   color: var(--muted);
   font-size: 12px;
   padding: 8px;
+}
+
+.repo-sidebar-footer {
+  border-top: 1px solid var(--border);
+  flex: none;
+  padding-top: 10px;
+}
+
+.sidebar-settings-button {
+  background: transparent;
+  border-color: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  gap: 8px;
+  justify-content: flex-start;
+  min-height: 34px;
+  padding: 7px 8px;
+  width: 100%;
+}
+
+.sidebar-settings-button:hover:not(:disabled) {
+  background: var(--button-hover-bg);
+  border-color: transparent;
+  color: var(--text);
+}
+
+.sidebar-settings-button svg {
+  flex: none;
+  height: 15px;
+  width: 15px;
 }
 
 .repo-name,
