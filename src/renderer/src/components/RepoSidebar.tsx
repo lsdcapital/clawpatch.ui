@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import {
-  FilterIcon,
+  ListFilterIcon,
   PanelLeftCloseIcon,
   PanelLeftOpenIcon,
   PlusIcon,
@@ -95,7 +95,7 @@ export function RepoSidebar({
               aria-label="Sort repositories"
               title="Sort repositories"
             >
-              <FilterIcon aria-hidden="true" />
+              <ListFilterIcon aria-hidden="true" />
             </button>
             {isSortMenuOpen ? (
               <div className="repo-sort-menu-popover" role="menu" aria-label="Repository sort">
