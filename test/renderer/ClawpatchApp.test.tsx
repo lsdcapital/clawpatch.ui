@@ -454,7 +454,7 @@ describe("ClawpatchApp header actions", () => {
     const menu = screen.getByRole("menu", { name: "Repository commands" });
     expect(within(menu).queryByRole("menuitem", { name: "Update map" })).not.toBeInTheDocument();
     expect(within(menu).getByRole("menuitem", { name: "Status" })).toBeInTheDocument();
-    expect(within(menu).getByRole("menuitem", { name: "Report" })).toBeInTheDocument();
+    expect(within(menu).queryByRole("menuitem", { name: "Report" })).not.toBeInTheDocument();
     expect(within(menu).getByRole("menuitem", { name: "Doctor" })).toBeInTheDocument();
 
     fireEvent.click(within(menu).getByRole("menuitem", { name: "Doctor" }));
