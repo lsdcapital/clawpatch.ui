@@ -606,8 +606,12 @@ button:disabled {
 }
 
 .workspace-switcher button {
+  align-items: center;
   background: transparent;
   border-color: transparent;
+  display: inline-flex;
+  gap: 6px;
+  justify-content: center;
   min-height: 26px;
   padding: 4px 9px;
 }
@@ -621,6 +625,21 @@ button:disabled {
   background: var(--surface);
   border-color: var(--border-strong);
   box-shadow: var(--shadow);
+}
+
+.workspace-tab-pill {
+  align-items: center;
+  background: var(--accent);
+  border-radius: 999px;
+  color: var(--primary-text);
+  display: inline-flex;
+  flex: none;
+  font-size: 10px;
+  font-weight: 800;
+  justify-content: center;
+  line-height: 1;
+  min-width: 16px;
+  padding: 3px 5px;
 }
 
 .icon-button {

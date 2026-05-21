@@ -8,6 +8,7 @@ export function WorkspaceHeader({
   activeWorkspace,
   activeInspector,
   isOpeningTerminal,
+  reviewQueueUnreviewedCount,
   onWorkspaceChange,
   onToggleInspector,
   onOpenTerminal,
@@ -16,10 +17,16 @@ export function WorkspaceHeader({
   activeWorkspace: ActiveWorkspace;
   activeInspector: ActiveInspector;
   isOpeningTerminal: boolean;
+  reviewQueueUnreviewedCount: number;
   onWorkspaceChange: (workspace: ActiveWorkspace) => void;
   onToggleInspector: (inspector: Exclude<ActiveInspector, null>) => void;
   onOpenTerminal: () => void;
 }) {
+  const reviewQueueLabel =
+    reviewQueueUnreviewedCount > 0
+      ? `Review Queue, ${reviewQueueUnreviewedCount} unreviewed`
+      : "Review Queue";
+
   return (
     <header className="workspace-header">
       <div className="workspace-title">
@@ -40,8 +47,14 @@ export function WorkspaceHeader({
           onClick={() => onWorkspaceChange("reviewQueue")}
           role="tab"
           aria-selected={activeWorkspace === "reviewQueue"}
+          aria-label={reviewQueueLabel}
         >
-          Review Queue
+          <span>Review Queue</span>
+          {reviewQueueUnreviewedCount > 0 ? (
+            <span className="workspace-tab-pill" aria-hidden="true">
+              {reviewQueueUnreviewedCount}
+            </span>
+          ) : null}
         </button>
       </div>
       <div className="header-actions">
