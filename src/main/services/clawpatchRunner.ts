@@ -21,7 +21,6 @@ const clawpatchLogger = childLogger("clawpatch");
 const commandNames = new Set([
   "status",
   "map",
-  "report",
   "review",
   "triage",
   "fix",
@@ -133,7 +132,6 @@ export function buildClawpatchArgs(request: ClawpatchCommandRequest): string[] {
   switch (request.command) {
     case "status":
     case "map":
-    case "report":
     case "doctor":
       return args;
     case "review": {

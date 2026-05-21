@@ -6,7 +6,6 @@ export const ClawpatchStatusSchema = Schema.Literals(clawpatchStatuses);
 export const ClawpatchCommandRequestSchema = Schema.Union([
   Schema.Struct({ command: Schema.Literal("status") }),
   Schema.Struct({ command: Schema.Literal("map") }),
-  Schema.Struct({ command: Schema.Literal("report") }),
   Schema.Struct({
     command: Schema.Literal("review"),
     featureId: Schema.optionalKey(Schema.String),

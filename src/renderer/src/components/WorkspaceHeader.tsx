@@ -2,7 +2,6 @@ import { useState } from "react";
 import {
   ActivityIcon,
   DiffIcon,
-  FileTextIcon,
   MoreHorizontalIcon,
   PanelLeftCloseIcon,
   PanelLeftOpenIcon,
@@ -141,14 +140,6 @@ export function WorkspaceHeader({
               >
                 <ActivityIcon aria-hidden="true" />
                 Status
-              </button>
-              <button
-                role="menuitem"
-                disabled={repo === null || isRepoCommandBusy}
-                onClick={() => runMenuCommand({ command: "report" })}
-              >
-                <FileTextIcon aria-hidden="true" />
-                Report
               </button>
               <button
                 role="menuitem"
