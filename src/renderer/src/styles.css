@@ -230,37 +230,6 @@ button:disabled {
   flex: none;
 }
 
-.sidebar-logo-mark {
-  align-items: center;
-  background: #101418;
-  border-radius: 7px;
-  display: flex;
-  flex: none;
-  height: 28px;
-  justify-content: center;
-  width: 28px;
-}
-
-.sidebar-logo-mark span {
-  background: #f5f0e8;
-  border-radius: 5px;
-  display: block;
-  height: 16px;
-  position: relative;
-  width: 16px;
-}
-
-.sidebar-logo-mark span::after {
-  background: #2dbe7e;
-  border-radius: 999px;
-  content: "";
-  height: 4px;
-  left: 7px;
-  position: absolute;
-  top: 6px;
-  width: 13px;
-}
-
 .brand {
   align-items: baseline;
   color: var(--text-strong);
@@ -499,6 +468,10 @@ button:disabled {
   flex: none;
   height: 15px;
   width: 15px;
+}
+
+.sidebar-rail-settings-button {
+  margin-top: auto;
 }
 
 .repo-name,
@@ -882,6 +855,49 @@ button:disabled {
   color: var(--text);
   font-size: 13px;
   margin: 0;
+}
+
+.settings-readonly-section {
+  border-top: 1px solid var(--border);
+  display: grid;
+  gap: 14px;
+  padding-top: 24px;
+}
+
+.settings-readonly-header {
+  align-items: baseline;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  min-width: 0;
+}
+
+.settings-readonly-header h2 {
+  color: var(--text-heading);
+  font-size: 16px;
+  margin: 0;
+}
+
+.settings-readonly-header span,
+.settings-muted {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.settings-readonly-output {
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  color: var(--text);
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 12px;
+  line-height: 1.55;
+  margin: 0;
+  max-height: 360px;
+  overflow: auto;
+  padding: 12px;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .settings-form {

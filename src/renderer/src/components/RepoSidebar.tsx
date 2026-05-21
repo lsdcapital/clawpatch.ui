@@ -142,11 +142,11 @@ export function RepoSidebar({
         <button
           className="sidebar-settings-button"
           onClick={onOpenSettings}
-          aria-label="General settings"
-          title="General settings"
+          aria-label="Settings"
+          title="Settings"
         >
           <SettingsIcon aria-hidden="true" />
-          <span>General settings</span>
+          <span>Settings</span>
         </button>
       </div>
     </aside>
@@ -164,9 +164,6 @@ export function RepoSidebarRail({
 }) {
   return (
     <aside className="repo-sidebar-rail" id={id} aria-label="Repositories sidebar">
-      <div className="sidebar-logo-mark" aria-hidden="true">
-        <span />
-      </div>
       <button
         className="icon-button sidebar-collapse-button"
         onClick={onExpand}
@@ -178,10 +175,10 @@ export function RepoSidebarRail({
         <PanelLeftOpenIcon aria-hidden="true" />
       </button>
       <button
-        className="icon-button"
+        className="icon-button sidebar-rail-settings-button"
         onClick={onOpenSettings}
-        aria-label="General settings"
-        title="General settings"
+        aria-label="Settings"
+        title="Settings"
       >
         <SettingsIcon aria-hidden="true" />
       </button>

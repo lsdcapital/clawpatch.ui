@@ -2,6 +2,7 @@ export const REPO_LIST_CHANNEL = "repo:list";
 export const REPO_ADD_CHANNEL = "repo:add";
 export const REPO_PICK_FOLDER_CHANNEL = "repo:pick-folder";
 export const REPO_REFRESH_CHANNEL = "repo:refresh";
+export const REPO_DOCTOR_CHANNEL = "repo:doctor";
 export const REPO_GET_SETTINGS_CHANNEL = "repo:get-settings";
 export const REPO_UPDATE_SETTINGS_CHANNEL = "repo:update-settings";
 export const FINDINGS_LIST_CHANNEL = "findings:list";

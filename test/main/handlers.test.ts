@@ -7,6 +7,7 @@ import {
   COMMANDS_INTERRUPT_CHANNEL,
   COMMANDS_RUN_CHANNEL,
   GIT_PUBLISH_FIX_CHANNEL,
+  REPO_DOCTOR_CHANNEL,
   REPO_GET_SETTINGS_CHANNEL,
   REPO_PICK_FOLDER_CHANNEL,
   REPO_UPDATE_SETTINGS_CHANNEL,
@@ -162,6 +163,28 @@ describe("IPC handlers", () => {
     }
   });
 
+  it("returns repo Doctor diagnostics without publishing command stream events", async () => {
+    const doctor = vi.fn<RepoServiceShape["doctor"]>(() =>
+      Effect.succeed({ ...makeCommandResult(), args: ["doctor"], parsedJson: { ok: true } }),
+    );
+    const publish = vi.fn();
+    const { registered, runtime } = await installHandlersForTest({ doctor, publish });
+    const listener = registered.get(REPO_DOCTOR_CHANNEL);
+    if (listener === undefined) {
+      throw new Error("repo doctor IPC handler was not registered");
+    }
+
+    try {
+      await expect(listener({} as IpcMainInvokeEvent, { repoId: "repo-1" })).resolves.toMatchObject(
+        { args: ["doctor"], parsedJson: { ok: true } },
+      );
+      expect(doctor).toHaveBeenCalledWith("repo-1");
+      expect(publish).not.toHaveBeenCalled();
+    } finally {
+      await runtime.dispose();
+    }
+  });
+
   it("opens the GitHub PR page after publishing a fix", async () => {
     openExternalMock.mockResolvedValue(undefined);
     const publishFix = vi.fn<RepoServiceShape["publishFix"]>(() =>
@@ -262,6 +285,7 @@ async function installHandlersForTest(): Promise<{
   readonly runtime: TestRuntime;
 }>;
 async function installHandlersForTest(options: {
+  readonly doctor?: RepoServiceShape["doctor"];
   readonly interruptCommand?: RepoServiceShape["interruptCommand"];
   readonly openTerminal?: RepoServiceShape["openTerminal"];
   readonly publish?: (event: CommandStreamEvent) => void;
@@ -276,6 +300,7 @@ async function installHandlersForTest(options: {
 }>;
 async function installHandlersForTest(
   options: {
+    readonly doctor?: RepoServiceShape["doctor"];
     readonly interruptCommand?: RepoServiceShape["interruptCommand"];
     readonly openTerminal?: RepoServiceShape["openTerminal"];
     readonly publish?: (event: CommandStreamEvent) => void;
@@ -314,6 +339,7 @@ async function installHandlersForTest(
 
 function makeRepoServiceLayer(
   options: {
+    readonly doctor?: RepoServiceShape["doctor"];
     readonly interruptCommand?: RepoServiceShape["interruptCommand"];
     readonly openTerminal?: RepoServiceShape["openTerminal"];
     readonly publishFix?: RepoServiceShape["publishFix"];
@@ -363,6 +389,7 @@ function makeRepoServiceLayer(
             updatedAt: "2026-05-19T00:00:00.000Z",
           })),
       listFindings: () => Effect.succeed([]),
+      doctor: options.doctor ?? (() => Effect.succeed(makeCommandResult())),
       readFeatureMap: () => Effect.succeed(makeFeatureMapSnapshot()),
       getFinding: () => Effect.die("not implemented"),
       runCommand: options.runCommand ?? (() => Effect.succeed(makeCommandResult())),

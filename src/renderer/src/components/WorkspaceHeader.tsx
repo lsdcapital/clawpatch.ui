@@ -1,11 +1,5 @@
 import { useState } from "react";
-import {
-  ActivityIcon,
-  DiffIcon,
-  MoreHorizontalIcon,
-  StethoscopeIcon,
-  TerminalSquareIcon,
-} from "lucide-react";
+import { ActivityIcon, DiffIcon, MoreHorizontalIcon, TerminalSquareIcon } from "lucide-react";
 import type { ClawpatchCommandRequest, RepoSummary } from "../../../shared/types";
 import type { ActiveInspector, ActiveWorkspace } from "../workspaceTypes";
 
@@ -118,14 +112,6 @@ export function WorkspaceHeader({
               >
                 <ActivityIcon aria-hidden="true" />
                 Status
-              </button>
-              <button
-                role="menuitem"
-                disabled={repo === null || isRepoCommandBusy}
-                onClick={() => runMenuCommand({ command: "doctor" })}
-              >
-                <StethoscopeIcon aria-hidden="true" />
-                Doctor
               </button>
             </div>
           ) : null}

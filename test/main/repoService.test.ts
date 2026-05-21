@@ -154,6 +154,26 @@ describe("RepoService", () => {
     }
   });
 
+  it.effect("runs Doctor diagnostics for a registered repo", () => {
+    const calls: RunnerCall[] = [];
+    return Effect.gen(function* () {
+      const service = yield* RepoService;
+
+      const missingRepoError = yield* service.doctor("missing").pipe(
+        Effect.match({
+          onFailure: (error) => error,
+          onSuccess: () => null,
+        }),
+      );
+      const summary = yield* service.addRepo(fixtureRepo);
+      const result = yield* service.doctor(summary.id);
+
+      expect(missingRepoError).toMatchObject({ repoId: "missing" });
+      expect(result.args).toEqual(["doctor"]);
+      expect(calls).toContainEqual({ repoPath: fixtureRepo, request: { command: "doctor" } });
+    }).pipe(Effect.provide(makeRepoServiceTestLayer(fixtureRepo, calls)));
+  });
+
   it.effect("opens a terminal at the registered checkout by default", () => {
     const calls: RunnerCall[] = [];
     const terminalCwds: string[] = [];

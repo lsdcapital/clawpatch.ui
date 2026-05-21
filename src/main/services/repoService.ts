@@ -73,6 +73,7 @@ export interface RepoServiceShape {
   readonly listRepos: () => Effect.Effect<RepoSummary[], RepoServiceError>;
   readonly addRepo: (repoPath: string) => Effect.Effect<RepoSummary, RepoServiceError>;
   readonly refreshRepo: (repoId: string) => Effect.Effect<RepoSnapshot, RepoServiceError>;
+  readonly doctor: (repoId: string) => Effect.Effect<CommandResult, RepoServiceError>;
   readonly getSettings: (repoId: string) => Effect.Effect<RepoSettings, RepoServiceError>;
   readonly updateSettings: (
     repoId: string,
@@ -790,6 +791,10 @@ export const RepoServiceLive = (appDataDir: string) =>
         getSettings: Effect.fn("repoService.getSettings")(function* (repoIdValue) {
           const repo = yield* requireRepo(repoIdValue);
           return yield* repoSettings.read(repo.id);
+        }),
+        doctor: Effect.fn("repoService.doctor")(function* (repoIdValue) {
+          const repo = yield* requireRepo(repoIdValue);
+          return yield* runTrackedRepoCommand(repo.id, repo.path, { command: "doctor" });
         }),
         updateSettings: Effect.fn("repoService.updateSettings")(function* (repoIdValue, settings) {
           const repo = yield* requireRepo(repoIdValue);
