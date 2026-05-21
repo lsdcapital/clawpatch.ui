@@ -25,7 +25,9 @@ describe("renderer layout styles", () => {
     expect(repoSidebarRailRule).toContain("width: 52px;");
     expect(ruleFor("\\.sidebar-collapse-button")).toContain("flex: none;");
     const repoListRule = ruleFor("\\.repo-list");
+    expect(repoListRule).toContain("align-content: start;");
     expect(repoListRule).toContain("flex: 1 1 0;");
+    expect(repoListRule).toContain("grid-auto-rows: max-content;");
     expect(repoListRule).toContain("min-height: 0;");
     expect(repoListRule).toContain("overflow: auto;");
     const repoSidebarFooterRule = ruleFor("\\.repo-sidebar-footer");
