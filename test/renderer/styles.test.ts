@@ -95,9 +95,12 @@ describe("renderer layout styles", () => {
     expect(tooltipRule).toContain("box-shadow: var(--tooltip-shadow);");
     expect(tooltipRule).toContain("color: var(--text);");
     expect(tooltipRule).toContain("font-weight: 500;");
+    expect(tooltipRule).toContain("max-width: calc(100vw - 16px);");
     expect(tooltipRule).toContain("opacity: 0;");
+    expect(tooltipRule).toContain("overflow-wrap: anywhere;");
     expect(tooltipRule).toContain("position: fixed;");
     expect(tooltipRule).toContain("visibility: hidden;");
+    expect(tooltipRule).toContain("white-space: normal;");
     expect(tooltipRule).not.toContain("transition");
 
     const visibleTooltipRule = ruleFor('\\.icon-tooltip\\[data-visible="true"\\]');

@@ -18,10 +18,12 @@ interface IconButtonProps extends Omit<
 
 interface TooltipPosition {
   readonly left: number;
+  readonly placement: IconButtonTooltipPlacement;
   readonly top: number;
 }
 
 const tooltipOffset = 6;
+const tooltipViewportMargin = 8;
 
 export function IconButton({
   "aria-describedby": ariaDescribedBy,
@@ -43,7 +45,11 @@ export function IconButton({
   const triggerRef = useRef<HTMLSpanElement>(null);
   const tooltipRef = useRef<HTMLSpanElement>(null);
   const [isTooltipVisible, setIsTooltipVisible] = useState(false);
-  const [tooltipPosition, setTooltipPosition] = useState<TooltipPosition>({ left: 0, top: 0 });
+  const [tooltipPosition, setTooltipPosition] = useState<TooltipPosition>({
+    left: 0,
+    placement: tooltipPlacement,
+    top: 0,
+  });
   const tooltipText = tooltip ?? label;
   const shouldRenderTooltip = !tooltipHidden && tooltipText.trim() !== "";
   const describedBy = [
@@ -123,7 +129,7 @@ export function IconButton({
             <span
               aria-hidden="true"
               className="icon-tooltip"
-              data-placement={tooltipPlacement}
+              data-placement={tooltipPosition.placement}
               data-visible={isTooltipVisible ? "true" : undefined}
               id={tooltipId}
               ref={tooltipRef}
@@ -146,6 +152,32 @@ function positionTooltip(
   tooltipRect: DOMRect,
   placement: IconButtonTooltipPlacement,
 ): TooltipPosition {
+  const viewport = {
+    height: window.innerHeight,
+    width: window.innerWidth,
+  };
+  const preferredPosition = rawTooltipPosition(triggerRect, tooltipRect, placement);
+  const oppositePlacement = oppositeTooltipPlacement(placement);
+  const oppositePosition = rawTooltipPosition(triggerRect, tooltipRect, oppositePlacement);
+  const effectivePlacement =
+    overflowsMainAxis(preferredPosition, tooltipRect, placement, viewport) &&
+    !overflowsMainAxis(oppositePosition, tooltipRect, oppositePlacement, viewport)
+      ? oppositePlacement
+      : placement;
+  const effectivePosition = effectivePlacement === placement ? preferredPosition : oppositePosition;
+
+  return {
+    left: clampToViewport(effectivePosition.left, tooltipRect.width, viewport.width),
+    placement: effectivePlacement,
+    top: clampToViewport(effectivePosition.top, tooltipRect.height, viewport.height),
+  };
+}
+
+function rawTooltipPosition(
+  triggerRect: DOMRect,
+  tooltipRect: DOMRect,
+  placement: IconButtonTooltipPlacement,
+): Omit<TooltipPosition, "placement"> {
   switch (placement) {
     case "top":
       return {
@@ -168,4 +200,43 @@ function positionTooltip(
         top: triggerRect.bottom + tooltipOffset,
       };
   }
+}
+
+function oppositeTooltipPlacement(
+  placement: IconButtonTooltipPlacement,
+): IconButtonTooltipPlacement {
+  switch (placement) {
+    case "top":
+      return "bottom";
+    case "bottom":
+      return "top";
+    case "left":
+      return "right";
+    case "right":
+      return "left";
+  }
+}
+
+function overflowsMainAxis(
+  position: Omit<TooltipPosition, "placement">,
+  tooltipRect: DOMRect,
+  placement: IconButtonTooltipPlacement,
+  viewport: { readonly height: number; readonly width: number },
+): boolean {
+  switch (placement) {
+    case "top":
+      return position.top < tooltipViewportMargin;
+    case "bottom":
+      return position.top + tooltipRect.height > viewport.height - tooltipViewportMargin;
+    case "left":
+      return position.left < tooltipViewportMargin;
+    case "right":
+      return position.left + tooltipRect.width > viewport.width - tooltipViewportMargin;
+  }
+}
+
+function clampToViewport(value: number, size: number, viewportSize: number): number {
+  const min = tooltipViewportMargin;
+  const max = Math.max(min, viewportSize - size - tooltipViewportMargin);
+  return Math.min(Math.max(value, min), max);
 }
