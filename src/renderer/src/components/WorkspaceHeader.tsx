@@ -1,5 +1,12 @@
+import type { ButtonHTMLAttributes, ReactNode } from "react";
 import { useState } from "react";
-import { ActivityIcon, DiffIcon, MoreHorizontalIcon, TerminalSquareIcon } from "lucide-react";
+import {
+  ActivityIcon,
+  DiffIcon,
+  LogsIcon,
+  MoreHorizontalIcon,
+  TerminalSquareIcon,
+} from "lucide-react";
 import type { ClawpatchCommandRequest, RepoSummary } from "../../../shared/types";
 import type { ActiveInspector, ActiveWorkspace } from "../workspaceTypes";
 
@@ -55,54 +62,47 @@ export function WorkspaceHeader({
         </button>
       </div>
       <div className="header-actions">
-        <button
+        <HeaderIconButton
           className="icon-button"
           disabled={repo === null || isOpeningTerminal}
+          icon={<TerminalSquareIcon aria-hidden="true" />}
+          label="Open terminal"
           onClick={onOpenTerminal}
-          aria-label="Open terminal"
-          title="Open terminal"
-        >
-          <TerminalSquareIcon aria-hidden="true" />
-        </button>
-        <button
+        />
+        <HeaderIconButton
           className={
             activeInspector === "diff"
               ? "icon-button drawer-toggle active"
               : "icon-button drawer-toggle"
           }
           disabled={repo === null}
+          icon={<DiffIcon aria-hidden="true" />}
+          label="Toggle diff panel"
           onClick={() => onToggleInspector("diff")}
           aria-pressed={activeInspector === "diff"}
-          aria-label="Toggle diff panel"
-          title="Toggle diff panel"
-        >
-          <DiffIcon aria-hidden="true" />
-        </button>
-        <button
+        />
+        <HeaderIconButton
           className={
             activeInspector === "output"
               ? "icon-button drawer-toggle active"
               : "icon-button drawer-toggle"
           }
+          icon={<LogsIcon aria-hidden="true" />}
+          label="Toggle command output"
           onClick={() => onToggleInspector("output")}
           aria-pressed={activeInspector === "output"}
-          aria-label="Toggle command output"
-          title="Toggle command output"
-        >
-          <TerminalSquareIcon aria-hidden="true" />
-        </button>
+        />
         <div className="command-menu">
-          <button
+          <HeaderIconButton
             className="icon-button"
             disabled={repo === null || isRepoCommandBusy}
+            icon={<MoreHorizontalIcon aria-hidden="true" />}
+            label="More commands"
             onClick={() => setIsCommandMenuOpen((current) => !current)}
             aria-expanded={isCommandMenuOpen}
             aria-haspopup="menu"
-            aria-label="More commands"
-            title="More commands"
-          >
-            <MoreHorizontalIcon aria-hidden="true" />
-          </button>
+            tooltipHidden={isCommandMenuOpen}
+          />
           {isCommandMenuOpen ? (
             <div className="command-menu-popover" role="menu" aria-label="Repository commands">
               <button
@@ -118,5 +118,36 @@ export function WorkspaceHeader({
         </div>
       </div>
     </header>
+  );
+}
+
+interface HeaderIconButtonProps extends Omit<
+  ButtonHTMLAttributes<HTMLButtonElement>,
+  "children" | "title"
+> {
+  readonly icon: ReactNode;
+  readonly label: string;
+  readonly tooltipHidden?: boolean;
+}
+
+function HeaderIconButton({
+  icon,
+  label,
+  tooltipHidden = false,
+  type = "button",
+  ...props
+}: HeaderIconButtonProps) {
+  return (
+    <span
+      className="header-tooltip-trigger"
+      data-tooltip-hidden={tooltipHidden ? "true" : undefined}
+    >
+      <button {...props} aria-label={label} type={type}>
+        {icon}
+      </button>
+      <span className="header-icon-tooltip" aria-hidden="true">
+        {label}
+      </span>
+    </span>
   );
 }
