@@ -45,7 +45,6 @@ export function ClawpatchApp() {
   const findingsWorkspace = useFindingsWorkspace({ selectedRepo });
   const selectedFinding = findingsWorkspace.selectedFinding;
 
-  const openOutput = useCallback((): void => setActiveInspector("output"), []);
   const openDiff = useCallback((): void => setActiveInspector("diff"), []);
   const toggleInspector = (inspector: Exclude<ActiveInspector, null>): void => {
     setActiveInspector((current) => (current === inspector ? null : inspector));
@@ -59,7 +58,6 @@ export function ClawpatchApp() {
 
   const commandRunner = useCommandRunner({
     selectedRepo,
-    onOpenOutput: openOutput,
     onRevealFirstChangedFile: diffInspector.revealFirstChangedFile,
   });
   const { runCommand } = commandRunner;
@@ -286,7 +284,9 @@ export function ClawpatchApp() {
                 publishFixMutation.isPending &&
                 publishFixMutation.variables?.findingId === selectedFindingId
                   ? "publish"
-                  : selectedFindingCommand?.request.command
+                  : commandRunner.isTriagePending
+                    ? "triage"
+                    : selectedFindingCommand?.request.command
               }
               fixDisabledReason={findingsWorkspace.fixDisabledReason}
               canPublishFix={canPublishSelectedFix}

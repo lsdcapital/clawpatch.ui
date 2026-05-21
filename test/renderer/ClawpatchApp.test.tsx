@@ -613,7 +613,7 @@ describe("ClawpatchApp header actions", () => {
     expect(within(reviewQueueTab).queryByText("0")).not.toBeInTheDocument();
   });
 
-  it("switches the shared inspector to command output when a review queue command starts", async () => {
+  it("keeps command output closed when a review queue command starts", async () => {
     const run = vi.fn<Api["commands"]["run"]>(async (_repoId, request) =>
       makeCommandResult(request.command),
     );
@@ -627,7 +627,7 @@ describe("ClawpatchApp header actions", () => {
     fireEvent.click(screen.getByRole("button", { name: "Update map" }));
 
     await waitFor(() => expect(run).toHaveBeenCalledWith("repo-auth", { command: "map" }));
-    expect(screen.getByRole("complementary", { name: "Command output" })).toBeInTheDocument();
+    expect(screen.queryByRole("complementary", { name: "Command output" })).not.toBeInTheDocument();
   });
 
   it("refreshes the review queue during command output", async () => {
@@ -726,7 +726,7 @@ describe("ClawpatchApp header actions", () => {
     expect(output.textContent).toContain("[stdout] chunk-204\n");
   });
 
-  it("revalidates the selected finding and opens command output", async () => {
+  it("revalidates the selected finding without opening command output", async () => {
     const run = vi.fn<Api["commands"]["run"]>(async (_repoId, request) =>
       makeCommandResult(request.command),
     );
@@ -743,7 +743,7 @@ describe("ClawpatchApp header actions", () => {
         findingId: "fnd-security",
       }),
     );
-    expect(screen.getByRole("complementary", { name: "Command output" })).toBeInTheDocument();
+    expect(screen.queryByRole("complementary", { name: "Command output" })).not.toBeInTheDocument();
   });
 
   it("revalidates visible actionable findings sequentially from the findings header", async () => {
@@ -807,7 +807,7 @@ describe("ClawpatchApp header actions", () => {
     expect(run).toHaveBeenCalledTimes(1);
     expect(screen.getByText("Revalidating 1/2")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Revalidate shown" })).toBeDisabled();
-    expect(screen.getByRole("complementary", { name: "Command output" })).toBeInTheDocument();
+    expect(screen.queryByRole("complementary", { name: "Command output" })).not.toBeInTheDocument();
 
     resolvers.get("fnd-security")?.(makeCommandResult("revalidate"));
 
@@ -977,6 +977,7 @@ describe("ClawpatchApp header actions", () => {
 
     await screen.findByRole("heading", { name: "Null branch can throw" });
     await waitFor(() => expect(screen.getByRole("button", { name: "Run fix" })).not.toBeDisabled());
+    fireEvent.click(screen.getByRole("button", { name: "Toggle command output" }));
     fireEvent.click(screen.getByRole("button", { name: "Run fix" }));
     await screen.findByText("Command starting...");
     if (streamListener === null) {
@@ -1024,6 +1025,7 @@ describe("ClawpatchApp header actions", () => {
 
     await screen.findByRole("heading", { name: "Null branch can throw" });
     await waitFor(() => expect(screen.getByRole("button", { name: "Run fix" })).not.toBeDisabled());
+    fireEvent.click(screen.getByRole("button", { name: "Toggle command output" }));
     fireEvent.click(screen.getByRole("button", { name: "Run fix" }));
     if (streamListener === null) {
       throw new Error("stream listener was not registered");
@@ -1177,8 +1179,53 @@ describe("ClawpatchApp header actions", () => {
       }),
     );
     expect(triageSet).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Toggle command output" }));
     await screen.findByText(/\[exit 0\] clawpatch fix/);
     await screen.findByText(/\[exit 0\] clawpatch revalidate/);
+  });
+
+  it("saves triage notes without opening command output", async () => {
+    let resolveTriage: ((result: CommandResult) => void) | undefined;
+    const triageSet = vi.fn<Api["triage"]["set"]>(
+      () =>
+        new Promise<CommandResult>((resolve) => {
+          resolveTriage = resolve;
+        }),
+    );
+    const finding = makeFixFinding();
+    window.clawpatch = makeApi(
+      vi.fn<Api["commands"]["run"]>(async (_repoId, request) => makeCommandResult(request.command)),
+      { findings: [finding], findingDetail: finding, triageSet },
+    );
+
+    renderApp();
+
+    await screen.findByRole("heading", { name: "Null branch can throw" });
+    fireEvent.change(screen.getByLabelText("Note for triage and fix"), {
+      target: { value: "Prefer the existing parser helper." },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save triage note" }));
+
+    await waitFor(() =>
+      expect(triageSet).toHaveBeenCalledWith(
+        "repo-auth",
+        "fnd-bug",
+        "open",
+        "Prefer the existing parser helper.",
+      ),
+    );
+    const triageState = await screen.findByText("triage running");
+    expect(triageState.querySelector(".detail-command-spinner")).toBeInTheDocument();
+    expect(screen.queryByRole("complementary", { name: "Command output" })).not.toBeInTheDocument();
+
+    const finish = resolveTriage;
+    if (finish === undefined) {
+      throw new Error("triage save did not start");
+    }
+    await act(async () => {
+      finish(makeCommandResult("triage"));
+    });
+    await waitFor(() => expect(screen.queryByText("triage running")).not.toBeInTheDocument());
   });
 
   it("shows command output for the selected finding context", async () => {
@@ -1217,6 +1264,7 @@ describe("ClawpatchApp header actions", () => {
 
     await screen.findByRole("heading", { name: "Token is logged in debug output" });
     await waitFor(() => expect(screen.getByRole("button", { name: "Run fix" })).not.toBeDisabled());
+    fireEvent.click(screen.getByRole("button", { name: "Toggle command output" }));
     fireEvent.click(screen.getByRole("button", { name: "Run fix" }));
     await screen.findByText("Command starting...");
     if (streamListener === null) {

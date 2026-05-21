@@ -1885,10 +1885,29 @@ button.table-row:hover:not(:disabled) {
 }
 
 .detail-command-state {
+  align-items: center;
   color: var(--subtle);
+  display: inline-flex;
   font-size: 11px;
   font-weight: 700;
+  gap: 6px;
   text-transform: uppercase;
+}
+
+.detail-command-spinner {
+  animation: detail-command-spin 0.8s linear infinite;
+  border: 2px solid var(--border-strong);
+  border-top-color: var(--accent);
+  border-radius: 999px;
+  display: inline-block;
+  height: 12px;
+  width: 12px;
+}
+
+@keyframes detail-command-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .detail-action-reason {
