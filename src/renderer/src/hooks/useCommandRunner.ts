@@ -24,6 +24,10 @@ export type RunningFindingCommand = {
   request: FindingCommandRequest;
   invocationId: string;
 };
+export interface BulkRevalidationProgress {
+  readonly current: number;
+  readonly total: number;
+}
 
 export function useCommandRunner({
   selectedRepo,
@@ -40,9 +44,12 @@ export function useCommandRunner({
   const [runningFindingCommands, setRunningFindingCommands] = useState<
     Record<string, RunningFindingCommand>
   >({});
+  const [bulkRevalidationProgress, setBulkRevalidationProgress] =
+    useState<BulkRevalidationProgress | null>(null);
   const commandInvocationSeqRef = useRef(0);
   const runningRepoCommandRef = useRef<RunningRepoCommand | null>(null);
   const runningFindingCommandsRef = useRef<Record<string, RunningFindingCommand>>({});
+  const isBulkRevalidationRunningRef = useRef(false);
 
   useEffect(() => {
     return window.clawpatch.commands.onStream((event) => {
@@ -98,10 +105,12 @@ export function useCommandRunner({
     },
   });
 
+  const isBulkRevalidationRunning = bulkRevalidationProgress !== null;
   const isAnyCommandRunning =
     runningRepoCommand !== null ||
     Object.keys(runningFindingCommands).length > 0 ||
-    triageMutation.isPending;
+    triageMutation.isPending ||
+    isBulkRevalidationRunning;
   const isRepoCommandBusy = runningRepoCommand !== null || triageMutation.isPending;
 
   useEffect(() => {
@@ -176,10 +185,10 @@ export function useCommandRunner({
     [appendCommandError, appendCommandResults, refreshAfterCommand],
   );
 
-  const runFindingCommand = useCallback(
-    (repo: RepoSummary, request: FindingCommandRequest): void => {
+  const runFindingCommandOnce = useCallback(
+    async (repo: RepoSummary, request: FindingCommandRequest): Promise<boolean> => {
       if (runningFindingCommandsRef.current[request.findingId] !== undefined) {
-        return;
+        return false;
       }
       const runningCommand = { request, invocationId: nextCommandInvocationId() };
       runningFindingCommandsRef.current = {
@@ -187,28 +196,33 @@ export function useCommandRunner({
         [request.findingId]: runningCommand,
       };
       setRunningFindingCommands(runningFindingCommandsRef.current);
-      void window.clawpatch.commands
-        .run(repo.id, request)
-        .then((result) => {
-          appendCommandResults(repo.id, request, result);
-          void refreshAfterCommand(repo.id, request);
-        })
-        .catch((error: unknown) => {
-          appendCommandError(repo.id, request, error);
-        })
-        .finally(() => {
-          if (
-            runningFindingCommandsRef.current[request.findingId]?.invocationId ===
-            runningCommand.invocationId
-          ) {
-            const next = { ...runningFindingCommandsRef.current };
-            delete next[request.findingId];
-            runningFindingCommandsRef.current = next;
-            setRunningFindingCommands(next);
-          }
-        });
+      try {
+        const result = await window.clawpatch.commands.run(repo.id, request);
+        appendCommandResults(repo.id, request, result);
+        void refreshAfterCommand(repo.id, request);
+      } catch (error: unknown) {
+        appendCommandError(repo.id, request, error);
+      } finally {
+        if (
+          runningFindingCommandsRef.current[request.findingId]?.invocationId ===
+          runningCommand.invocationId
+        ) {
+          const next = { ...runningFindingCommandsRef.current };
+          delete next[request.findingId];
+          runningFindingCommandsRef.current = next;
+          setRunningFindingCommands(next);
+        }
+      }
+      return true;
     },
     [appendCommandError, appendCommandResults, refreshAfterCommand],
+  );
+
+  const runFindingCommand = useCallback(
+    (repo: RepoSummary, request: FindingCommandRequest): void => {
+      void runFindingCommandOnce(repo, request);
+    },
+    [runFindingCommandOnce],
   );
 
   const runCommand = useCallback(
@@ -234,6 +248,39 @@ export function useCommandRunner({
       commandInterruptMutation.mutate({ repo: selectedRepo, findingId });
     },
     [commandInterruptMutation, selectedRepo],
+  );
+
+  const revalidateFindings = useCallback(
+    (findings: readonly FindingListItem[]): void => {
+      if (selectedRepo === null || findings.length === 0 || isBulkRevalidationRunningRef.current) {
+        return;
+      }
+
+      const targets = findings.filter(
+        (finding) => finding.status === "open" || finding.status === "uncertain",
+      );
+      if (targets.length === 0) {
+        return;
+      }
+
+      onOpenOutput();
+      isBulkRevalidationRunningRef.current = true;
+      void (async () => {
+        try {
+          for (const [index, finding] of targets.entries()) {
+            setBulkRevalidationProgress({ current: index + 1, total: targets.length });
+            await runFindingCommandOnce(selectedRepo, {
+              command: "revalidate",
+              findingId: finding.findingId,
+            });
+          }
+        } finally {
+          isBulkRevalidationRunningRef.current = false;
+          setBulkRevalidationProgress(null);
+        }
+      })();
+    },
+    [onOpenOutput, runFindingCommandOnce, selectedRepo],
   );
 
   const runFixWithSavedGuidance = useCallback(
@@ -267,11 +314,14 @@ export function useCommandRunner({
 
   return {
     commandLog,
+    bulkRevalidationProgress,
     firstRunningFindingId: Object.keys(runningFindingCommands)[0],
     interruptCommand,
     isAnyCommandRunning,
+    isBulkRevalidationRunning,
     isRepoCommandBusy,
     isTriagePending: triageMutation.isPending,
+    revalidateFindings,
     runCommand,
     runFixWithSavedGuidance,
     runningRepoCommand,

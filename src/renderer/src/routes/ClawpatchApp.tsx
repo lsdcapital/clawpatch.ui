@@ -272,6 +272,7 @@ export function ClawpatchApp() {
               filters={findingsWorkspace.findingFilters}
               filterOptions={findingsWorkspace.findingFilterOptions}
               sort={findingsWorkspace.findingSort}
+              bulkRevalidationProgress={commandRunner.bulkRevalidationProgress}
               workStatusByFindingId={workStatusByFindingId}
               finding={findingsWorkspace.detailQuery.data ?? null}
               isDetailLoading={findingsWorkspace.detailQuery.isLoading}
@@ -303,6 +304,9 @@ export function ClawpatchApp() {
               onFiltersChange={findingsWorkspace.setFindingFilters}
               onSortChange={findingsWorkspace.setFindingSort}
               onSelectFinding={findingsWorkspace.setSelectedFindingId}
+              onRevalidateShown={() =>
+                commandRunner.revalidateFindings(findingsWorkspace.sortedFindings)
+              }
               onTriage={(status, note) => {
                 if (selectedFinding !== null) {
                   commandRunner.triageFinding(selectedFinding, status, note);

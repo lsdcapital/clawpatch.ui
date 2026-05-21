@@ -1198,6 +1198,34 @@ button:disabled {
   font-weight: 500;
 }
 
+.findings-header-actions {
+  align-items: center;
+  display: flex;
+  flex-shrink: 0;
+  gap: 8px;
+  min-width: 0;
+}
+
+.findings-revalidate-button {
+  align-items: center;
+  display: inline-flex;
+  gap: 5px;
+  min-height: 26px;
+  padding: 4px 8px;
+}
+
+.findings-revalidate-button svg {
+  height: 13px;
+  width: 13px;
+}
+
+.findings-revalidate-button span {
+  color: inherit;
+  flex-shrink: 1;
+  font-size: inherit;
+  font-weight: inherit;
+}
+
 .command-panel-status {
   align-items: center;
   display: flex;

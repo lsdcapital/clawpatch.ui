@@ -7,6 +7,7 @@ import type {
   PublishFixResult,
 } from "../../../shared/types";
 import type { FindingFilterOptions, FindingFilters, FindingSort } from "../findingsFilters";
+import type { BulkRevalidationProgress } from "../hooks/useCommandRunner";
 import { FindingDetailPanel } from "./FindingDetailPanel";
 import { FindingsTable } from "./FindingsTable";
 
@@ -24,6 +25,7 @@ interface Props {
   filters: FindingFilters;
   filterOptions: FindingFilterOptions;
   sort: FindingSort;
+  bulkRevalidationProgress: BulkRevalidationProgress | null;
   workStatusByFindingId: ReadonlyMap<string, FindingWorkStatus>;
   finding: FindingDetail | null;
   isDetailLoading: boolean;
@@ -36,6 +38,7 @@ interface Props {
   onFiltersChange: (filters: FindingFilters) => void;
   onSortChange: (sort: FindingSort) => void;
   onSelectFinding: (findingId: string) => void;
+  onRevalidateShown: () => void;
   onTriage: (status: ClawpatchStatus, note: string) => void;
   onFix: (status: ClawpatchStatus, note: string) => void;
   onRevalidate: () => void;
@@ -53,6 +56,7 @@ export function FindingsSplitPanel({
   filters,
   filterOptions,
   sort,
+  bulkRevalidationProgress,
   workStatusByFindingId,
   finding,
   isDetailLoading,
@@ -65,6 +69,7 @@ export function FindingsSplitPanel({
   onFiltersChange,
   onSortChange,
   onSelectFinding,
+  onRevalidateShown,
   onTriage,
   onFix,
   onRevalidate,
@@ -146,10 +151,12 @@ export function FindingsSplitPanel({
         filters={filters}
         filterOptions={filterOptions}
         sort={sort}
+        bulkRevalidationProgress={bulkRevalidationProgress}
         workStatusByFindingId={workStatusByFindingId}
         onFiltersChange={onFiltersChange}
         onSortChange={onSortChange}
         onSelectFinding={onSelectFinding}
+        onRevalidateShown={onRevalidateShown}
       />
       <div
         aria-label="Resize findings and detail panes"

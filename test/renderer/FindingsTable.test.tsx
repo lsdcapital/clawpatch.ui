@@ -157,9 +157,11 @@ describe("FindingsTable filters", () => {
         filters={defaultFindingFilters}
         filterOptions={getFindingFilterOptions(findings, clawpatchStatuses)}
         sort={defaultFindingSort}
+        bulkRevalidationProgress={null}
         onFiltersChange={vi.fn()}
         onSortChange={vi.fn()}
         onSelectFinding={onSelectFinding}
+        onRevalidateShown={vi.fn()}
       />,
     );
 
@@ -200,10 +202,12 @@ describe("FindingsTable filters", () => {
         filters={{ ...defaultFindingFilters, status: null }}
         filterOptions={getFindingFilterOptions(findings, clawpatchStatuses)}
         sort={defaultFindingSort}
+        bulkRevalidationProgress={null}
         workStatusByFindingId={workStatusByFindingId}
         onFiltersChange={vi.fn()}
         onSortChange={vi.fn()}
         onSelectFinding={vi.fn()}
+        onRevalidateShown={vi.fn()}
       />,
     );
 
@@ -274,9 +278,11 @@ function FilterHarness({
       filters={filters}
       filterOptions={getFindingFilterOptions(findings, clawpatchStatuses)}
       sort={sort}
+      bulkRevalidationProgress={null}
       onFiltersChange={setFilters}
       onSortChange={setSort}
       onSelectFinding={() => undefined}
+      onRevalidateShown={() => undefined}
     />
   );
 }
