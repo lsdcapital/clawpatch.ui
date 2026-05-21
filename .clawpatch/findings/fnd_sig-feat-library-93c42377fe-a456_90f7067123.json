@@ -30,10 +30,20 @@
   "suggestedRegressionTest": "Create a preload test that mocks electron, captures the object passed to contextBridge.exposeInMainWorld('clawpatch', api), then exercises repo.add, findings.get, triage.set, commands.run, git.diff, and commands.onStream against mocked ipcRenderer.invoke/on/removeListener.",
   "minimumFixScope": "Add a test file for src/preload/index.ts and any minimal Vitest mock setup needed for the electron module.",
   "status": "open",
-  "history": [],
+  "history": [
+    {
+      "runId": null,
+      "kind": "triage",
+      "status": "open",
+      "note": "Not sure how valuable this is",
+      "reasoning": null,
+      "commands": [],
+      "createdAt": "2026-05-21T10:24:56.883Z"
+    }
+  ],
   "signature": "sig_feat-library-93c42377fe_a456f43bfa",
   "linkedPatchAttemptIds": [],
   "createdByRunId": "20260519T113652-408557",
   "createdAt": "2026-05-19T11:37:33.817Z",
-  "updatedAt": "2026-05-19T11:37:33.817Z"
+  "updatedAt": "2026-05-21T10:24:56.883Z"
 }
