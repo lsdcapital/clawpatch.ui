@@ -26,6 +26,7 @@ import type {
 } from "../../shared/types";
 import {
   CommandAlreadyRunningError,
+  CommandExecutionError,
   CommandSpawnError,
   CommandValidationError,
   InvalidRepoPathError,
@@ -63,6 +64,7 @@ export type RepoServiceError =
   | InvalidRepoPathError
   | RepoNotFoundError
   | CommandValidationError
+  | CommandExecutionError
   | CommandSpawnError
   | ClawpatchRunnerError
   | ClawpatchStateError
@@ -895,7 +897,7 @@ export const RepoServiceLive = (appDataDir: string) =>
           note = "",
         ) {
           const repo = yield* requireRepo(repoIdValue);
-          return yield* runTrackedRepoCommand(
+          const result = yield* runTrackedRepoCommand(
             repo.id,
             repo.path,
             {
@@ -906,6 +908,15 @@ export const RepoServiceLive = (appDataDir: string) =>
             },
             undefined,
           );
+          if (result.exitCode !== 0) {
+            return yield* new CommandExecutionError({
+              command: "triage",
+              exitCode: result.exitCode,
+              stdout: result.stdout,
+              stderr: result.stderr,
+            });
+          }
+          return result;
         }),
         readDiff: Effect.fn("repoService.readDiff")(function* (repoIdValue, findingId) {
           const repo = yield* requireRepo(repoIdValue);

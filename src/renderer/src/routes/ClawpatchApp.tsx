@@ -292,6 +292,12 @@ export function ClawpatchApp() {
               canPublishFix={canPublishSelectedFix}
               publishFixResult={selectedFindingPublishResult}
               publishFixError={selectedFindingPublishError}
+              triageError={
+                commandRunner.triageError !== null &&
+                commandRunner.triageError.findingId === selectedFindingId
+                  ? commandRunner.triageError.message
+                  : null
+              }
               onInterrupt={
                 isSelectedFindingRunning
                   ? () => {

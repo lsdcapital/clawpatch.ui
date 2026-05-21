@@ -35,6 +35,7 @@ interface Props {
   canPublishFix: boolean;
   publishFixResult: PublishFixResult | null;
   publishFixError: Error | null;
+  triageError: string | null;
   onFiltersChange: (filters: FindingFilters) => void;
   onSortChange: (sort: FindingSort) => void;
   onSelectFinding: (findingId: string) => void;
@@ -66,6 +67,7 @@ export function FindingsSplitPanel({
   canPublishFix,
   publishFixResult,
   publishFixError,
+  triageError,
   onFiltersChange,
   onSortChange,
   onSelectFinding,
@@ -185,6 +187,7 @@ export function FindingsSplitPanel({
         canPublishFix={canPublishFix}
         publishFixResult={publishFixResult}
         publishFixError={publishFixError}
+        triageError={triageError}
         onTriage={onTriage}
         onFix={onFix}
         onRevalidate={onRevalidate}

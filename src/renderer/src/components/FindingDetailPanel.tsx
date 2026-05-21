@@ -37,6 +37,7 @@ interface Props {
   canPublishFix: boolean;
   publishFixResult: PublishFixResult | null;
   publishFixError: Error | null;
+  triageError: string | null;
   onTriage: (status: ClawpatchStatus, note: string) => void;
   onFix: (status: ClawpatchStatus, note: string) => void;
   onRevalidate: () => void;
@@ -56,6 +57,7 @@ export function FindingDetailPanel({
   canPublishFix,
   publishFixResult,
   publishFixError,
+  triageError,
   onTriage,
   onFix,
   onRevalidate,
@@ -72,13 +74,19 @@ export function FindingDetailPanel({
     onDismiss: () => setIsStatusMenuOpen(false),
   });
 
+  const findingId = finding?.findingId ?? null;
+  const findingStatus = finding?.status ?? null;
+
   useEffect(() => {
-    if (finding !== null) {
-      setStatus(finding.status);
+    if (findingStatus !== null) {
+      setStatus(findingStatus);
       setIsStatusMenuOpen(false);
-      setNote("");
     }
-  }, [finding]);
+  }, [findingId, findingStatus]);
+
+  useEffect(() => {
+    setNote("");
+  }, [findingId]);
 
   if (finding === null) {
     return (
@@ -163,6 +171,9 @@ export function FindingDetailPanel({
         {publishFixError !== null ? (
           <p className="detail-action-message error">{publishFixError.message}</p>
         ) : null}
+        {triageError !== null ? (
+          <p className="detail-action-message error">{triageError}</p>
+        ) : null}
         {publishFixResult !== null ? (
           <p className="detail-action-message success">
             PR draft opened for {publishFixResult.branchName}.{" "}
@@ -198,7 +209,6 @@ export function FindingDetailPanel({
                     role="menuitemradio"
                     type="button"
                     onClick={() => {
-                      setStatus(item);
                       setIsStatusMenuOpen(false);
                       if (item !== status) {
                         onTriage(item, note);

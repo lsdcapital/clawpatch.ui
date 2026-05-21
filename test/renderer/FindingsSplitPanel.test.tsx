@@ -146,7 +146,7 @@ describe("FindingsSplitPanel", () => {
     expect(screen.queryByRole("menu", { name: "Finding status options" })).not.toBeInTheDocument();
     expect(
       within(metaGrid as HTMLElement).getByRole("button", {
-        name: "Finding status: wont-fix",
+        name: "Finding status: open",
       }),
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Save triage note" })).toBeInTheDocument();
@@ -320,6 +320,7 @@ function renderSplitPanel({
   onOpenDiffFile,
   publishFixError = null,
   publishFixResult = null,
+  triageError = null,
 }: {
   finding?: FindingDetail;
   canPublishFix?: boolean;
@@ -334,6 +335,7 @@ function renderSplitPanel({
   onOpenDiffFile?: (filePath: string) => void;
   publishFixError?: Error | null;
   publishFixResult?: PublishFixResult | null;
+  triageError?: string | null;
 } = {}) {
   return render(
     <FindingsSplitPanel
@@ -354,6 +356,7 @@ function renderSplitPanel({
       canPublishFix={canPublishFix}
       publishFixResult={publishFixResult}
       publishFixError={publishFixError}
+      triageError={triageError}
       onFiltersChange={vi.fn()}
       onSortChange={vi.fn()}
       onSelectFinding={vi.fn()}
