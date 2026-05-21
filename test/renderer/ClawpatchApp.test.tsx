@@ -337,13 +337,24 @@ describe("ClawpatchApp header actions", () => {
     await waitFor(() => expect(pickFolder).toHaveBeenCalledTimes(1));
   });
 
-  it("filters repositories from the sidebar search field", async () => {
+  it("sorts repositories from the sidebar sort selector", async () => {
     window.clawpatch = makeApi(
       vi.fn<Api["commands"]["run"]>(async () => makeCommandResult("map")),
       {
         repoList: async () => [
           makeRepo(),
-          makeRepo({ id: "repo-billing", name: "billing", path: "/work/billing-api" }),
+          makeRepo({
+            id: "repo-billing",
+            name: "billing",
+            path: "/work/billing-api",
+            updatedAt: "2026-05-20T00:00:00.000Z",
+          }),
+          makeRepo({
+            id: "repo-profile",
+            name: "profile",
+            path: "/work/profile",
+            updatedAt: "2026-05-19T00:00:00.000Z",
+          }),
         ],
       },
     );
@@ -351,13 +362,14 @@ describe("ClawpatchApp header actions", () => {
     renderApp();
 
     await screen.findByRole("heading", { name: "auth" });
-    expect(screen.getByTitle("/tmp/auth")).toBeInTheDocument();
-    expect(screen.getByTitle("/work/billing-api")).toBeInTheDocument();
+    const sortSelect = screen.getByLabelText("Sort by");
+    expect(screen.queryByPlaceholderText("Filter repos")).not.toBeInTheDocument();
+    expect(sortSelect).toHaveValue("created");
+    expect(repoPathOrder()).toEqual(["/tmp/auth", "/work/billing-api", "/work/profile"]);
 
-    fireEvent.change(screen.getByPlaceholderText("Filter repos"), { target: { value: "billing" } });
+    fireEvent.change(sortSelect, { target: { value: "updated" } });
 
-    expect(screen.queryByTitle("/tmp/auth")).not.toBeInTheDocument();
-    expect(screen.getByTitle("/work/billing-api")).toBeInTheDocument();
+    expect(repoPathOrder()).toEqual(["/work/billing-api", "/tmp/auth", "/work/profile"]);
   });
 
   it("opens and saves repository settings from a full settings page", async () => {
@@ -1538,6 +1550,13 @@ function makeFinding(): FindingDetail {
     patchAttempts: [],
     history: [],
   };
+}
+
+function repoPathOrder(): string[] {
+  return screen
+    .getAllByRole("button")
+    .map((element) => element.getAttribute("title"))
+    .filter((title): title is string => title?.startsWith("/") ?? false);
 }
 
 function makeRepo(overrides: Partial<RepoSummary> = {}): RepoSummary {
