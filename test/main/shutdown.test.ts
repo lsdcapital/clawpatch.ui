@@ -7,6 +7,7 @@ import {
 import {
   cleanupAppRuntime,
   makeBeforeQuitHandler,
+  makeProcessSignalHandler,
   type AppRuntimeCleanup,
 } from "../../src/main/shutdown";
 
@@ -70,6 +71,33 @@ describe("main shutdown", () => {
     const finalEvent = { preventDefault: vi.fn() };
     handler(finalEvent);
     expect(finalEvent.preventDefault).not.toHaveBeenCalled();
+  });
+
+  it("routes the first process shutdown signal through app quit", () => {
+    const quit = vi.fn();
+    const forceExit = vi.fn();
+    const logSignal = vi.fn();
+    const handler = makeProcessSignalHandler({ quit, forceExit, logSignal });
+
+    handler("SIGINT");
+
+    expect(logSignal).toHaveBeenCalledWith("SIGINT", false);
+    expect(quit).toHaveBeenCalledTimes(1);
+    expect(forceExit).not.toHaveBeenCalled();
+  });
+
+  it("forces exit when a second process shutdown signal arrives during cleanup", () => {
+    const quit = vi.fn();
+    const forceExit = vi.fn();
+    const logSignal = vi.fn();
+    const handler = makeProcessSignalHandler({ quit, forceExit, logSignal });
+
+    handler("SIGINT");
+    handler("SIGTERM");
+
+    expect(quit).toHaveBeenCalledTimes(1);
+    expect(logSignal).toHaveBeenLastCalledWith("SIGTERM", true);
+    expect(forceExit).toHaveBeenCalledWith(143);
   });
 });
 
