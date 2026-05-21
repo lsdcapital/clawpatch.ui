@@ -422,9 +422,14 @@ describe("ClawpatchApp header actions", () => {
       worktreeSetupScript: "",
       updatedAt: "2026-05-19T00:00:00.000Z",
     }));
+    const doctor = vi.fn<Api["repo"]["doctor"]>(async () => ({
+      ...makeCommandResult("doctor"),
+      command: "clawpatch",
+      parsedJson: { checks: [{ name: "CLI", status: "ok" }] },
+    }));
     window.clawpatch = makeApi(
       vi.fn<Api["commands"]["run"]>(async () => makeCommandResult("map")),
-      { repoGetSettings: getSettings },
+      { repoDoctor: doctor, repoGetSettings: getSettings },
     );
 
     renderApp();
@@ -437,6 +442,8 @@ describe("ClawpatchApp header actions", () => {
     expect(screen.getByText("Clawpatch UI")).toBeInTheDocument();
     expect(screen.getByText(`v${packageJson.version}`)).toBeInTheDocument();
     expect(screen.getAllByText("Repositories").length).toBeGreaterThan(0);
+    expect(await screen.findByText(/"status": "ok"/)).toBeInTheDocument();
+    expect(doctor).toHaveBeenCalledWith("repo-auth");
     expect(getSettings).not.toHaveBeenCalled();
   });
 
@@ -457,10 +464,10 @@ describe("ClawpatchApp header actions", () => {
     expect(within(menu).queryByRole("menuitem", { name: "Update map" })).not.toBeInTheDocument();
     expect(within(menu).getByRole("menuitem", { name: "Status" })).toBeInTheDocument();
     expect(within(menu).queryByRole("menuitem", { name: "Report" })).not.toBeInTheDocument();
-    expect(within(menu).getByRole("menuitem", { name: "Doctor" })).toBeInTheDocument();
+    expect(within(menu).queryByRole("menuitem", { name: "Doctor" })).not.toBeInTheDocument();
 
-    fireEvent.click(within(menu).getByRole("menuitem", { name: "Doctor" }));
-    await waitFor(() => expect(run).toHaveBeenCalledWith("repo-auth", { command: "doctor" }));
+    fireEvent.click(within(menu).getByRole("menuitem", { name: "Status" }));
+    await waitFor(() => expect(run).toHaveBeenCalledWith("repo-auth", { command: "status" }));
     expect(screen.queryByRole("button", { name: "Review next" })).not.toBeInTheDocument();
   });
 
@@ -1318,6 +1325,7 @@ function makeApi(
     gitStatus?: Api["git"]["status"];
     onStream?: Api["commands"]["onStream"];
     pickFolder?: Api["repo"]["pickFolder"];
+    repoDoctor?: Api["repo"]["doctor"];
     repoGetSettings?: Api["repo"]["getSettings"];
     repoList?: Api["repo"]["list"];
     repoUpdateSettings?: Api["repo"]["updateSettings"];
@@ -1342,6 +1350,7 @@ function makeApi(
           updatedAt: "2026-05-19T00:00:00.000Z",
         },
       }),
+      doctor: options.repoDoctor ?? (async () => makeCommandResult("doctor")),
       getSettings:
         options.repoGetSettings ??
         (async () => ({

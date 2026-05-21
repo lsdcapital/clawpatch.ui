@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { ArrowLeftIcon, InfoIcon, Settings2Icon } from "lucide-react";
-import type { RepoSettings, RepoSummary } from "../../../shared/types";
+import type { CommandResult, RepoSettings, RepoSummary } from "../../../shared/types";
 import { appName, appVersion } from "../appInfo";
 
 export type SettingsSection =
@@ -9,28 +9,36 @@ export type SettingsSection =
 
 export function RepoSettingsPage({
   repos,
+  selectedRepo,
   selectedSection,
   settings,
   isLoading,
   isSaving,
   error,
+  doctorResult,
+  isDoctorLoading,
+  doctorError,
   onBack,
   onSelectGeneral,
   onSelectRepo,
   onSave,
 }: {
   repos: readonly RepoSummary[];
+  selectedRepo: RepoSummary | null;
   selectedSection: SettingsSection;
   settings: RepoSettings | undefined;
   isLoading: boolean;
   isSaving: boolean;
   error: unknown;
+  doctorResult: CommandResult | undefined;
+  isDoctorLoading: boolean;
+  doctorError: unknown;
   onBack: () => void;
   onSelectGeneral: () => void;
   onSelectRepo: (repoId: string) => void;
   onSave: (repoId: string, settings: RepoSettings) => void;
 }) {
-  const selectedRepo =
+  const selectedSettingsRepo =
     selectedSection.kind === "repo"
       ? (repos.find((repo) => repo.id === selectedSection.repoId) ?? null)
       : null;
@@ -79,17 +87,23 @@ export function RepoSettingsPage({
       </aside>
       <section className="settings-content">
         {selectedSection.kind === "general" ? (
-          <GeneralSettings repoCount={repos.length} />
-        ) : selectedRepo === null ? (
+          <GeneralSettings
+            repoCount={repos.length}
+            selectedRepo={selectedRepo}
+            doctorResult={doctorResult}
+            isDoctorLoading={isDoctorLoading}
+            doctorError={doctorError}
+          />
+        ) : selectedSettingsRepo === null ? (
           <MissingRepoSettings onSelectGeneral={onSelectGeneral} />
         ) : (
           <RepositorySettings
-            repo={selectedRepo}
+            repo={selectedSettingsRepo}
             settings={settings}
             isLoading={isLoading}
             isSaving={isSaving}
             error={error}
-            onSave={(nextSettings) => onSave(selectedRepo.id, nextSettings)}
+            onSave={(nextSettings) => onSave(selectedSettingsRepo.id, nextSettings)}
           />
         )}
       </section>
@@ -97,7 +111,19 @@ export function RepoSettingsPage({
   );
 }
 
-function GeneralSettings({ repoCount }: { repoCount: number }) {
+function GeneralSettings({
+  repoCount,
+  selectedRepo,
+  doctorResult,
+  isDoctorLoading,
+  doctorError,
+}: {
+  repoCount: number;
+  selectedRepo: RepoSummary | null;
+  doctorResult: CommandResult | undefined;
+  isDoctorLoading: boolean;
+  doctorError: unknown;
+}) {
   return (
     <div className="settings-panel">
       <div className="settings-panel-header">
@@ -121,8 +147,40 @@ function GeneralSettings({ repoCount }: { repoCount: number }) {
           <dd>{repoCount}</dd>
         </div>
       </dl>
+      <section className="settings-readonly-section" aria-label="Doctor diagnostics">
+        <div className="settings-readonly-header">
+          <h2>Doctor</h2>
+          <span>{selectedRepo?.name ?? "No repository selected"}</span>
+        </div>
+        {selectedRepo === null ? (
+          <p className="settings-muted">Select a repository to view Doctor diagnostics.</p>
+        ) : isDoctorLoading ? (
+          <div className="settings-loading">Loading Doctor diagnostics...</div>
+        ) : doctorError ? (
+          <div className="form-error">
+            {doctorError instanceof Error ? doctorError.message : String(doctorError)}
+          </div>
+        ) : doctorResult === undefined ? (
+          <p className="settings-muted">Doctor diagnostics are not available.</p>
+        ) : (
+          <pre className="settings-readonly-output">{formatDoctorOutput(doctorResult)}</pre>
+        )}
+      </section>
     </div>
   );
+}
+
+function formatDoctorOutput(result: CommandResult): string {
+  if (result.parsedJson !== null) {
+    return JSON.stringify(result.parsedJson, null, 2);
+  }
+
+  const sections = [`Exit code: ${result.exitCode ?? "null"}`];
+  sections.push(result.stdout.trim() === "" ? "stdout: (empty)" : `stdout:\n${result.stdout}`);
+  if (result.stderr.trim() !== "") {
+    sections.push(`stderr:\n${result.stderr}`);
+  }
+  return sections.join("\n\n");
 }
 
 function MissingRepoSettings({ onSelectGeneral }: { onSelectGeneral: () => void }) {

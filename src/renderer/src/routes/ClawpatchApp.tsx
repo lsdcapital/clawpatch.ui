@@ -40,6 +40,7 @@ export function ClawpatchApp() {
     settingsSection?.kind === "repo"
       ? (reposQuery.data?.find((repo) => repo.id === settingsSection.repoId) ?? null)
       : null;
+  const settingsDoctorRepo = settingsSection?.kind === "general" ? selectedRepo : null;
 
   const findingsWorkspace = useFindingsWorkspace({ selectedRepo });
   const selectedFinding = findingsWorkspace.selectedFinding;
@@ -93,6 +94,12 @@ export function ClawpatchApp() {
     queryKey: clawpatchQueryKeys.repoSettings(settingsRepo?.id),
     queryFn: () => window.clawpatch.repo.getSettings(settingsRepo!.id),
     enabled: settingsRepo !== null,
+  });
+
+  const repoDoctorQuery = useQuery({
+    queryKey: clawpatchQueryKeys.repoDoctor(settingsDoctorRepo?.id),
+    queryFn: () => window.clawpatch.repo.doctor(settingsDoctorRepo!.id),
+    enabled: settingsDoctorRepo !== null,
   });
 
   const repoSettingsMutation = useMutation({
@@ -161,11 +168,15 @@ export function ClawpatchApp() {
   return settingsSection !== null ? (
     <RepoSettingsPage
       repos={reposQuery.data ?? []}
+      selectedRepo={settingsDoctorRepo}
       selectedSection={settingsSection}
       settings={repoSettingsQuery.data}
       isLoading={repoSettingsQuery.isLoading}
       isSaving={repoSettingsMutation.isPending}
       error={repoSettingsQuery.error ?? repoSettingsMutation.error}
+      doctorResult={repoDoctorQuery.data}
+      isDoctorLoading={repoDoctorQuery.isLoading}
+      doctorError={repoDoctorQuery.error}
       onBack={() => setSettingsSection(null)}
       onSelectGeneral={() => setSettingsSection({ kind: "general" })}
       onSelectRepo={(repoId) => setSettingsSection({ kind: "repo", repoId })}

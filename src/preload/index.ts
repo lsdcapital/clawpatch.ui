@@ -16,6 +16,7 @@ import {
   GIT_PUBLISH_FIX_CHANNEL,
   GIT_STATUS_CHANNEL,
   REPO_ADD_CHANNEL,
+  REPO_DOCTOR_CHANNEL,
   REPO_GET_SETTINGS_CHANNEL,
   REPO_LIST_CHANNEL,
   REPO_PICK_FOLDER_CHANNEL,
@@ -45,6 +46,7 @@ const api: Api = {
     add: (repoPath) => ipcRenderer.invoke(REPO_ADD_CHANNEL, { repoPath }),
     pickFolder: () => ipcRenderer.invoke(REPO_PICK_FOLDER_CHANNEL),
     refresh: (repoId) => ipcRenderer.invoke(REPO_REFRESH_CHANNEL, { repoId }),
+    doctor: (repoId) => ipcRenderer.invoke(REPO_DOCTOR_CHANNEL, { repoId }),
     getSettings: (repoId) => ipcRenderer.invoke(REPO_GET_SETTINGS_CHANNEL, { repoId }),
     updateSettings: (repoId, settings) =>
       ipcRenderer.invoke(REPO_UPDATE_SETTINGS_CHANNEL, { repoId, settings }),

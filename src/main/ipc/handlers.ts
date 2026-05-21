@@ -30,6 +30,7 @@ import {
   GIT_PUBLISH_FIX_CHANNEL,
   GIT_STATUS_CHANNEL,
   REPO_ADD_CHANNEL,
+  REPO_DOCTOR_CHANNEL,
   REPO_GET_SETTINGS_CHANNEL,
   REPO_LIST_CHANNEL,
   REPO_PICK_FOLDER_CHANNEL,
@@ -94,6 +95,14 @@ export const installIpcHandlers = (publishCommandStream: (event: CommandStreamEv
         payload: RepoIdPayload,
         result: RepoSnapshotSchema,
         handler: ({ repoId }) => repos.refreshRepo(repoId),
+      }),
+    );
+    yield* ipc.handle(
+      makeIpcMethod({
+        channel: REPO_DOCTOR_CHANNEL,
+        payload: RepoIdPayload,
+        result: CommandResultSchema,
+        handler: ({ repoId }) => repos.doctor(repoId),
       }),
     );
     yield* ipc.handle(
