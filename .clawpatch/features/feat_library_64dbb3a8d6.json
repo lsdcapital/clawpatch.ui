@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "featureId": "feat_library_64dbb3a8d6",
   "title": "Node source src/renderer/src",
-  "summary": "Node/TypeScript source group src/renderer/src with 7 files.",
+  "summary": "Node/TypeScript source group src/renderer/src with 8 files.",
   "kind": "library",
   "source": "node-source-group",
   "confidence": "medium",
@@ -25,6 +25,10 @@
     },
     {
       "path": "src/renderer/src/commandLogEntries.ts",
+      "reason": "source group src/renderer/src"
+    },
+    {
+      "path": "src/renderer/src/findingWorkStatus.ts",
       "reason": "source group src/renderer/src"
     },
     {
@@ -102,5 +106,5 @@
     }
   ],
   "createdAt": "2026-05-20T11:25:49.042Z",
-  "updatedAt": "2026-05-20T11:28:33.751Z"
+  "updatedAt": "2026-05-21T06:01:51.470Z"
 }

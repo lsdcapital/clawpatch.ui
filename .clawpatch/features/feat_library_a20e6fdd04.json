@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "featureId": "feat_library_a20e6fdd04",
   "title": "Node source src/renderer/src/components",
-  "summary": "Node/TypeScript source group src/renderer/src/components with 11 files.",
+  "summary": "Node/TypeScript source group src/renderer/src/components with 12 files.",
   "kind": "library",
   "source": "node-source-group",
   "confidence": "medium",
@@ -41,6 +41,10 @@
     },
     {
       "path": "src/renderer/src/components/GitStatusStrip.tsx",
+      "reason": "source group src/renderer/src/components"
+    },
+    {
+      "path": "src/renderer/src/components/RepoSettingsPage.tsx",
       "reason": "source group src/renderer/src/components"
     },
     {
@@ -119,5 +123,5 @@
     }
   ],
   "createdAt": "2026-05-20T11:25:49.042Z",
-  "updatedAt": "2026-05-20T11:28:33.751Z"
+  "updatedAt": "2026-05-21T06:01:51.470Z"
 }

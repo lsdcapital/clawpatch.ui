@@ -1,0 +1,122 @@
+{
+  "schemaVersion": 1,
+  "featureId": "feat_library_38369eb021",
+  "title": "Node source src/main/services",
+  "summary": "Node/TypeScript source group src/main/services with 8 files.",
+  "kind": "library",
+  "source": "node-source-group",
+  "confidence": "medium",
+  "entrypoints": [
+    {
+      "path": "package.json",
+      "symbol": "src/main/services",
+      "route": null,
+      "command": null
+    }
+  ],
+  "ownedFiles": [
+    {
+      "path": "src/main/services/clawpatchRunner.ts",
+      "reason": "source group src/main/services"
+    },
+    {
+      "path": "src/main/services/clawpatchState.ts",
+      "reason": "source group src/main/services"
+    },
+    {
+      "path": "src/main/services/gitService.ts",
+      "reason": "source group src/main/services"
+    },
+    {
+      "path": "src/main/services/repoService.ts",
+      "reason": "source group src/main/services"
+    },
+    {
+      "path": "src/main/services/repoSettings.ts",
+      "reason": "source group src/main/services"
+    },
+    {
+      "path": "src/main/services/setupScriptRunner.ts",
+      "reason": "source group src/main/services"
+    },
+    {
+      "path": "src/main/services/terminalLauncher.ts",
+      "reason": "source group src/main/services"
+    },
+    {
+      "path": "src/main/services/uiMetadata.ts",
+      "reason": "source group src/main/services"
+    }
+  ],
+  "contextFiles": [
+    {
+      "path": "package.json",
+      "reason": "package manifest"
+    },
+    {
+      "path": "test/main/clawpatchRunner.test.ts",
+      "reason": "associated test"
+    },
+    {
+      "path": "test/main/clawpatchState.test.ts",
+      "reason": "associated test"
+    },
+    {
+      "path": "test/main/gitService.test.ts",
+      "reason": "associated test"
+    },
+    {
+      "path": "test/main/repoService.test.ts",
+      "reason": "associated test"
+    },
+    {
+      "path": "test/main/terminalLauncher.test.ts",
+      "reason": "associated test"
+    },
+    {
+      "path": "test/main/uiMetadata.test.ts",
+      "reason": "associated test"
+    }
+  ],
+  "tests": [
+    {
+      "path": "test/main/clawpatchRunner.test.ts",
+      "command": "pnpm test"
+    },
+    {
+      "path": "test/main/clawpatchState.test.ts",
+      "command": "pnpm test"
+    },
+    {
+      "path": "test/main/gitService.test.ts",
+      "command": "pnpm test"
+    },
+    {
+      "path": "test/main/repoService.test.ts",
+      "command": "pnpm test"
+    },
+    {
+      "path": "test/main/terminalLauncher.test.ts",
+      "command": "pnpm test"
+    },
+    {
+      "path": "test/main/uiMetadata.test.ts",
+      "command": "pnpm test"
+    }
+  ],
+  "tags": [
+    "node",
+    "typescript",
+    "source-group",
+    "project:clawpatch-ui",
+    "project-root:."
+  ],
+  "trustBoundaries": [],
+  "status": "pending",
+  "lock": null,
+  "findingIds": [],
+  "patchAttemptIds": [],
+  "analysisHistory": [],
+  "createdAt": "2026-05-21T06:01:51.470Z",
+  "updatedAt": "2026-05-21T06:01:51.470Z"
+}

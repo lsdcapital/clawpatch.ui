@@ -78,6 +78,18 @@
       "reason": "package source overview"
     },
     {
+      "path": "src/main/services/repoSettings.ts",
+      "reason": "package source overview"
+    },
+    {
+      "path": "src/main/services/setupScriptRunner.ts",
+      "reason": "package source overview"
+    },
+    {
+      "path": "src/main/services/terminalLauncher.ts",
+      "reason": "package source overview"
+    },
+    {
       "path": "src/main/services/uiMetadata.ts",
       "reason": "package source overview"
     },
@@ -126,18 +138,6 @@
       "reason": "package source overview"
     },
     {
-      "path": "src/renderer/src/components/FindingsTable.tsx",
-      "reason": "package source overview"
-    },
-    {
-      "path": "src/renderer/src/components/GitStatusStrip.tsx",
-      "reason": "package source overview"
-    },
-    {
-      "path": "src/renderer/src/components/RepoSidebar.tsx",
-      "reason": "package source overview"
-    },
-    {
       "path": "test/main/clawpatchRunner.test.ts",
       "reason": "package test"
     },
@@ -170,6 +170,10 @@
       "reason": "package test"
     },
     {
+      "path": "test/main/terminalLauncher.test.ts",
+      "reason": "package test"
+    },
+    {
       "path": "test/main/uiMetadata.test.ts",
       "reason": "package test"
     },
@@ -179,10 +183,6 @@
     },
     {
       "path": "test/preload/index.test.ts",
-      "reason": "package test"
-    },
-    {
-      "path": "test/renderer/ClawpatchApp.test.tsx",
       "reason": "package test"
     }
   ],
@@ -212,5 +212,5 @@
     }
   ],
   "createdAt": "2026-05-20T11:25:49.042Z",
-  "updatedAt": "2026-05-20T11:28:33.751Z"
+  "updatedAt": "2026-05-21T06:01:51.470Z"
 }

@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "featureId": "feat_library_a1562e140a",
   "title": "Node source src/main",
-  "summary": "Node/TypeScript source group src/main with 12 files.",
+  "summary": "Node/TypeScript source group src/main with 5 files.",
   "kind": "library",
   "source": "node-source-group",
   "confidence": "medium",
@@ -24,35 +24,7 @@
       "reason": "source group src/main"
     },
     {
-      "path": "src/main/ipc/effectIpc.ts",
-      "reason": "source group src/main"
-    },
-    {
-      "path": "src/main/ipc/handlers.ts",
-      "reason": "source group src/main"
-    },
-    {
       "path": "src/main/logger.ts",
-      "reason": "source group src/main"
-    },
-    {
-      "path": "src/main/services/clawpatchRunner.ts",
-      "reason": "source group src/main"
-    },
-    {
-      "path": "src/main/services/clawpatchState.ts",
-      "reason": "source group src/main"
-    },
-    {
-      "path": "src/main/services/gitService.ts",
-      "reason": "source group src/main"
-    },
-    {
-      "path": "src/main/services/repoService.ts",
-      "reason": "source group src/main"
-    },
-    {
-      "path": "src/main/services/uiMetadata.ts",
       "reason": "source group src/main"
     },
     {
@@ -70,69 +42,37 @@
       "reason": "package manifest"
     },
     {
-      "path": "test/main/clawpatchRunner.test.ts",
-      "reason": "associated test"
-    },
-    {
-      "path": "test/main/clawpatchState.test.ts",
-      "reason": "associated test"
-    },
-    {
-      "path": "test/main/effectIpc.test.ts",
-      "reason": "associated test"
-    },
-    {
-      "path": "test/main/gitService.test.ts",
-      "reason": "associated test"
-    },
-    {
-      "path": "test/main/handlers.test.ts",
-      "reason": "associated test"
-    },
-    {
       "path": "test/main/logger.test.ts",
       "reason": "associated test"
     },
     {
-      "path": "test/main/repoService.test.ts",
+      "path": "test/main/shutdown.test.ts",
       "reason": "associated test"
     },
     {
-      "path": "test/main/shutdown.test.ts",
+      "path": "test/main/windowState.test.ts",
+      "reason": "associated test"
+    },
+    {
+      "path": "test/preload/index.test.ts",
       "reason": "associated test"
     }
   ],
   "tests": [
     {
-      "path": "test/main/clawpatchRunner.test.ts",
-      "command": "pnpm test"
-    },
-    {
-      "path": "test/main/clawpatchState.test.ts",
-      "command": "pnpm test"
-    },
-    {
-      "path": "test/main/effectIpc.test.ts",
-      "command": "pnpm test"
-    },
-    {
-      "path": "test/main/gitService.test.ts",
-      "command": "pnpm test"
-    },
-    {
-      "path": "test/main/handlers.test.ts",
-      "command": "pnpm test"
-    },
-    {
       "path": "test/main/logger.test.ts",
       "command": "pnpm test"
     },
     {
-      "path": "test/main/repoService.test.ts",
+      "path": "test/main/shutdown.test.ts",
       "command": "pnpm test"
     },
     {
-      "path": "test/main/shutdown.test.ts",
+      "path": "test/main/windowState.test.ts",
+      "command": "pnpm test"
+    },
+    {
+      "path": "test/preload/index.test.ts",
       "command": "pnpm test"
     }
   ],
@@ -172,5 +112,5 @@
     }
   ],
   "createdAt": "2026-05-19T08:07:07.260Z",
-  "updatedAt": "2026-05-20T11:28:33.751Z"
+  "updatedAt": "2026-05-21T06:01:51.470Z"
 }
