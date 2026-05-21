@@ -4,8 +4,8 @@ import { clawpatchQueryKeys, invalidateRepo } from "../clawpatchQueries";
 import { visibleCommandLogEntries } from "../commandLogEntries";
 import { FindingsSplitPanel } from "../components/FindingsSplitPanel";
 import { GitStatusStrip } from "../components/GitStatusStrip";
+import { RepoSettingsPage, type SettingsSection } from "../components/RepoSettingsPage";
 import { RepoSidebar } from "../components/RepoSidebar";
-import { RepoSettingsDialog } from "../components/RepoSettingsDialog";
 import { ReviewMapPanel } from "../components/ReviewMapPanel";
 import { WorkspaceHeader } from "../components/WorkspaceHeader";
 import { WorkspaceInspector } from "../components/WorkspaceInspector";
@@ -14,7 +14,7 @@ import { useDiffInspector } from "../hooks/useDiffInspector";
 import { useFindingsWorkspace } from "../hooks/useFindingsWorkspace";
 import { useRepoSidebarState } from "../hooks/useRepoSidebarState";
 import { useSelectedRepo } from "../hooks/useSelectedRepo";
-import type { PublishFixResult, RepoSettings, RepoSummary } from "../../../shared/types";
+import type { PublishFixResult, RepoSettings } from "../../../shared/types";
 import type { ActiveInspector, ActiveWorkspace } from "../workspaceTypes";
 
 const REPO_SIDEBAR_ID = "repo-sidebar";
@@ -28,7 +28,7 @@ export function ClawpatchApp() {
     readonly result: PublishFixResult;
   } | null>(null);
   const [terminalError, setTerminalError] = useState<string | null>(null);
-  const [settingsRepo, setSettingsRepo] = useState<RepoSummary | null>(null);
+  const [settingsSection, setSettingsSection] = useState<SettingsSection | null>(null);
   const { isRepoSidebarCollapsed, toggleRepoSidebar } = useRepoSidebarState();
 
   const reposQuery = useQuery({
@@ -36,6 +36,10 @@ export function ClawpatchApp() {
     queryFn: () => window.clawpatch.repo.list(),
   });
   const { selectedRepo, selectRepo } = useSelectedRepo(reposQuery.data);
+  const settingsRepo =
+    settingsSection?.kind === "repo"
+      ? (reposQuery.data?.find((repo) => repo.id === settingsSection.repoId) ?? null)
+      : null;
 
   const findingsWorkspace = useFindingsWorkspace({ selectedRepo });
   const selectedFinding = findingsWorkspace.selectedFinding;
@@ -98,7 +102,6 @@ export function ClawpatchApp() {
       void queryClient.invalidateQueries({
         queryKey: clawpatchQueryKeys.repoSettings(variables.repoId),
       });
-      setSettingsRepo(null);
     },
   });
 
@@ -155,7 +158,20 @@ export function ClawpatchApp() {
     selectedFindingId !== undefined &&
     selectedRepo.activeWorktrees.some((worktree) => worktree.findingId === selectedFindingId);
 
-  return (
+  return settingsSection !== null ? (
+    <RepoSettingsPage
+      repos={reposQuery.data ?? []}
+      selectedSection={settingsSection}
+      settings={repoSettingsQuery.data}
+      isLoading={repoSettingsQuery.isLoading}
+      isSaving={repoSettingsMutation.isPending}
+      error={repoSettingsQuery.error ?? repoSettingsMutation.error}
+      onBack={() => setSettingsSection(null)}
+      onSelectGeneral={() => setSettingsSection({ kind: "general" })}
+      onSelectRepo={(repoId) => setSettingsSection({ kind: "repo", repoId })}
+      onSave={(repoId, settings) => repoSettingsMutation.mutate({ repoId, settings })}
+    />
+  ) : (
     <main className={isRepoSidebarCollapsed ? "app-shell sidebar-collapsed" : "app-shell"}>
       {isRepoSidebarCollapsed ? null : (
         <RepoSidebar
@@ -165,7 +181,8 @@ export function ClawpatchApp() {
           isAdding={addRepoMutation.isPending}
           addError={addRepoMutation.error}
           onAddRepo={(repoPath) => addRepoMutation.mutate(repoPath)}
-          onOpenRepoSettings={setSettingsRepo}
+          onOpenSettings={() => setSettingsSection({ kind: "general" })}
+          onOpenRepoSettings={(repo) => setSettingsSection({ kind: "repo", repoId: repo.id })}
           onSelectRepo={(repoId) => {
             selectRepo(repoId);
             findingsWorkspace.setSelectedFindingId(null);
@@ -292,17 +309,6 @@ export function ClawpatchApp() {
           )}
         </WorkspaceInspector>
       </section>
-      {settingsRepo !== null ? (
-        <RepoSettingsDialog
-          repo={settingsRepo}
-          settings={repoSettingsQuery.data}
-          isLoading={repoSettingsQuery.isLoading}
-          isSaving={repoSettingsMutation.isPending}
-          error={repoSettingsQuery.error ?? repoSettingsMutation.error}
-          onCancel={() => setSettingsRepo(null)}
-          onSave={(settings) => repoSettingsMutation.mutate({ repoId: settingsRepo.id, settings })}
-        />
-      ) : null}
     </main>
   );
 }
