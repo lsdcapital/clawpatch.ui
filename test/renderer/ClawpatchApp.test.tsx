@@ -337,7 +337,7 @@ describe("ClawpatchApp header actions", () => {
     await waitFor(() => expect(pickFolder).toHaveBeenCalledTimes(1));
   });
 
-  it("sorts repositories from the sidebar sort selector", async () => {
+  it("sorts repositories from the sidebar sort menu", async () => {
     window.clawpatch = makeApi(
       vi.fn<Api["commands"]["run"]>(async () => makeCommandResult("map")),
       {
@@ -362,14 +362,17 @@ describe("ClawpatchApp header actions", () => {
     renderApp();
 
     await screen.findByRole("heading", { name: "auth" });
-    const sortSelect = screen.getByLabelText("Sort by");
     expect(screen.queryByPlaceholderText("Filter repos")).not.toBeInTheDocument();
-    expect(sortSelect).toHaveValue("created");
     expect(repoPathOrder()).toEqual(["/tmp/auth", "/work/billing-api", "/work/profile"]);
 
-    fireEvent.change(sortSelect, { target: { value: "updated" } });
+    fireEvent.click(screen.getByRole("button", { name: "Sort repositories" }));
+    expect(screen.getByRole("menu", { name: "Repository sort" })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "Created" })).toHaveClass("active");
+
+    fireEvent.click(screen.getByRole("menuitem", { name: "Updated" }));
 
     expect(repoPathOrder()).toEqual(["/work/billing-api", "/tmp/auth", "/work/profile"]);
+    expect(screen.queryByRole("menu", { name: "Repository sort" })).not.toBeInTheDocument();
   });
 
   it("opens and saves repository settings from a full settings page", async () => {
