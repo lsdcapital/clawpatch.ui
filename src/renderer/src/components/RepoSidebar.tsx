@@ -1,9 +1,9 @@
 import { useMemo, useState } from "react";
 import {
+  FolderPlusIcon,
   ListFilterIcon,
   PanelLeftCloseIcon,
   PanelLeftOpenIcon,
-  PlusIcon,
   SettingsIcon,
 } from "lucide-react";
 import type { RepoSummary } from "../../../shared/types";
@@ -123,7 +123,7 @@ export function RepoSidebar({
             aria-label="Add repository"
             title="Add repository"
           >
-            <PlusIcon aria-hidden="true" />
+            <FolderPlusIcon aria-hidden="true" />
           </button>
         </div>
       </div>
