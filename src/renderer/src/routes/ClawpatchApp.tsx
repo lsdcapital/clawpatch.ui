@@ -69,6 +69,7 @@ export function ClawpatchApp() {
     queryFn: () => window.clawpatch.features.map(selectedRepo!.id),
     enabled: selectedRepo !== null,
   });
+  const reviewQueueUnreviewedCount = featureMapQuery.data?.coverage.pendingReviewCount ?? 0;
 
   const publishFixMutation = useMutation({
     mutationFn: ({ repoId, findingId }: { repoId: string; findingId: string }) =>
@@ -232,6 +233,7 @@ export function ClawpatchApp() {
           activeWorkspace={activeWorkspace}
           activeInspector={activeInspector}
           isOpeningTerminal={terminalMutation.isPending}
+          reviewQueueUnreviewedCount={reviewQueueUnreviewedCount}
           onWorkspaceChange={setActiveWorkspace}
           onToggleInspector={toggleInspector}
           onOpenTerminal={openTerminal}

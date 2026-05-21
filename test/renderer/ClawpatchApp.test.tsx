@@ -577,8 +577,13 @@ describe("ClawpatchApp header actions", () => {
     expect(screen.getByRole("tab", { name: "Findings" })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByRole("heading", { name: "Findings" })).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("tab", { name: "Review Queue" }));
-    expect(screen.getByRole("tab", { name: "Review Queue" })).toHaveAttribute(
+    const reviewQueueTab = await screen.findByRole("tab", {
+      name: "Review Queue, 2 unreviewed",
+    });
+    expect(within(reviewQueueTab).getByText("2")).toHaveClass("workspace-tab-pill");
+
+    fireEvent.click(reviewQueueTab);
+    expect(screen.getByRole("tab", { name: "Review Queue, 2 unreviewed" })).toHaveAttribute(
       "aria-selected",
       "true",
     );
@@ -591,6 +596,23 @@ describe("ClawpatchApp header actions", () => {
     expect(screen.getByRole("table", { name: "Review queue map" })).toBeInTheDocument();
   });
 
+  it("hides the review queue count pill when there are no unreviewed items", async () => {
+    const run = vi.fn<Api["commands"]["run"]>(async (_repoId, request) =>
+      makeCommandResult(request.command),
+    );
+    const featureMap = vi.fn<Api["features"]["map"]>(async () => makeReviewedFeatureMapSnapshot());
+    window.clawpatch = makeApi(run, {
+      featureMap,
+    });
+
+    renderApp();
+
+    await screen.findByRole("heading", { name: "auth" });
+    await waitFor(() => expect(featureMap).toHaveBeenCalledOnce());
+    const reviewQueueTab = await screen.findByRole("tab", { name: "Review Queue" });
+    expect(within(reviewQueueTab).queryByText("0")).not.toBeInTheDocument();
+  });
+
   it("switches the shared inspector to command output when a review queue command starts", async () => {
     const run = vi.fn<Api["commands"]["run"]>(async (_repoId, request) =>
       makeCommandResult(request.command),
@@ -600,7 +622,7 @@ describe("ClawpatchApp header actions", () => {
     renderApp();
 
     await screen.findByRole("heading", { name: "auth" });
-    fireEvent.click(screen.getByRole("tab", { name: "Review Queue" }));
+    fireEvent.click(await screen.findByRole("tab", { name: /^Review Queue/ }));
 
     fireEvent.click(screen.getByRole("button", { name: "Update map" }));
 
@@ -637,7 +659,7 @@ describe("ClawpatchApp header actions", () => {
     renderApp();
 
     await screen.findByRole("heading", { name: "auth" });
-    fireEvent.click(screen.getByRole("tab", { name: "Review Queue" }));
+    fireEvent.click(await screen.findByRole("tab", { name: /^Review Queue/ }));
     expect(screen.getByText("2 pending/error of 3 map items")).toBeInTheDocument();
     await waitFor(() => expect(repoList).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(findingsList).toHaveBeenCalledTimes(1));
@@ -1285,7 +1307,7 @@ describe("ClawpatchApp header actions", () => {
     expect(await screen.findByText(/finding output/)).toBeInTheDocument();
     expect(screen.getByText(/review queue output/)).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("tab", { name: "Review Queue" }));
+    fireEvent.click(await screen.findByRole("tab", { name: /^Review Queue/ }));
 
     expect(screen.queryByText(/finding output/)).not.toBeInTheDocument();
     expect(screen.getByText(/review queue output/)).toBeInTheDocument();
@@ -1828,6 +1850,18 @@ function makeFeatureMapSnapshotAfterOneReview(): FeatureMapSnapshot {
       latestReviewRun: null,
       latestLimitedReviewRun: null,
       hasLimitedReviewRemainder: false,
+    },
+  };
+}
+
+function makeReviewedFeatureMapSnapshot(): FeatureMapSnapshot {
+  const snapshot = makeFeatureMapSnapshot();
+  return {
+    features: snapshot.features.map((feature) => ({ ...feature, status: "reviewed" })),
+    coverage: {
+      ...snapshot.coverage,
+      pendingReviewCount: 0,
+      pendingReviewFeatureIds: [],
     },
   };
 }
