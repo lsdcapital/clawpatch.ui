@@ -333,34 +333,40 @@ button:disabled {
   gap: 2px;
 }
 
-.repo-sort {
-  align-items: center;
+.repo-sort-menu {
+  position: relative;
+}
+
+.repo-sort-menu-popover {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 6px;
-  color: var(--subtle);
+  border-radius: 7px;
+  box-shadow: var(--popover-shadow);
   display: grid;
-  gap: 10px;
-  grid-template-columns: auto minmax(0, 1fr);
-  min-height: 34px;
-  padding: 4px 6px 4px 9px;
+  min-width: 116px;
+  padding: 5px;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 5px);
+  z-index: 10;
 }
 
-.repo-sort span {
-  font-size: 12px;
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.repo-sort select {
-  appearance: auto;
-  background: var(--bg);
-  border: 1px solid var(--border-strong);
-  border-radius: 6px;
-  color: var(--text);
-  min-width: 0;
-  padding: 5px 8px;
+.repo-sort-menu-popover button {
+  border-color: transparent;
+  justify-content: flex-start;
+  min-height: 30px;
   width: 100%;
+}
+
+.repo-sort-menu-popover button:hover:not(:disabled) {
+  background: var(--button-hover-bg);
+  border-color: transparent;
+}
+
+.repo-sort-menu-popover button.active {
+  background: var(--accent-soft);
+  border-color: transparent;
+  color: var(--accent-text);
 }
 
 .repo-list {

@@ -1,5 +1,11 @@
 import { useMemo, useState } from "react";
-import { PanelLeftCloseIcon, PanelLeftOpenIcon, PlusIcon, SettingsIcon } from "lucide-react";
+import {
+  FilterIcon,
+  PanelLeftCloseIcon,
+  PanelLeftOpenIcon,
+  PlusIcon,
+  SettingsIcon,
+} from "lucide-react";
 import type { RepoSummary } from "../../../shared/types";
 import { appName, appVersion } from "../appInfo";
 
@@ -33,6 +39,7 @@ export function RepoSidebar({
   const [isPicking, setIsPicking] = useState(false);
   const [pickError, setPickError] = useState<unknown>(null);
   const [repoSort, setRepoSort] = useState<RepoSort>("created");
+  const [isSortMenuOpen, setIsSortMenuOpen] = useState(false);
   const visibleRepos = useMemo(() => sortRepos(repos, repoSort), [repoSort, repos]);
 
   const pickRepo = async (): Promise<void> => {
@@ -51,6 +58,11 @@ export function RepoSidebar({
     } finally {
       setIsPicking(false);
     }
+  };
+
+  const selectRepoSort = (sort: RepoSort): void => {
+    setRepoSort(sort);
+    setIsSortMenuOpen(false);
   };
 
   return (
@@ -74,6 +86,36 @@ export function RepoSidebar({
       <div className="repo-section-header">
         <span>Repositories ({repos.length})</span>
         <div className="repo-section-actions">
+          <div className="repo-sort-menu">
+            <button
+              className="icon-button"
+              onClick={() => setIsSortMenuOpen((isOpen) => !isOpen)}
+              aria-expanded={isSortMenuOpen}
+              aria-haspopup="menu"
+              aria-label="Sort repositories"
+              title="Sort repositories"
+            >
+              <FilterIcon aria-hidden="true" />
+            </button>
+            {isSortMenuOpen ? (
+              <div className="repo-sort-menu-popover" role="menu" aria-label="Repository sort">
+                <button
+                  className={repoSort === "created" ? "active" : ""}
+                  role="menuitem"
+                  onClick={() => selectRepoSort("created")}
+                >
+                  Created
+                </button>
+                <button
+                  className={repoSort === "updated" ? "active" : ""}
+                  role="menuitem"
+                  onClick={() => selectRepoSort("updated")}
+                >
+                  Updated
+                </button>
+              </div>
+            ) : null}
+          </div>
           <button
             className="icon-button"
             disabled={isAdding || isPicking}
@@ -85,16 +127,6 @@ export function RepoSidebar({
           </button>
         </div>
       </div>
-      <label className="repo-sort">
-        <span>Sort by</span>
-        <select
-          value={repoSort}
-          onChange={(event) => setRepoSort(event.currentTarget.value as RepoSort)}
-        >
-          <option value="created">Created</option>
-          <option value="updated">Updated</option>
-        </select>
-      </label>
       {pickError || addError ? (
         <div className="repo-form">
           {pickError ? (
