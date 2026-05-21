@@ -230,37 +230,6 @@ button:disabled {
   flex: none;
 }
 
-.sidebar-logo-mark {
-  align-items: center;
-  background: #101418;
-  border-radius: 7px;
-  display: flex;
-  flex: none;
-  height: 28px;
-  justify-content: center;
-  width: 28px;
-}
-
-.sidebar-logo-mark span {
-  background: #f5f0e8;
-  border-radius: 5px;
-  display: block;
-  height: 16px;
-  position: relative;
-  width: 16px;
-}
-
-.sidebar-logo-mark span::after {
-  background: #2dbe7e;
-  border-radius: 999px;
-  content: "";
-  height: 4px;
-  left: 7px;
-  position: absolute;
-  top: 6px;
-  width: 13px;
-}
-
 .brand {
   align-items: baseline;
   color: var(--text-strong);
@@ -501,6 +470,10 @@ button:disabled {
   flex: none;
   height: 15px;
   width: 15px;
+}
+
+.sidebar-rail-settings-button {
+  margin-top: auto;
 }
 
 .repo-name,
