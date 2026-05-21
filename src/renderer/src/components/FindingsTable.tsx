@@ -1,6 +1,12 @@
+import {
+  AlertCircleIcon,
+  FilePenLineIcon,
+  GitBranchIcon,
+  GitPullRequestIcon,
+  RefreshCwIcon,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { RefreshCwIcon } from "lucide-react";
-import type { ClawpatchStatus, FindingListItem } from "../../../shared/types";
+import type { ClawpatchStatus, FindingListItem, FindingWorkStatus } from "../../../shared/types";
 import type { BulkRevalidationProgress } from "../hooks/useCommandRunner";
 import {
   defaultFindingFilters,
@@ -12,6 +18,7 @@ import {
   type FindingFilters,
   type FindingStatusFilter,
 } from "../findingsFilters";
+import { findingWorkLabel, findingWorkState, findingWorkTitle } from "../findingWorkStatus";
 
 interface Props {
   findings: readonly FindingListItem[];
@@ -22,6 +29,7 @@ interface Props {
   filterOptions: FindingFilterOptions;
   sort: FindingSort;
   bulkRevalidationProgress: BulkRevalidationProgress | null;
+  workStatusByFindingId?: ReadonlyMap<string, FindingWorkStatus>;
   onFiltersChange: (filters: FindingFilters) => void;
   onSortChange: (sort: FindingSort) => void;
   onSelectFinding: (findingId: string) => void;
@@ -37,6 +45,7 @@ export function FindingsTable({
   filterOptions,
   sort,
   bulkRevalidationProgress,
+  workStatusByFindingId,
   onFiltersChange,
   onSortChange,
   onSelectFinding,
@@ -182,22 +191,29 @@ export function FindingsTable({
         <div className="table-row table-head" role="row">
           <SortableHeader field="severity" label="Severity" sort={sort} onSort={updateSort} />
           <SortableHeader field="status" label="Status" sort={sort} onSort={updateSort} />
+          <span role="columnheader">Work</span>
           <SortableHeader field="category" label="Category" sort={sort} onSort={updateSort} />
           <SortableHeader field="title" label="Title" sort={sort} onSort={updateSort} />
         </div>
-        {findings.map((finding) => (
-          <button
-            key={finding.findingId}
-            className={finding.findingId === selectedFindingId ? "table-row selected" : "table-row"}
-            onClick={() => onSelectFinding(finding.findingId)}
-            role="row"
-          >
-            <span className={`severity ${finding.severity}`}>{finding.severity}</span>
-            <span>{finding.status}</span>
-            <span>{finding.category}</span>
-            <strong>{finding.title}</strong>
-          </button>
-        ))}
+        {findings.map((finding) => {
+          const workStatus = workStatusByFindingId?.get(finding.findingId) ?? null;
+          return (
+            <button
+              key={finding.findingId}
+              className={
+                finding.findingId === selectedFindingId ? "table-row selected" : "table-row"
+              }
+              onClick={() => onSelectFinding(finding.findingId)}
+              role="row"
+            >
+              <span className={`severity ${finding.severity}`}>{finding.severity}</span>
+              <span>{finding.status}</span>
+              <FindingWorkBadge status={workStatus} />
+              <span>{finding.category}</span>
+              <strong>{finding.title}</strong>
+            </button>
+          );
+        })}
         {!isLoading && findings.length === 0 ? (
           <div className="empty-state">{emptyStateLabel(filtersActive, totalFindingCount)}</div>
         ) : null}
@@ -208,6 +224,33 @@ export function FindingsTable({
 
 function isRevalidatableFinding(finding: FindingListItem): boolean {
   return finding.status === "open" || finding.status === "uncertain";
+}
+
+function FindingWorkBadge({ status }: { status: FindingWorkStatus | null }) {
+  if (status === null) {
+    return <span aria-hidden="true" />;
+  }
+
+  const state = findingWorkState(status);
+  const Icon =
+    state === "dirty"
+      ? FilePenLineIcon
+      : state === "pr"
+        ? GitPullRequestIcon
+        : state === "unknown"
+          ? AlertCircleIcon
+          : GitBranchIcon;
+
+  return (
+    <span
+      aria-label={`Work status: ${findingWorkLabel(status)}`}
+      className={`work-badge work-badge-${state}`}
+      title={findingWorkTitle(status)}
+    >
+      <Icon aria-hidden="true" />
+      <span>{findingWorkLabel(status)}</span>
+    </span>
+  );
 }
 
 function SortableHeader({

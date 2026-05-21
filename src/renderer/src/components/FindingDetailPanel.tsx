@@ -3,14 +3,22 @@ import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent }
 import type {
   ClawpatchStatus,
   FindingDetail,
+  FindingWorkStatus,
   PatchAttempt,
   PatchCommandRun,
   PublishFixResult,
 } from "../../../shared/types";
 import { clawpatchStatuses } from "../../../shared/types";
+import {
+  findingWorkLabel,
+  findingWorkTitle,
+  formatGitStatusCounts,
+  isGitStatusDirty,
+} from "../findingWorkStatus";
 
 interface Props {
   finding: FindingDetail | null;
+  workStatus: FindingWorkStatus | null;
   isLoading: boolean;
   isBusy: boolean;
   commandStateLabel?: string;
@@ -29,6 +37,7 @@ interface Props {
 
 export function FindingDetailPanel({
   finding,
+  workStatus,
   isLoading,
   isBusy,
   commandStateLabel,
@@ -167,6 +176,8 @@ export function FindingDetailPanel({
           <strong>{finding.triage ?? "none"}</strong>
         </div>
 
+        {workStatus !== null ? <FindingWorkSummary status={workStatus} /> : null}
+
         <section>
           <h3>Evidence</h3>
           {evidence.map((evidence) => (
@@ -283,6 +294,58 @@ export function FindingDetailPanel({
         </div>
       </div>
     </div>
+  );
+}
+
+function FindingWorkSummary({ status }: { status: FindingWorkStatus }) {
+  const gitStatus = status.gitStatus;
+  const hasDirtyChanges = gitStatus !== null && isGitStatusDirty(gitStatus);
+  const statusText =
+    gitStatus === null
+      ? (status.error ?? "Unable to read worktree status")
+      : hasDirtyChanges
+        ? status.prUrl === null
+          ? formatGitStatusCounts(gitStatus)
+          : `Local unpublished changes: ${formatGitStatusCounts(gitStatus)}`
+        : "Working tree clean";
+
+  return (
+    <section className="work-summary" aria-label="Finding work status">
+      <div className="work-summary-header">
+        <h3>Work</h3>
+        <span className="work-summary-state" title={findingWorkTitle(status)}>
+          {findingWorkLabel(status)}
+        </span>
+      </div>
+      <dl>
+        {gitStatus !== null && gitStatus.branch !== null ? (
+          <>
+            <dt>Branch</dt>
+            <dd>{gitStatus.branch}</dd>
+          </>
+        ) : null}
+        <dt>Status</dt>
+        <dd>{statusText}</dd>
+        <dt>Worktree</dt>
+        <dd title={status.worktreePath}>{status.worktreePath}</dd>
+        {status.error !== null ? (
+          <>
+            <dt>Error</dt>
+            <dd>{status.error}</dd>
+          </>
+        ) : null}
+        {status.prUrl !== null ? (
+          <>
+            <dt>PR</dt>
+            <dd>
+              <a href={status.prUrl} rel="noreferrer" target="_blank">
+                Open PR
+              </a>
+            </dd>
+          </>
+        ) : null}
+      </dl>
+    </section>
   );
 }
 

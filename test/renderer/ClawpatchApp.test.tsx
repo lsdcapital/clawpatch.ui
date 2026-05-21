@@ -337,13 +337,24 @@ describe("ClawpatchApp header actions", () => {
     await waitFor(() => expect(pickFolder).toHaveBeenCalledTimes(1));
   });
 
-  it("filters repositories from the sidebar search field", async () => {
+  it("sorts repositories from the sidebar sort selector", async () => {
     window.clawpatch = makeApi(
       vi.fn<Api["commands"]["run"]>(async () => makeCommandResult("map")),
       {
         repoList: async () => [
           makeRepo(),
-          makeRepo({ id: "repo-billing", name: "billing", path: "/work/billing-api" }),
+          makeRepo({
+            id: "repo-billing",
+            name: "billing",
+            path: "/work/billing-api",
+            updatedAt: "2026-05-20T00:00:00.000Z",
+          }),
+          makeRepo({
+            id: "repo-profile",
+            name: "profile",
+            path: "/work/profile",
+            updatedAt: "2026-05-19T00:00:00.000Z",
+          }),
         ],
       },
     );
@@ -351,13 +362,14 @@ describe("ClawpatchApp header actions", () => {
     renderApp();
 
     await screen.findByRole("heading", { name: "auth" });
-    expect(screen.getByTitle("/tmp/auth")).toBeInTheDocument();
-    expect(screen.getByTitle("/work/billing-api")).toBeInTheDocument();
+    const sortSelect = screen.getByLabelText("Sort by");
+    expect(screen.queryByPlaceholderText("Filter repos")).not.toBeInTheDocument();
+    expect(sortSelect).toHaveValue("created");
+    expect(repoPathOrder()).toEqual(["/tmp/auth", "/work/billing-api", "/work/profile"]);
 
-    fireEvent.change(screen.getByPlaceholderText("Filter repos"), { target: { value: "billing" } });
+    fireEvent.change(sortSelect, { target: { value: "updated" } });
 
-    expect(screen.queryByTitle("/tmp/auth")).not.toBeInTheDocument();
-    expect(screen.getByTitle("/work/billing-api")).toBeInTheDocument();
+    expect(repoPathOrder()).toEqual(["/work/billing-api", "/tmp/auth", "/work/profile"]);
   });
 
   it("opens and saves repository settings from a full settings page", async () => {
@@ -1243,7 +1255,7 @@ describe("ClawpatchApp header actions", () => {
     expect(run).not.toHaveBeenCalled();
   });
 
-  it("does not show an active worktree indicator when a fix worktree is active", async () => {
+  it("shows active worktree status for findings with managed worktrees", async () => {
     const finding = makeFixFinding();
     const worktreePath = "/tmp/clawpatch-ui/worktrees/repo-auth/fnd-bug";
     window.clawpatch = makeApi(
@@ -1251,6 +1263,20 @@ describe("ClawpatchApp header actions", () => {
       {
         findings: [finding],
         findingDetail: finding,
+        findingWorkStatuses: async () => [
+          {
+            findingId: "fnd-bug",
+            worktreePath,
+            gitStatus: {
+              staged: 0,
+              modified: 0,
+              untracked: 0,
+              branch: "clawpatch/fix/fnd-bug",
+            },
+            prUrl: null,
+            error: null,
+          },
+        ],
         repoList: async () => [
           makeRepo({
             activeWorktreePath: worktreePath,
@@ -1262,9 +1288,90 @@ describe("ClawpatchApp header actions", () => {
 
     renderApp();
 
-    await screen.findByRole("heading", { name: "auth" });
-    expect(screen.queryByText("worktree")).not.toBeInTheDocument();
-    expect(screen.queryByText(worktreePath)).not.toBeInTheDocument();
+    await screen.findByRole("heading", { name: "Null branch can throw" });
+    expect(await screen.findByLabelText("Work status: Worktree")).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Finding work status" })).toHaveTextContent(
+      worktreePath,
+    );
+    expect(screen.getByRole("region", { name: "Finding work status" })).toHaveTextContent(
+      "Working tree clean",
+    );
+  });
+
+  it("shows dirty worktree counts in the selected finding detail", async () => {
+    const finding = makeFixFinding();
+    const worktreePath = "/tmp/clawpatch-ui/worktrees/repo-auth/fnd-bug";
+    window.clawpatch = makeApi(
+      vi.fn<Api["commands"]["run"]>(async () => makeCommandResult("map")),
+      {
+        findings: [finding],
+        findingDetail: finding,
+        findingWorkStatuses: async () => [
+          {
+            findingId: "fnd-bug",
+            worktreePath,
+            gitStatus: {
+              staged: 1,
+              modified: 2,
+              untracked: 1,
+              branch: "clawpatch/fix/fnd-bug",
+            },
+            prUrl: null,
+            error: null,
+          },
+        ],
+        repoList: async () => [
+          makeRepo({
+            activeWorktreePath: worktreePath,
+            activeWorktrees: [{ findingId: "fnd-bug", path: worktreePath }],
+          }),
+        ],
+      },
+    );
+
+    renderApp();
+
+    const workRegion = await screen.findByRole("region", { name: "Finding work status" });
+    expect(screen.getByLabelText("Work status: Dirty")).toBeInTheDocument();
+    expect(workRegion).toHaveTextContent("1 staged · 2 modified · 1 untracked");
+  });
+
+  it("shows PR work status and link from finding work metadata", async () => {
+    const finding = makeFixFinding();
+    const worktreePath = "/tmp/clawpatch-ui/worktrees/repo-auth/fnd-bug";
+    const prUrl = "https://github.com/acme/repo/compare/main...clawpatch/fix/fnd-bug?expand=1";
+    window.clawpatch = makeApi(
+      vi.fn<Api["commands"]["run"]>(async () => makeCommandResult("map")),
+      {
+        findings: [finding],
+        findingDetail: finding,
+        findingWorkStatuses: async () => [
+          {
+            findingId: "fnd-bug",
+            worktreePath,
+            gitStatus: {
+              staged: 0,
+              modified: 0,
+              untracked: 0,
+              branch: "clawpatch/fix/fnd-bug",
+            },
+            prUrl,
+            error: null,
+          },
+        ],
+        repoList: async () => [
+          makeRepo({
+            activeWorktreePath: worktreePath,
+            activeWorktrees: [{ findingId: "fnd-bug", path: worktreePath }],
+          }),
+        ],
+      },
+    );
+
+    renderApp();
+
+    await screen.findByLabelText("Work status: PR");
+    expect(screen.getByRole("link", { name: "Open PR" })).toHaveAttribute("href", prUrl);
   });
 
   it("shows Publish PR for findings with managed worktrees and opens the PR result", async () => {
@@ -1300,10 +1407,16 @@ describe("ClawpatchApp header actions", () => {
 
     await screen.findByText(/PR draft opened for/);
     expect(publishFix).toHaveBeenCalledWith("repo-auth", "fnd-bug");
-    expect(screen.getByRole("link", { name: "Open PR" })).toHaveAttribute(
-      "href",
-      "https://github.com/acme/repo/compare/main...clawpatch/fix/fnd-bug?expand=1",
-    );
+    expect(await screen.findByLabelText("Work status: PR")).toBeInTheDocument();
+    expect(
+      screen
+        .getAllByRole("link", { name: "Open PR" })
+        .some(
+          (link) =>
+            link.getAttribute("href") ===
+            "https://github.com/acme/repo/compare/main...clawpatch/fix/fnd-bug?expand=1",
+        ),
+    ).toBe(true);
   });
 
   it("disables Publish PR while a finding command is running", async () => {
@@ -1401,6 +1514,7 @@ function makeApi(
     findings?: readonly FindingListItem[];
     findingGet?: Api["findings"]["get"];
     findingsList?: Api["findings"]["list"];
+    findingWorkStatuses?: Api["findings"]["workStatuses"];
     featureMap?: Api["features"]["map"];
     findingDetail?: FindingDetail;
     interrupt?: Api["commands"]["interrupt"];
@@ -1462,6 +1576,7 @@ function makeApi(
           }
           return options.findingDetail;
         }),
+      workStatuses: options.findingWorkStatuses ?? (async () => []),
     },
     features: {
       map: options.featureMap ?? (async () => makeFeatureMapSnapshot()),
@@ -1519,6 +1634,13 @@ function makeFinding(): FindingDetail {
     patchAttempts: [],
     history: [],
   };
+}
+
+function repoPathOrder(): string[] {
+  return screen
+    .getAllByRole("button")
+    .map((element) => element.getAttribute("title"))
+    .filter((title): title is string => title?.startsWith("/") ?? false);
 }
 
 function makeRepo(overrides: Partial<RepoSummary> = {}): RepoSummary {

@@ -16,6 +16,7 @@ import type {
   FeatureMapSnapshot,
   FindingDetail,
   FindingListItem,
+  FindingWorkStatus,
   GitStatusSummary,
   PublishFixResult,
   RepoSettings,
@@ -42,8 +43,15 @@ import { SetupScriptRunner, type SetupScriptRunnerShape } from "./setupScriptRun
 import { TerminalLauncher, type TerminalLauncherError } from "./terminalLauncher";
 import { UiMetadataService, type UiMetadataError } from "./uiMetadata";
 
+interface RegistryRepo {
+  readonly id: string;
+  readonly name: string;
+  readonly path: string;
+  readonly updatedAt?: string;
+}
+
 interface RegistryFile {
-  repos: Array<Pick<RepoSummary, "id" | "name" | "path" | "updatedAt">>;
+  repos: RegistryRepo[];
 }
 
 const TARGET_BASE_REF = "origin/main";
@@ -73,6 +81,9 @@ export interface RepoServiceShape {
     settings: RepoSettings,
   ) => Effect.Effect<RepoSettings, RepoServiceError>;
   readonly listFindings: (repoId: string) => Effect.Effect<FindingListItem[], RepoServiceError>;
+  readonly listFindingWorkStatuses: (
+    repoId: string,
+  ) => Effect.Effect<FindingWorkStatus[], RepoServiceError>;
   readonly readFeatureMap: (repoId: string) => Effect.Effect<FeatureMapSnapshot, RepoServiceError>;
   readonly getFinding: (
     repoId: string,
@@ -224,6 +235,7 @@ export const RepoServiceLive = (appDataDir: string) =>
       const summarizeRepo = Effect.fn("repoService.summarizeRepo")(function* (
         repoPath: string,
         id: string,
+        registryUpdatedAt: string | undefined,
       ) {
         const activeWorktrees = yield* activeWorktreesForRepo(id);
         const activeWorktreePath = activeWorktrees[0]?.path ?? null;
@@ -270,7 +282,7 @@ export const RepoServiceLive = (appDataDir: string) =>
           openFindingCount: findings.filter((item) => item.status === "open").length,
           activeWorktreePath,
           activeWorktrees,
-          updatedAt: new Date().toISOString(),
+          updatedAt: latestFindingUpdatedAt(findings, registryUpdatedAt),
         } satisfies RepoSummary;
       });
 
@@ -441,6 +453,46 @@ export const RepoServiceLive = (appDataDir: string) =>
 
         return [...byId.values()];
       });
+
+      const newestPrUrlForFinding = Effect.fn("repoService.newestPrUrlForFinding")(function* (
+        repoPath: string,
+        worktreePath: string,
+        findingId: string,
+      ) {
+        const detail = yield* state.readFindingDetail(worktreePath, findingId).pipe(
+          Effect.catch(() => state.readFindingDetail(repoPath, findingId)),
+          Effect.catch(() => Effect.succeed(null)),
+        );
+        return detail?.patchAttempts.find((patch) => patch.git.prUrl !== null)?.git.prUrl ?? null;
+      });
+
+      const workStatusForActiveWorktree = Effect.fn("repoService.workStatusForActiveWorktree")(
+        function* (repoPath: string, findingId: string, worktreePath: string) {
+          const [statusResult, prUrl] = yield* Effect.all([
+            git.readStatus(worktreePath).pipe(
+              Effect.match({
+                onFailure: (error) => ({
+                  gitStatus: null,
+                  error: errorMessage(error),
+                }),
+                onSuccess: (gitStatus) => ({
+                  gitStatus,
+                  error: null,
+                }),
+              }),
+            ),
+            newestPrUrlForFinding(repoPath, worktreePath, findingId),
+          ]);
+
+          return {
+            findingId,
+            worktreePath,
+            gitStatus: statusResult.gitStatus,
+            prUrl,
+            error: statusResult.error,
+          } satisfies FindingWorkStatus;
+        },
+      );
 
       const runCommandAtPath = Effect.fn("repoService.runCommandAtPath")(function* (
         repoIdValue: string,
@@ -728,7 +780,7 @@ export const RepoServiceLive = (appDataDir: string) =>
         listRepos: Effect.fn("repoService.listRepos")(function* () {
           const registry = yield* readRegistry();
           return yield* Effect.all(
-            registry.repos.map((repo) => summarizeRepo(repo.path, repo.id)),
+            registry.repos.map((repo) => summarizeRepo(repo.path, repo.id, repo.updatedAt)),
             { concurrency: "unbounded" },
           );
         }),
@@ -753,13 +805,13 @@ export const RepoServiceLive = (appDataDir: string) =>
               return repo;
             }),
           );
-          return yield* summarizeRepo(repo.path, repo.id);
+          return yield* summarizeRepo(repo.path, repo.id, repo.updatedAt);
         }),
         refreshRepo: Effect.fn("repoService.refreshRepo")(function* (repoIdValue) {
           const repo = yield* requireRepo(repoIdValue);
           const repoMetadata = yield* metadata.read(repo.id, repo.path);
           const [summary, diff] = yield* Effect.all([
-            summarizeRepo(repo.path, repo.id),
+            summarizeRepo(repo.path, repo.id, repo.updatedAt),
             git.readDiff(repo.path),
           ]);
           const findings = yield* readFindingListWithActiveWorktrees(repo.id, repo.path);
@@ -796,6 +848,18 @@ export const RepoServiceLive = (appDataDir: string) =>
           const repo = yield* requireRepo(repoIdValue);
           return yield* readFindingListWithActiveWorktrees(repo.id, repo.path);
         }),
+        listFindingWorkStatuses: Effect.fn("repoService.listFindingWorkStatuses")(
+          function* (repoIdValue) {
+            const repo = yield* requireRepo(repoIdValue);
+            const activeWorktrees = yield* activeWorktreesForRepo(repo.id);
+            return yield* Effect.all(
+              activeWorktrees.map(({ findingId, path: worktreePath }) =>
+                workStatusForActiveWorktree(repo.path, findingId, worktreePath),
+              ),
+              { concurrency: "unbounded" },
+            );
+          },
+        ),
         readFeatureMap: Effect.fn("repoService.readFeatureMap")(function* (repoIdValue) {
           const repo = yield* requireRepo(repoIdValue);
           return yield* state.readFeatureMap(repo.path);
@@ -892,6 +956,33 @@ function expandHomePath(inputPath: string, path: Path.Path): string {
 
 function repoId(repoPath: string): string {
   return createHash("sha256").update(repoPath).digest("hex").slice(0, 16);
+}
+
+function latestFindingUpdatedAt(
+  findings: readonly FindingListItem[],
+  fallbackUpdatedAt: string | undefined,
+): string {
+  if (findings.length === 0) {
+    return fallbackUpdatedAt ?? new Date(0).toISOString();
+  }
+  let latestTimestamp = 0;
+  let latestUpdatedAt = findings[0]?.updatedAt ?? new Date(0).toISOString();
+  for (const finding of findings) {
+    const findingTimestamp = timestamp(finding.updatedAt);
+    if (findingTimestamp > latestTimestamp) {
+      latestTimestamp = findingTimestamp;
+      latestUpdatedAt = finding.updatedAt;
+    }
+  }
+  return latestUpdatedAt;
+}
+
+function timestamp(value: string | undefined): number {
+  if (value === undefined) {
+    return 0;
+  }
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : 0;
 }
 
 function commandLifecycleMetadata(
@@ -992,4 +1083,8 @@ function readFindingTitleForCommit(
 
 function sanitizeCommitSubject(value: string): string {
   return value.replaceAll(/\s+/g, " ").trim() || "finding";
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }

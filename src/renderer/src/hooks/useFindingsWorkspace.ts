@@ -25,6 +25,14 @@ export function useFindingsWorkspace({ selectedRepo }: { selectedRepo: RepoSumma
     enabled: selectedRepo !== null,
   });
 
+  const workStatusesQuery = useQuery({
+    queryKey: clawpatchQueryKeys.findingWorkStatuses(selectedRepo?.id),
+    queryFn: () => window.clawpatch.findings.workStatuses(selectedRepo!.id),
+    enabled: selectedRepo !== null,
+    refetchInterval: GIT_STATUS_REFETCH_INTERVAL_MS,
+    refetchIntervalInBackground: false,
+  });
+
   const allFindings = useMemo(() => findingsQuery.data ?? [], [findingsQuery.data]);
   const filteredFindings = useMemo(
     () => filterFindings(allFindings, findingFilters),
@@ -37,6 +45,11 @@ export function useFindingsWorkspace({ selectedRepo }: { selectedRepo: RepoSumma
   const findingFilterOptions = useMemo(
     () => getFindingFilterOptions(allFindings, clawpatchStatuses),
     [allFindings],
+  );
+  const workStatusByFindingId = useMemo(
+    () =>
+      new Map((workStatusesQuery.data ?? []).map((status) => [status.findingId, status] as const)),
+    [workStatusesQuery.data],
   );
 
   const selectedFinding = useMemo(
@@ -114,5 +127,7 @@ export function useFindingsWorkspace({ selectedRepo }: { selectedRepo: RepoSumma
     setFindingSort,
     setSelectedFindingId,
     sortedFindings,
+    workStatusByFindingId,
+    workStatusesQuery,
   };
 }

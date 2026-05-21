@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { useMemo, useState } from "react";
 import { describe, expect, it, vi } from "vitest";
-import type { FindingListItem } from "../../src/shared/types";
+import type { FindingListItem, FindingWorkStatus } from "../../src/shared/types";
 import { clawpatchStatuses } from "../../src/shared/constants";
 import { FindingsTable } from "../../src/renderer/src/components/FindingsTable";
 import {
@@ -167,6 +167,53 @@ describe("FindingsTable filters", () => {
 
     fireEvent.click(screen.getByText("Null branch can throw"));
     expect(onSelectFinding).toHaveBeenCalledWith("fnd-bug");
+  });
+
+  it("renders compact work badges only for findings with active work", () => {
+    const workStatusByFindingId = new Map<string, FindingWorkStatus>([
+      [
+        "fnd-security",
+        {
+          findingId: "fnd-security",
+          worktreePath: "/tmp/worktree",
+          gitStatus: { staged: 0, modified: 1, untracked: 0, branch: "clawpatch/fix/fnd-security" },
+          prUrl: null,
+          error: null,
+        },
+      ],
+      [
+        "fnd-bug",
+        {
+          findingId: "fnd-bug",
+          worktreePath: "/tmp/worktree-bug",
+          gitStatus: { staged: 0, modified: 0, untracked: 0, branch: "clawpatch/fix/fnd-bug" },
+          prUrl: "https://github.com/acme/repo/compare/main...clawpatch/fix/fnd-bug?expand=1",
+          error: null,
+        },
+      ],
+    ]);
+
+    render(
+      <FindingsTable
+        findings={findings}
+        totalFindingCount={findings.length}
+        selectedFindingId={null}
+        isLoading={false}
+        filters={{ ...defaultFindingFilters, status: null }}
+        filterOptions={getFindingFilterOptions(findings, clawpatchStatuses)}
+        sort={defaultFindingSort}
+        bulkRevalidationProgress={null}
+        workStatusByFindingId={workStatusByFindingId}
+        onFiltersChange={vi.fn()}
+        onSortChange={vi.fn()}
+        onSelectFinding={vi.fn()}
+        onRevalidateShown={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByLabelText("Work status: Dirty")).toBeInTheDocument();
+    expect(screen.getByLabelText("Work status: PR")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Work status: Worktree")).not.toBeInTheDocument();
   });
 
   it("sorts visible rows when clicking column headings", () => {

@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   COMMANDS_INTERRUPT_CHANNEL,
   COMMANDS_STREAM_CHANNEL,
+  FINDINGS_WORK_STATUSES_CHANNEL,
   GIT_PUBLISH_FIX_CHANNEL,
   REPO_DOCTOR_CHANNEL,
   REPO_GET_SETTINGS_CHANNEL,
@@ -75,6 +76,28 @@ describe("preload api", () => {
       repoId: "repo-1",
       findingId: "fnd-1",
     });
+  });
+
+  it("exposes finding work statuses over IPC", async () => {
+    invokeMock.mockResolvedValue([
+      {
+        findingId: "fnd-1",
+        worktreePath: "/tmp/worktree",
+        gitStatus: { staged: 0, modified: 1, untracked: 0, branch: "clawpatch/fix/fnd-1" },
+        prUrl: null,
+        error: null,
+      },
+    ]);
+
+    await import("../../src/preload/index");
+
+    const api = exposeInMainWorldMock.mock.calls[0]?.[1] as Api | undefined;
+    if (api === undefined) {
+      throw new Error("preload api was not exposed");
+    }
+
+    await expect(api.findings.workStatuses("repo-1")).resolves.toHaveLength(1);
+    expect(invokeMock).toHaveBeenCalledWith(FINDINGS_WORK_STATUSES_CHANNEL, { repoId: "repo-1" });
   });
 
   it("exposes terminal open over IPC", async () => {

@@ -7,6 +7,7 @@ export const REPO_GET_SETTINGS_CHANNEL = "repo:get-settings";
 export const REPO_UPDATE_SETTINGS_CHANNEL = "repo:update-settings";
 export const FINDINGS_LIST_CHANNEL = "findings:list";
 export const FINDINGS_GET_CHANNEL = "findings:get";
+export const FINDINGS_WORK_STATUSES_CHANNEL = "findings:work-statuses";
 export const FEATURES_MAP_CHANNEL = "features:map";
 export const TRIAGE_SET_CHANNEL = "triage:set";
 export const COMMANDS_RUN_CHANNEL = "commands:run";

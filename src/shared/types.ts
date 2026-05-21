@@ -11,6 +11,7 @@ import type {
   FindingDetailSchema,
   FindingHistoryEntrySchema,
   FindingListItemSchema,
+  FindingWorkStatusSchema,
   GitStatusSummarySchema,
   PatchAttemptSchema,
   PatchCommandRunSchema,
@@ -41,6 +42,7 @@ export type EvidenceRef = typeof EvidenceRefSchema.Type;
 export type FindingListItem = typeof FindingListItemSchema.Type;
 export type FindingHistoryEntry = typeof FindingHistoryEntrySchema.Type;
 export type FindingDetail = typeof FindingDetailSchema.Type;
+export type FindingWorkStatus = typeof FindingWorkStatusSchema.Type;
 export type PatchCommandRun = typeof PatchCommandRunSchema.Type;
 export type PatchGitInfo = typeof PatchGitInfoSchema.Type;
 export type PatchAttempt = typeof PatchAttemptSchema.Type;
@@ -64,6 +66,7 @@ export interface Api {
   findings: {
     list: (repoId: string) => Promise<readonly FindingListItem[]>;
     get: (repoId: string, findingId: string) => Promise<FindingDetail>;
+    workStatuses: (repoId: string) => Promise<readonly FindingWorkStatus[]>;
   };
   features: {
     map: (repoId: string) => Promise<FeatureMapSnapshot>;

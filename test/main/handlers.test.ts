@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   COMMANDS_INTERRUPT_CHANNEL,
   COMMANDS_RUN_CHANNEL,
+  FINDINGS_WORK_STATUSES_CHANNEL,
   GIT_PUBLISH_FIX_CHANNEL,
   REPO_DOCTOR_CHANNEL,
   REPO_GET_SETTINGS_CHANNEL,
@@ -185,6 +186,34 @@ describe("IPC handlers", () => {
     }
   });
 
+  it("returns finding work statuses through IPC", async () => {
+    const listFindingWorkStatuses = vi.fn<RepoServiceShape["listFindingWorkStatuses"]>(() =>
+      Effect.succeed([
+        {
+          findingId: "fnd-1",
+          worktreePath: "/tmp/worktree",
+          gitStatus: { staged: 0, modified: 1, untracked: 0, branch: "clawpatch/fix/fnd-1" },
+          prUrl: null,
+          error: null,
+        },
+      ]),
+    );
+    const { registered, runtime } = await installHandlersForTest({ listFindingWorkStatuses });
+    const listener = registered.get(FINDINGS_WORK_STATUSES_CHANNEL);
+    if (listener === undefined) {
+      throw new Error("finding work statuses IPC handler was not registered");
+    }
+
+    try {
+      await expect(listener({} as IpcMainInvokeEvent, { repoId: "repo-1" })).resolves.toHaveLength(
+        1,
+      );
+      expect(listFindingWorkStatuses).toHaveBeenCalledWith("repo-1");
+    } finally {
+      await runtime.dispose();
+    }
+  });
+
   it("opens the GitHub PR page after publishing a fix", async () => {
     openExternalMock.mockResolvedValue(undefined);
     const publishFix = vi.fn<RepoServiceShape["publishFix"]>(() =>
@@ -291,6 +320,7 @@ async function installHandlersForTest(options: {
   readonly publish?: (event: CommandStreamEvent) => void;
   readonly publishFix?: RepoServiceShape["publishFix"];
   readonly getSettings?: RepoServiceShape["getSettings"];
+  readonly listFindingWorkStatuses?: RepoServiceShape["listFindingWorkStatuses"];
   readonly updateSettings?: RepoServiceShape["updateSettings"];
   readonly runCommand?: RepoServiceShape["runCommand"];
 }): Promise<{
@@ -306,6 +336,7 @@ async function installHandlersForTest(
     readonly publish?: (event: CommandStreamEvent) => void;
     readonly publishFix?: RepoServiceShape["publishFix"];
     readonly getSettings?: RepoServiceShape["getSettings"];
+    readonly listFindingWorkStatuses?: RepoServiceShape["listFindingWorkStatuses"];
     readonly updateSettings?: RepoServiceShape["updateSettings"];
     readonly runCommand?: RepoServiceShape["runCommand"];
   } = {},
@@ -344,6 +375,7 @@ function makeRepoServiceLayer(
     readonly openTerminal?: RepoServiceShape["openTerminal"];
     readonly publishFix?: RepoServiceShape["publishFix"];
     readonly getSettings?: RepoServiceShape["getSettings"];
+    readonly listFindingWorkStatuses?: RepoServiceShape["listFindingWorkStatuses"];
     readonly updateSettings?: RepoServiceShape["updateSettings"];
     readonly runCommand?: RepoServiceShape["runCommand"];
   } = {},
@@ -389,6 +421,7 @@ function makeRepoServiceLayer(
             updatedAt: "2026-05-19T00:00:00.000Z",
           })),
       listFindings: () => Effect.succeed([]),
+      listFindingWorkStatuses: options.listFindingWorkStatuses ?? (() => Effect.succeed([])),
       doctor: options.doctor ?? (() => Effect.succeed(makeCommandResult())),
       readFeatureMap: () => Effect.succeed(makeFeatureMapSnapshot()),
       getFinding: () => Effect.die("not implemented"),
