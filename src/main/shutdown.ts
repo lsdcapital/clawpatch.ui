@@ -11,6 +11,10 @@ export interface BeforeQuitEventLike {
 }
 
 export type ShutdownLogger = (message: string, error: unknown) => void;
+export const shutdownSignals = ["SIGINT", "SIGTERM"] as const;
+export type ShutdownSignal = (typeof shutdownSignals)[number];
+
+export type ShutdownSignalLogger = (signal: ShutdownSignal, forced: boolean) => void;
 
 export async function cleanupAppRuntime(
   runtime: AppRuntimeCleanup<ClawpatchRunner>,
@@ -65,4 +69,34 @@ export function makeBeforeQuitHandler(input: {
       input.quit();
     });
   };
+}
+
+export function makeProcessSignalHandler(input: {
+  readonly quit: () => void;
+  readonly forceExit: (exitCode: number) => void;
+  readonly logSignal?: ShutdownSignalLogger;
+}): (signal: ShutdownSignal) => void {
+  let isQuitting = false;
+
+  return (signal) => {
+    const forced = isQuitting;
+    input.logSignal?.(signal, forced);
+
+    if (forced) {
+      input.forceExit(exitCodeForSignal(signal));
+      return;
+    }
+
+    isQuitting = true;
+    input.quit();
+  };
+}
+
+function exitCodeForSignal(signal: ShutdownSignal): number {
+  switch (signal) {
+    case "SIGINT":
+      return 130;
+    case "SIGTERM":
+      return 143;
+  }
 }

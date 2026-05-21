@@ -18,7 +18,7 @@ import { TerminalLauncherLive } from "./services/terminalLauncher";
 import { UiMetadataServiceLive } from "./services/uiMetadata";
 import { RepoServiceLive } from "./services/repoService";
 import { SetupScriptRunnerLive } from "./services/setupScriptRunner";
-import { makeBeforeQuitHandler } from "./shutdown";
+import { makeBeforeQuitHandler, makeProcessSignalHandler, shutdownSignals } from "./shutdown";
 import {
   MIN_WINDOW_HEIGHT,
   MIN_WINDOW_WIDTH,
@@ -49,6 +49,17 @@ const handleBeforeQuit = makeBeforeQuitHandler({
     startupLogger.error({ err: error }, message);
   },
 });
+const handleProcessSignal = makeProcessSignalHandler({
+  quit: () => app.quit(),
+  forceExit: (exitCode) => app.exit(exitCode),
+  logSignal: (signal, forced) => {
+    startupLogger.info({ signal, forced }, "Received shutdown signal");
+  },
+});
+
+for (const signal of shutdownSignals) {
+  process.on(signal, () => handleProcessSignal(signal));
+}
 
 app.setName(APP_DISPLAY_NAME);
 app.setAppUserModelId(APP_ID);
