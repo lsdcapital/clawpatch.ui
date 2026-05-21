@@ -7,7 +7,7 @@ import {
   SquareIcon,
   WrenchIcon,
 } from "lucide-react";
-import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import { useEffect, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import type {
   ClawpatchStatus,
   FindingDetail,
@@ -23,6 +23,7 @@ import {
   formatGitStatusCounts,
   isGitStatusDirty,
 } from "../findingWorkStatus";
+import { useDismissiblePopover } from "../hooks/useDismissiblePopover";
 import { ActionIconButton } from "./ActionIconButton";
 
 interface Props {
@@ -65,7 +66,10 @@ export function FindingDetailPanel({
   const [status, setStatus] = useState<ClawpatchStatus>("open");
   const [isStatusMenuOpen, setIsStatusMenuOpen] = useState(false);
   const [note, setNote] = useState("");
-  const statusSelectorRef = useRef<HTMLDivElement>(null);
+  const statusSelectorRef = useDismissiblePopover<HTMLDivElement>({
+    isOpen: isStatusMenuOpen,
+    onDismiss: () => setIsStatusMenuOpen(false),
+  });
 
   useEffect(() => {
     if (finding !== null) {
@@ -74,37 +78,6 @@ export function FindingDetailPanel({
       setNote("");
     }
   }, [finding]);
-
-  useEffect(() => {
-    if (!isStatusMenuOpen) {
-      return;
-    }
-
-    function handlePointerDown(event: MouseEvent): void {
-      const selectorElement = statusSelectorRef.current;
-      if (selectorElement === null || !(event.target instanceof Node)) {
-        return;
-      }
-
-      if (!selectorElement.contains(event.target)) {
-        setIsStatusMenuOpen(false);
-      }
-    }
-
-    function handleKeyDown(event: KeyboardEvent): void {
-      if (event.key === "Escape") {
-        setIsStatusMenuOpen(false);
-      }
-    }
-
-    document.addEventListener("mousedown", handlePointerDown);
-    document.addEventListener("keydown", handleKeyDown);
-
-    return () => {
-      document.removeEventListener("mousedown", handlePointerDown);
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [isStatusMenuOpen]);
 
   if (finding === null) {
     return (

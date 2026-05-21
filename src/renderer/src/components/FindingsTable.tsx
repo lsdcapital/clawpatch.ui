@@ -5,9 +5,10 @@ import {
   GitPullRequestIcon,
   FileCheck2Icon,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import type { ClawpatchStatus, FindingListItem, FindingWorkStatus } from "../../../shared/types";
 import type { BulkRevalidationProgress } from "../hooks/useCommandRunner";
+import { useDismissiblePopover } from "../hooks/useDismissiblePopover";
 import {
   defaultFindingFilters,
   isFindingFiltersActive,
@@ -52,8 +53,11 @@ export function FindingsTable({
   onSelectFinding,
   onRevalidateShown,
 }: Props) {
-  const filterMenuRef = useRef<HTMLDetailsElement>(null);
   const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
+  const filterMenuRef = useDismissiblePopover<HTMLDetailsElement>({
+    isOpen: isFilterMenuOpen,
+    onDismiss: () => setIsFilterMenuOpen(false),
+  });
   const filtersActive = isFindingFiltersActive(filters);
   const countLabel = isLoading
     ? "Loading"
@@ -72,30 +76,6 @@ export function FindingsTable({
       direction: sort.field === field ? toggleDirection(sort.direction) : "asc",
     });
   };
-
-  useEffect(() => {
-    if (!isFilterMenuOpen) {
-      return;
-    }
-
-    const closeFilterMenuOnOutsideClick = (event: MouseEvent): void => {
-      const menuElement = filterMenuRef.current;
-
-      if (menuElement === null || !(event.target instanceof Node)) {
-        return;
-      }
-
-      if (!menuElement.contains(event.target)) {
-        setIsFilterMenuOpen(false);
-      }
-    };
-
-    document.addEventListener("mousedown", closeFilterMenuOnOutsideClick);
-
-    return () => {
-      document.removeEventListener("mousedown", closeFilterMenuOnOutsideClick);
-    };
-  }, [isFilterMenuOpen]);
 
   return (
     <div className="findings-list-pane">

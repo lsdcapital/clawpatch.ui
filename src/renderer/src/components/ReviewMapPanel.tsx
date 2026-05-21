@@ -1,6 +1,7 @@
 import { ClipboardCheckIcon, ListChecksIcon, MapIcon } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import type { FeatureMapSnapshot } from "../../../shared/types";
+import { useDismissiblePopover } from "../hooks/useDismissiblePopover";
 import {
   defaultReviewQueueFilters,
   filterReviewQueue,
@@ -28,9 +29,12 @@ export function ReviewMapPanel({
   onReviewPending,
   onUpdateMap,
 }: Props) {
-  const filterMenuRef = useRef<HTMLDetailsElement>(null);
   const [filters, setFilters] = useState(defaultReviewQueueFilters);
   const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
+  const filterMenuRef = useDismissiblePopover<HTMLDetailsElement>({
+    isOpen: isFilterMenuOpen,
+    onDismiss: () => setIsFilterMenuOpen(false),
+  });
   const features = useMemo(() => snapshot?.features ?? [], [snapshot]);
   const filteredFeatures = useMemo(() => filterReviewQueue(features, filters), [features, filters]);
   const filterOptions = useMemo(() => getReviewQueueFilterOptions(features), [features]);
@@ -49,30 +53,6 @@ export function ReviewMapPanel({
   const updateFilters = (nextFilters: Partial<ReviewQueueFilters>): void => {
     setFilters((current) => ({ ...current, ...nextFilters }));
   };
-
-  useEffect(() => {
-    if (!isFilterMenuOpen) {
-      return;
-    }
-
-    const closeFilterMenuOnOutsideClick = (event: MouseEvent): void => {
-      const menuElement = filterMenuRef.current;
-
-      if (menuElement === null || !(event.target instanceof Node)) {
-        return;
-      }
-
-      if (!menuElement.contains(event.target)) {
-        setIsFilterMenuOpen(false);
-      }
-    };
-
-    document.addEventListener("mousedown", closeFilterMenuOnOutsideClick);
-
-    return () => {
-      document.removeEventListener("mousedown", closeFilterMenuOnOutsideClick);
-    };
-  }, [isFilterMenuOpen]);
 
   return (
     <section className="panel review-queue-panel">
