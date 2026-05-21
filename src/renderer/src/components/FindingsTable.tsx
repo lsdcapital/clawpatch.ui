@@ -117,6 +117,12 @@ export function FindingsTable({
                 onSelect={(severity) => updateFilters({ severity })}
               />
               <FilterGroup
+                title="Confidence"
+                values={filterOptions.confidences}
+                selectedValue={filters.confidence}
+                onSelect={(confidence) => updateFilters({ confidence })}
+              />
+              <FilterGroup
                 title="Category"
                 values={filterOptions.categories}
                 selectedValue={filters.category}
@@ -152,13 +158,19 @@ export function FindingsTable({
             ) : null}
             {filters.severity !== null ? (
               <FilterChip
-                label={labelFor(filters.severity)}
+                label={`Severity: ${labelFor(filters.severity)}`}
                 onClear={() => updateFilters({ severity: null })}
+              />
+            ) : null}
+            {filters.confidence !== null ? (
+              <FilterChip
+                label={`Confidence: ${labelFor(filters.confidence)}`}
+                onClear={() => updateFilters({ confidence: null })}
               />
             ) : null}
             {filters.category !== null ? (
               <FilterChip
-                label={labelFor(filters.category)}
+                label={`Category: ${labelFor(filters.category)}`}
                 onClear={() => updateFilters({ category: null })}
               />
             ) : null}
@@ -168,6 +180,7 @@ export function FindingsTable({
       <div className="findings-table" role="table">
         <div className="table-row table-head" role="row">
           <SortableHeader field="severity" label="Severity" sort={sort} onSort={updateSort} />
+          <SortableHeader field="confidence" label="Confidence" sort={sort} onSort={updateSort} />
           <SortableHeader field="status" label="Status" sort={sort} onSort={updateSort} />
           <span role="columnheader">Work</span>
           <SortableHeader field="category" label="Category" sort={sort} onSort={updateSort} />
@@ -185,6 +198,7 @@ export function FindingsTable({
               role="row"
             >
               <span className={`severity ${finding.severity}`}>{finding.severity}</span>
+              <span>{finding.confidence}</span>
               <span>{finding.status}</span>
               <FindingWorkBadge status={workStatus} />
               <span>{finding.category}</span>

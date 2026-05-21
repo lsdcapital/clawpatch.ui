@@ -97,6 +97,21 @@ describe("finding filters", () => {
     ).toEqual(["fnd-security"]);
   });
 
+  it("filters by confidence", () => {
+    expect(
+      filterFindings(findings, { ...defaultFindingFilters, confidence: "low" }).map(
+        (item) => item.findingId,
+      ),
+    ).toEqual(["fnd-test"]);
+    expect(
+      filterFindings(findings, {
+        ...defaultFindingFilters,
+        status: null,
+        confidence: "medium",
+      }).map((item) => item.findingId),
+    ).toEqual(["fnd-bug", "fnd-wont-fix"]);
+  });
+
   it("filters security as a category", () => {
     expect(
       filterFindings(findings, { ...defaultFindingFilters, category: "security" }).map(
@@ -126,10 +141,12 @@ describe("finding filters", () => {
   it("reports active filters and derived options", () => {
     expect(isFindingFiltersActive(defaultFindingFilters)).toBe(false);
     expect(isFindingFiltersActive({ ...defaultFindingFilters, status: null })).toBe(true);
+    expect(isFindingFiltersActive({ ...defaultFindingFilters, confidence: "low" })).toBe(true);
     expect(isFindingFiltersActive({ ...defaultFindingFilters, category: "security" })).toBe(true);
     expect(getFindingFilterOptions(findings, clawpatchStatuses)).toEqual({
       statuses: clawpatchStatuses,
       severities: ["high", "low", "medium"],
+      confidences: ["high", "low", "medium"],
       categories: ["bug", "maintainability", "security", "test-gap"],
     });
   });
@@ -204,6 +221,26 @@ describe("finding filters", () => {
         (item) => item.findingId,
       ),
     ).toEqual(["fnd-security", "fnd-api", "fnd-zeta"]);
+  });
+
+  it("sorts confidence by low, medium, high, and unknown", () => {
+    const unsortedFindings = [
+      makeFinding({ findingId: "fnd-medium", confidence: "medium" }),
+      makeFinding({ findingId: "fnd-unknown", confidence: "likely" }),
+      makeFinding({ findingId: "fnd-low", confidence: "low" }),
+      makeFinding({ findingId: "fnd-high", confidence: "high" }),
+    ];
+
+    expect(
+      sortFindings(unsortedFindings, { field: "confidence", direction: "asc" }).map(
+        (item) => item.findingId,
+      ),
+    ).toEqual(["fnd-unknown", "fnd-low", "fnd-medium", "fnd-high"]);
+    expect(
+      sortFindings(unsortedFindings, { field: "confidence", direction: "desc" }).map(
+        (item) => item.findingId,
+      ),
+    ).toEqual(["fnd-high", "fnd-medium", "fnd-low", "fnd-unknown"]);
   });
 });
 
