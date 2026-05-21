@@ -1,4 +1,5 @@
 import type { ButtonHTMLAttributes, ReactNode } from "react";
+import { IconButton } from "./IconButton";
 
 type ActionIconButtonVariant = "primary" | "secondary" | "danger";
 
@@ -23,8 +24,13 @@ export function ActionIconButton({
     .join(" ");
 
   return (
-    <button {...props} aria-label={label} className={classes} title={title ?? label} type={type}>
-      {icon}
-    </button>
+    <IconButton
+      {...props}
+      className={classes}
+      icon={icon}
+      label={label}
+      tooltip={title}
+      type={type}
+    />
   );
 }

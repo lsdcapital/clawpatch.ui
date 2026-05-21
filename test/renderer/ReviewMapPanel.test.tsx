@@ -15,6 +15,14 @@ describe("ReviewMapPanel", () => {
       screen.getByRole("button", { name: "Review all 2 pending and error map items" }),
     ).toBeInTheDocument();
     expect(screen.queryByText(/Review \d+ remaining/)).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Review all 2 pending and error map items" }),
+    ).not.toHaveAttribute("title");
+    fireEvent.mouseEnter(
+      screen.getByRole("button", { name: "Review all 2 pending and error map items" })
+        .parentElement as HTMLElement,
+    );
+    expect(screen.getByText("Review pending")).toHaveClass("icon-tooltip");
 
     fireEvent.click(
       screen.getByRole("button", {

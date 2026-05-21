@@ -154,7 +154,11 @@ describe("FindingsTable filters", () => {
       />,
     );
 
-    expect(screen.getByRole("button", { name: "Revalidate shown" })).toBeDisabled();
+    const revalidateButton = screen.getByRole("button", { name: "Revalidate shown" });
+    expect(revalidateButton).toBeDisabled();
+    expect(revalidateButton).not.toHaveAttribute("title");
+    fireEvent.mouseEnter(revalidateButton.parentElement as HTMLElement);
+    expect(screen.getByText("Revalidate shown")).toHaveClass("icon-tooltip");
   });
 
   it("selects visible rows", () => {

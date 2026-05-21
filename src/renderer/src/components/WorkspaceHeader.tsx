@@ -1,7 +1,7 @@
-import type { ButtonHTMLAttributes, ReactNode } from "react";
 import { DiffIcon, LogsIcon, TerminalSquareIcon } from "lucide-react";
 import type { RepoSummary } from "../../../shared/types";
 import type { ActiveInspector, ActiveWorkspace } from "../workspaceTypes";
+import { IconButton } from "./IconButton";
 
 export function WorkspaceHeader({
   repo,
@@ -45,14 +45,14 @@ export function WorkspaceHeader({
         </button>
       </div>
       <div className="header-actions">
-        <HeaderIconButton
+        <IconButton
           className="icon-button"
           disabled={repo === null || isOpeningTerminal}
           icon={<TerminalSquareIcon aria-hidden="true" />}
           label="Open terminal"
           onClick={onOpenTerminal}
         />
-        <HeaderIconButton
+        <IconButton
           className={
             activeInspector === "diff"
               ? "icon-button drawer-toggle active"
@@ -64,7 +64,7 @@ export function WorkspaceHeader({
           onClick={() => onToggleInspector("diff")}
           aria-pressed={activeInspector === "diff"}
         />
-        <HeaderIconButton
+        <IconButton
           className={
             activeInspector === "output"
               ? "icon-button drawer-toggle active"
@@ -77,36 +77,5 @@ export function WorkspaceHeader({
         />
       </div>
     </header>
-  );
-}
-
-interface HeaderIconButtonProps extends Omit<
-  ButtonHTMLAttributes<HTMLButtonElement>,
-  "children" | "title"
-> {
-  readonly icon: ReactNode;
-  readonly label: string;
-  readonly tooltipHidden?: boolean;
-}
-
-function HeaderIconButton({
-  icon,
-  label,
-  tooltipHidden = false,
-  type = "button",
-  ...props
-}: HeaderIconButtonProps) {
-  return (
-    <span
-      className="header-tooltip-trigger"
-      data-tooltip-hidden={tooltipHidden ? "true" : undefined}
-    >
-      <button {...props} aria-label={label} type={type}>
-        {icon}
-      </button>
-      <span className="header-icon-tooltip" aria-hidden="true">
-        {label}
-      </span>
-    </span>
   );
 }
