@@ -91,7 +91,7 @@ export function FindingDetailPanel({
   const evidence = finding.evidence ?? [];
   const history = finding.history ?? [];
   const patchAttempts = finding.patchAttempts ?? [];
-  const noteHistory = history.filter((entry) => entry.note !== null && entry.note.trim() !== "");
+  const visibleHistory = history.filter(historyEntryHasVisibleContent);
   const saveTriageNote = (): void => {
     if (!isBusy) {
       onTriage(status, note);
@@ -181,6 +181,7 @@ export function FindingDetailPanel({
               aria-haspopup="menu"
               aria-label={`Finding status: ${status}`}
               className="detail-status-trigger"
+              disabled={isBusy}
               type="button"
               onClick={() => setIsStatusMenuOpen((isOpen) => !isOpen)}
             >
@@ -192,12 +193,16 @@ export function FindingDetailPanel({
                   <button
                     aria-checked={item === status}
                     className={item === status ? "active" : ""}
+                    disabled={isBusy}
                     key={item}
                     role="menuitemradio"
                     type="button"
                     onClick={() => {
                       setStatus(item);
                       setIsStatusMenuOpen(false);
+                      if (item !== status) {
+                        onTriage(item, note);
+                      }
                     }}
                   >
                     {item}
@@ -238,17 +243,20 @@ export function FindingDetailPanel({
         <TextSection title="Reproduction" value={finding.reproduction} />
         <TextSection title="Suggested Test" value={finding.suggestedRegressionTest} />
 
-        {noteHistory.length > 0 ? (
+        {visibleHistory.length > 0 ? (
           <section>
             <h3>History</h3>
             <div className="history-list">
-              {noteHistory.map((entry) => (
+              {visibleHistory.map((entry) => (
                 <article className="history-entry" key={historyEntryKey(entry)}>
                   <div className="history-entry-meta">
                     <strong>{entry.status ?? entry.kind}</strong>
                     <time dateTime={entry.createdAt}>{formatHistoryDate(entry.createdAt)}</time>
                   </div>
-                  <p>{entry.note}</p>
+                  {entry.note !== null && entry.note.trim() !== "" ? <p>{entry.note}</p> : null}
+                  {entry.reasoning !== null && entry.reasoning.trim() !== "" ? (
+                    <p>{entry.reasoning}</p>
+                  ) : null}
                 </article>
               ))}
             </div>
@@ -267,6 +275,7 @@ export function FindingDetailPanel({
           <label htmlFor="triage-note">Note for triage and fix</label>
           <div className="note-input">
             <textarea
+              disabled={isBusy}
               id="triage-note"
               value={note}
               onChange={(event) => setNote(event.currentTarget.value)}
@@ -356,6 +365,14 @@ function historyEntryKey(entry: FindingDetail["history"][number]): string {
     entry.note ?? "",
     entry.runId ?? "",
   ].join(":");
+}
+
+function historyEntryHasVisibleContent(entry: FindingDetail["history"][number]): boolean {
+  return (
+    (entry.note !== null && entry.note.trim() !== "") ||
+    (entry.status !== null && entry.status.trim() !== "") ||
+    (entry.reasoning !== null && entry.reasoning.trim() !== "")
+  );
 }
 
 function TextSection({ title, value }: { title: string; value: string | null }) {

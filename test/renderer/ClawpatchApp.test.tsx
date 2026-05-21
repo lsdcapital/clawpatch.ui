@@ -1228,6 +1228,56 @@ describe("ClawpatchApp header actions", () => {
     await waitFor(() => expect(screen.queryByText("triage running")).not.toBeInTheDocument());
   });
 
+  it("auto-saves status selections and removes non-actionable findings from the default list", async () => {
+    let currentFinding = makeFixFinding();
+    const triageSet = vi.fn<Api["triage"]["set"]>(async (_repoId, _findingId, status) => {
+      currentFinding = {
+        ...currentFinding,
+        status,
+        updatedAt: "2026-05-19T00:01:00.000Z",
+        history: [
+          ...currentFinding.history,
+          {
+            runId: "run-triage",
+            kind: "triage",
+            status,
+            note: null,
+            reasoning: null,
+            commands: [],
+            createdAt: "2026-05-19T00:01:00.000Z",
+          },
+        ],
+      };
+      return makeCommandResult("triage");
+    });
+    window.clawpatch = makeApi(
+      vi.fn<Api["commands"]["run"]>(async (_repoId, request) => makeCommandResult(request.command)),
+      {
+        findingsList: async () => [currentFinding],
+        findingGet: async () => currentFinding,
+        triageSet,
+      },
+    );
+
+    renderApp();
+
+    await screen.findByRole("heading", { name: "Null branch can throw" });
+    fireEvent.click(screen.getByRole("button", { name: "Finding status: open" }));
+    fireEvent.click(
+      within(screen.getByRole("menu", { name: "Finding status options" })).getByRole(
+        "menuitemradio",
+        { name: "wont-fix" },
+      ),
+    );
+
+    await waitFor(() =>
+      expect(triageSet).toHaveBeenCalledWith("repo-auth", "fnd-bug", "wont-fix", ""),
+    );
+    await screen.findByText("0 actionable of 1 total");
+    expect(screen.queryByText("Null branch can throw")).not.toBeInTheDocument();
+    expect(screen.getByText("No actionable findings")).toBeInTheDocument();
+  });
+
   it("shows command output for the selected finding context", async () => {
     let streamListener: ((event: CommandStreamEvent) => void) | null = null;
     const highRiskFinding = makeFinding();

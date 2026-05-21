@@ -115,7 +115,7 @@ describe("FindingsSplitPanel", () => {
     ).toBeInTheDocument();
   });
 
-  it("keeps status in the metadata card and saves it with the current note", () => {
+  it("keeps status in the metadata card and auto-saves it with the current note", () => {
     const onTriage = vi.fn();
     renderSplitPanel({ onTriage });
 
@@ -139,19 +139,40 @@ describe("FindingsSplitPanel", () => {
     fireEvent.click(
       within(screen.getByRole("menu", { name: "Finding status options" })).getByRole(
         "menuitemradio",
-        { name: "false-positive" },
+        { name: "wont-fix" },
       ),
     );
-    expect(screen.queryByRole("button", { name: "Save triage" })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Save triage note" }));
 
     expect(screen.queryByRole("menu", { name: "Finding status options" })).not.toBeInTheDocument();
     expect(
       within(metaGrid as HTMLElement).getByRole("button", {
-        name: "Finding status: false-positive",
+        name: "Finding status: wont-fix",
       }),
     ).toBeInTheDocument();
-    expect(onTriage).toHaveBeenCalledWith("false-positive", "needs product call");
+    expect(screen.getByRole("button", { name: "Save triage note" })).toBeInTheDocument();
+    expect(onTriage).toHaveBeenCalledWith("wont-fix", "needs product call");
+  });
+
+  it("renders status-only history entries", () => {
+    renderSplitPanel({
+      finding: makeFindingDetail({
+        history: [
+          {
+            runId: "run-1",
+            kind: "triage",
+            status: "wont-fix",
+            note: null,
+            reasoning: null,
+            commands: [],
+            createdAt: "2026-01-04T00:00:00.000Z",
+          },
+        ],
+      }),
+    });
+
+    const historySection = screen.getByRole("heading", { name: "History" }).closest("section");
+    expect(historySection).not.toBeNull();
+    expect(within(historySection as HTMLElement).getByText("wont-fix")).toBeInTheDocument();
   });
 
   it("saves the current note when pressing Enter in the note field", () => {
