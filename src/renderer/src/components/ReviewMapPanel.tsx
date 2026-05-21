@@ -1,3 +1,4 @@
+import { ClipboardCheckIcon, ListChecksIcon, MapIcon } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { FeatureMapSnapshot } from "../../../shared/types";
 import {
@@ -8,6 +9,7 @@ import {
   type ReviewQueueFilters,
   type ReviewQueueStatusFilter,
 } from "../reviewQueueFilters";
+import { ActionIconButton } from "./ActionIconButton";
 
 interface Props {
   snapshot: FeatureMapSnapshot | null;
@@ -79,17 +81,21 @@ export function ReviewMapPanel({
         <span>{statusLabel}</span>
       </div>
       <div className="review-queue-toolbar">
-        <div className="review-queue-actions">
-          <button
+        <div className="action-toolbar review-queue-actions" aria-label="Review queue actions">
+          <ActionIconButton
             disabled={isBusy || pendingCount === 0}
+            icon={<ListChecksIcon aria-hidden="true" />}
+            label={`Review all ${pendingCount} pending and error map items`}
             onClick={() => onReviewPending(pendingCount)}
-            aria-label={`Review all ${pendingCount} pending and error map items`}
-          >
-            Review pending
-          </button>
-          <button disabled={isBusy} onClick={onUpdateMap}>
-            Update map
-          </button>
+            title="Review pending"
+            variant="primary"
+          />
+          <ActionIconButton
+            disabled={isBusy}
+            icon={<MapIcon aria-hidden="true" />}
+            label="Update map"
+            onClick={onUpdateMap}
+          />
         </div>
         <div className="findings-filter-row">
           <input
@@ -216,13 +222,13 @@ function ReviewMapTable({
             <span>{feature.findingCount}</span>
             <strong title={feature.featureId}>{feature.title}</strong>
             <span>{formatUpdatedAt(feature.updatedAt)}</span>
-            <button
+            <ActionIconButton
               disabled={isBusy}
+              icon={<ClipboardCheckIcon aria-hidden="true" />}
+              label={`Review ${feature.title}`}
               onClick={() => onReviewFeature(feature.featureId)}
-              title={feature.featureId}
-            >
-              Review
-            </button>
+              title={`Review ${feature.title} (${feature.featureId})`}
+            />
           </div>
         ))
       )}
