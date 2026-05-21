@@ -231,12 +231,10 @@ export function ClawpatchApp() {
           repo={selectedRepo}
           activeWorkspace={activeWorkspace}
           activeInspector={activeInspector}
-          isRepoCommandBusy={commandRunner.isRepoCommandBusy}
           isOpeningTerminal={terminalMutation.isPending}
           onWorkspaceChange={setActiveWorkspace}
           onToggleInspector={toggleInspector}
           onOpenTerminal={openTerminal}
-          onRunCommand={runCommand}
         />
 
         {selectedRepo?.lastError ? (

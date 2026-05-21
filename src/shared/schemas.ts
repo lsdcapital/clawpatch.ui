@@ -251,7 +251,6 @@ export const RepoSummarySchema = Schema.Struct({
 
 export const RepoSnapshotSchema = Schema.Struct({
   repo: RepoSummarySchema,
-  status: Schema.NullOr(Schema.Unknown),
   findings: Schema.Array(FindingListItemSchema),
   diff: Schema.String,
   metadata: UiMetadataSchema,

@@ -1338,6 +1338,7 @@ describe("RepoService", () => {
         filters: { severity: "high", status: "open", search: "auth" },
         lastSelectedFindingId: "fnd-1",
       });
+      expect(calls.filter((call) => call.request.command === "status")).toHaveLength(1);
     } finally {
       await runtime.dispose();
     }
