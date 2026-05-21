@@ -68,7 +68,6 @@ export function ReviewMapPanel({
             label={`Review all ${pendingCount} pending and error map items`}
             onClick={() => onReviewPending(pendingCount)}
             title="Review pending"
-            variant="primary"
           />
           <ActionIconButton
             disabled={isBusy}
