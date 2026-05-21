@@ -65,6 +65,24 @@ describe("renderer layout styles", () => {
     expect(settingsSidebarRule).toContain("overflow: hidden;");
     expect(ruleFor("\\.settings-content")).toContain("overflow: auto;");
   });
+
+  it("keeps neutral chrome icon buttons borderless by default", () => {
+    const iconButtonRule = ruleFor("^\\.icon-button");
+    expect(iconButtonRule).toContain("background: transparent;");
+    expect(iconButtonRule).toContain("border-color: transparent;");
+    expect(iconButtonRule).toContain("min-height: 28px;");
+    expect(iconButtonRule).toContain("width: 28px;");
+
+    const iconButtonHoverRule = ruleFor("\\.icon-button:hover:not\\(:disabled\\)");
+    expect(iconButtonHoverRule).toContain("background: var(--button-hover-bg);");
+    expect(iconButtonHoverRule).toContain("border-color: transparent;");
+
+    const activeDrawerToggleRule = ruleFor("\\.drawer-toggle\\.active");
+    expect(activeDrawerToggleRule).toContain("background: var(--accent-soft);");
+    expect(activeDrawerToggleRule).toContain("border-color: var(--accent-border);");
+
+    expect(ruleFor("\\.action-icon-button")).not.toContain("border-color: transparent;");
+  });
 });
 
 function ruleFor(selectorPattern: string): string {

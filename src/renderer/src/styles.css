@@ -595,9 +595,16 @@ button:disabled {
 }
 
 .icon-button {
+  background: transparent;
+  border-color: transparent;
   min-height: 28px;
   padding: 5px;
   width: 28px;
+}
+
+.icon-button:hover:not(:disabled) {
+  background: var(--button-hover-bg);
+  border-color: transparent;
 }
 
 .icon-button.danger {
