@@ -21,6 +21,7 @@ describe("FindingsTable filters", () => {
       title: "Token is logged in debug output",
       category: "security",
       severity: "high",
+      confidence: "high",
       status: "open",
     }),
     makeFinding({
@@ -28,6 +29,7 @@ describe("FindingsTable filters", () => {
       title: "Null branch can throw",
       category: "bug",
       severity: "medium",
+      confidence: "medium",
       status: "fixed",
     }),
     makeFinding({
@@ -35,6 +37,7 @@ describe("FindingsTable filters", () => {
       title: "Escaping already happens upstream",
       category: "security",
       severity: "high",
+      confidence: "low",
       status: "false-positive",
     }),
   ];
@@ -48,11 +51,16 @@ describe("FindingsTable filters", () => {
     expect(screen.queryByText("Escaping already happens upstream")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByText("Filter"));
-    fireEvent.click(screen.getByRole("button", { name: "High" }));
+    const severityGroup = screen
+      .getAllByText("Severity")
+      .find((element) => element.closest(".filter-group"))
+      ?.closest(".filter-group");
+    expect(severityGroup).not.toBeNull();
+    fireEvent.click(within(severityGroup as HTMLElement).getByRole("button", { name: "High" }));
 
     expect(getFilterMenu()).toHaveProperty("open", true);
     expect(screen.getByText("1 of 3 shown")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Clear High filter" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Clear Severity: High filter" })).toBeInTheDocument();
     expect(screen.getByText("Token is logged in debug output")).toBeInTheDocument();
     expect(screen.queryByText("Null branch can throw")).not.toBeInTheDocument();
 
@@ -61,7 +69,9 @@ describe("FindingsTable filters", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Clear" }));
     expect(screen.getByText("1 actionable of 3 total")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Clear High filter" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Clear Severity: High filter" }),
+    ).not.toBeInTheDocument();
     expect(screen.queryByText("Escaping already happens upstream")).not.toBeInTheDocument();
   });
 
@@ -106,7 +116,32 @@ describe("FindingsTable filters", () => {
     fireEvent.click(within(categoryGroup as HTMLElement).getByRole("button", { name: "Security" }));
 
     expect(screen.getByText("1 of 3 shown")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Clear Security filter" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Clear Category: Security filter" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Token is logged in debug output")).toBeInTheDocument();
+    expect(screen.queryByText("Null branch can throw")).not.toBeInTheDocument();
+    expect(screen.queryByText("Escaping already happens upstream")).not.toBeInTheDocument();
+  });
+
+  it("renders and filters by confidence through the menu", () => {
+    render(<FilterHarness findings={findings} />);
+
+    expect(screen.getByRole("columnheader", { name: /Confidence/ })).toBeInTheDocument();
+    expect(screen.getAllByText("high").length).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getByText("Filter"));
+    const confidenceGroup = screen
+      .getAllByText("Confidence")
+      .find((element) => element.closest(".filter-group"))
+      ?.closest(".filter-group");
+    expect(confidenceGroup).not.toBeNull();
+    fireEvent.click(within(confidenceGroup as HTMLElement).getByRole("button", { name: "High" }));
+
+    expect(screen.getByText("1 of 3 shown")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Clear Confidence: High filter" }),
+    ).toBeInTheDocument();
     expect(screen.getByText("Token is logged in debug output")).toBeInTheDocument();
     expect(screen.queryByText("Null branch can throw")).not.toBeInTheDocument();
     expect(screen.queryByText("Escaping already happens upstream")).not.toBeInTheDocument();
@@ -266,6 +301,33 @@ describe("FindingsTable filters", () => {
       "aria-sort",
       "descending",
     );
+  });
+
+  it("sorts visible rows by confidence", () => {
+    const { container } = render(
+      <FilterHarness
+        findings={findings}
+        initialFilters={{ ...defaultFindingFilters, status: null }}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Sort by Confidence ascending" }));
+    expect(visibleTitles(container)).toEqual([
+      "Escaping already happens upstream",
+      "Null branch can throw",
+      "Token is logged in debug output",
+    ]);
+    expect(screen.getByRole("columnheader", { name: /Confidence/ })).toHaveAttribute(
+      "aria-sort",
+      "ascending",
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Sort by Confidence descending" }));
+    expect(visibleTitles(container)).toEqual([
+      "Token is logged in debug output",
+      "Null branch can throw",
+      "Escaping already happens upstream",
+    ]);
   });
 });
 

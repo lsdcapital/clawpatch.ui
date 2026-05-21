@@ -6,16 +6,18 @@ export interface FindingFilters {
   search: string;
   status: FindingStatusFilter;
   severity: string | null;
+  confidence: string | null;
   category: string | null;
 }
 
 export interface FindingFilterOptions {
   statuses: readonly ClawpatchStatus[];
   severities: readonly string[];
+  confidences: readonly string[];
   categories: readonly string[];
 }
 
-export type FindingSortField = "severity" | "status" | "category" | "title";
+export type FindingSortField = "severity" | "confidence" | "status" | "category" | "title";
 export type FindingSortDirection = "asc" | "desc";
 
 export interface FindingSort {
@@ -27,6 +29,7 @@ export const defaultFindingFilters: FindingFilters = {
   search: "",
   status: "actionable",
   severity: null,
+  confidence: null,
   category: null,
 };
 
@@ -42,6 +45,7 @@ export function filterFindings(
   const query = normalize(filters.search);
   const queryTokens = query.split(" ").filter((token) => token !== "");
   const severity = normalize(filters.severity ?? "");
+  const confidence = normalize(filters.confidence ?? "");
   const category = normalize(filters.category ?? "");
 
   return findings.filter((finding) => {
@@ -56,6 +60,9 @@ export function filterFindings(
       return false;
     }
     if (severity !== "" && normalize(finding.severity) !== severity) {
+      return false;
+    }
+    if (confidence !== "" && normalize(finding.confidence) !== confidence) {
       return false;
     }
     if (category !== "" && normalize(finding.category) !== category) {
@@ -89,6 +96,7 @@ export function getFindingFilterOptions(
   return {
     statuses,
     severities: uniqueSorted(findings.map((finding) => finding.severity)),
+    confidences: uniqueSorted(findings.map((finding) => finding.confidence)),
     categories: uniqueSorted(findings.map((finding) => finding.category)),
   };
 }
@@ -98,6 +106,7 @@ export function isFindingFiltersActive(filters: FindingFilters): boolean {
     filters.search.trim() !== "" ||
     filters.status !== defaultFindingFilters.status ||
     filters.severity !== null ||
+    filters.confidence !== null ||
     filters.category !== null
   );
 }
@@ -157,6 +166,9 @@ function compareField(
   if (field === "severity") {
     return severitySortValue(left.severity) - severitySortValue(right.severity);
   }
+  if (field === "confidence") {
+    return confidenceSortValue(left.confidence) - confidenceSortValue(right.confidence);
+  }
   if (field === "category") {
     return (
       categorySortValue(left.category) - categorySortValue(right.category) ||
@@ -179,6 +191,10 @@ function compareByDefaultRisk(left: FindingListItem, right: FindingListItem): nu
 
 function severitySortValue(severity: string): number {
   return { critical: 4, high: 3, medium: 2, low: 1 }[normalize(severity)] ?? 0;
+}
+
+function confidenceSortValue(confidence: string): number {
+  return { high: 3, medium: 2, low: 1 }[normalize(confidence)] ?? 0;
 }
 
 function categorySortValue(category: string): number {
