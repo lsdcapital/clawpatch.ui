@@ -424,7 +424,8 @@ describe("ClawpatchApp header actions", () => {
     renderApp();
 
     await screen.findByRole("heading", { name: "auth" });
-    fireEvent.click(screen.getByRole("button", { name: "App settings" }));
+    expect(screen.getByRole("button", { name: "Add repository" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "General settings" }));
 
     expect(screen.getByRole("heading", { name: "General" })).toBeInTheDocument();
     expect(screen.getByText("Clawpatch UI")).toBeInTheDocument();

@@ -62,14 +62,6 @@ export function RepoSidebar({
         <div className="repo-section-actions">
           <button
             className="icon-button"
-            onClick={onOpenSettings}
-            aria-label="App settings"
-            title="App settings"
-          >
-            <SettingsIcon aria-hidden="true" />
-          </button>
-          <button
-            className="icon-button"
             disabled={isAdding || isPicking}
             onClick={() => void pickRepo()}
             aria-label="Add repository"
@@ -130,6 +122,17 @@ export function RepoSidebar({
         {visibleRepos.length === 0 ? (
           <div className="repo-list-empty">No repositories match this filter.</div>
         ) : null}
+      </div>
+      <div className="repo-sidebar-footer">
+        <button
+          className="sidebar-settings-button"
+          onClick={onOpenSettings}
+          aria-label="General settings"
+          title="General settings"
+        >
+          <SettingsIcon aria-hidden="true" />
+          <span>General settings</span>
+        </button>
       </div>
     </aside>
   );

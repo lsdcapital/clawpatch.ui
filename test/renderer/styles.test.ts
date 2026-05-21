@@ -12,6 +12,16 @@ describe("renderer layout styles", () => {
     expect(ruleFor("\\.app-shell\\.sidebar-collapsed")).toContain(
       "grid-template-columns: minmax(0, 1fr);",
     );
+    const repoSidebarRule = ruleFor("\\.repo-sidebar");
+    expect(repoSidebarRule).toContain("min-height: 0;");
+    expect(repoSidebarRule).toContain("overflow: hidden;");
+    const repoListRule = ruleFor("\\.repo-list");
+    expect(repoListRule).toContain("flex: 1 1 auto;");
+    expect(repoListRule).toContain("min-height: 0;");
+    expect(repoListRule).toContain("overflow: auto;");
+    const repoSidebarFooterRule = ruleFor("\\.repo-sidebar-footer");
+    expect(repoSidebarFooterRule).toContain("border-top: 1px solid var(--border);");
+    expect(repoSidebarFooterRule).toContain("flex: none;");
     const workspaceRule = ruleFor("\\.workspace");
     expect(workspaceRule).toContain("display: flex;");
     expect(workspaceRule).toContain("height: 100%;");
