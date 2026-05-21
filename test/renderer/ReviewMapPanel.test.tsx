@@ -85,6 +85,16 @@ describe("ReviewMapPanel", () => {
     expect(screen.getByText("3 of 3 shown")).toBeInTheDocument();
     expect(screen.getByText("Profile settings")).toBeInTheDocument();
   });
+
+  it("closes the filter menu when clicking outside it", () => {
+    renderPanel();
+
+    fireEvent.click(screen.getByText("Filter"));
+    expect(getFilterMenu()).toHaveProperty("open", true);
+
+    fireEvent.mouseDown(screen.getByLabelText("Search review queue"));
+    expect(getFilterMenu()).toHaveProperty("open", false);
+  });
 });
 
 function renderPanel({
@@ -106,6 +116,12 @@ function renderPanel({
       onUpdateMap={onUpdateMap}
     />,
   );
+}
+
+function getFilterMenu(): HTMLDetailsElement {
+  const filterMenu = screen.getByText("Filter").closest("details");
+  expect(filterMenu).not.toBeNull();
+  return filterMenu as HTMLDetailsElement;
 }
 
 function makeSnapshot(): FeatureMapSnapshot {

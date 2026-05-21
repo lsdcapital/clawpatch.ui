@@ -369,6 +369,10 @@ describe("ClawpatchApp header actions", () => {
     expect(screen.getByRole("menu", { name: "Repository sort" })).toBeInTheDocument();
     expect(screen.getByRole("menuitem", { name: "Created" })).toHaveClass("active");
 
+    fireEvent.mouseDown(screen.getByText("Repositories (3)"));
+    expect(screen.queryByRole("menu", { name: "Repository sort" })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Sort repositories" }));
     fireEvent.click(screen.getByRole("menuitem", { name: "Updated" }));
 
     expect(repoPathOrder()).toEqual(["/work/billing-api", "/tmp/auth", "/work/profile"]);

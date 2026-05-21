@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import type { RepoSummary } from "../../../shared/types";
 import { appName, appVersion } from "../appInfo";
+import { useDismissiblePopover } from "../hooks/useDismissiblePopover";
 
 type RepoSort = "created" | "updated";
 
@@ -40,6 +41,10 @@ export function RepoSidebar({
   const [pickError, setPickError] = useState<unknown>(null);
   const [repoSort, setRepoSort] = useState<RepoSort>("created");
   const [isSortMenuOpen, setIsSortMenuOpen] = useState(false);
+  const sortMenuRef = useDismissiblePopover<HTMLDivElement>({
+    isOpen: isSortMenuOpen,
+    onDismiss: () => setIsSortMenuOpen(false),
+  });
   const visibleRepos = useMemo(() => sortRepos(repos, repoSort), [repoSort, repos]);
 
   const pickRepo = async (): Promise<void> => {
@@ -86,7 +91,7 @@ export function RepoSidebar({
       <div className="repo-section-header">
         <span>Repositories ({repos.length})</span>
         <div className="repo-section-actions">
-          <div className="repo-sort-menu">
+          <div className="repo-sort-menu" ref={sortMenuRef}>
             <button
               className="icon-button"
               onClick={() => setIsSortMenuOpen((isOpen) => !isOpen)}

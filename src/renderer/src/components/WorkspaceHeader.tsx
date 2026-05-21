@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { ActivityIcon, DiffIcon, MoreHorizontalIcon, TerminalSquareIcon } from "lucide-react";
 import type { ClawpatchCommandRequest, RepoSummary } from "../../../shared/types";
+import { useDismissiblePopover } from "../hooks/useDismissiblePopover";
 import type { ActiveInspector, ActiveWorkspace } from "../workspaceTypes";
 
 export function WorkspaceHeader({
@@ -25,6 +26,10 @@ export function WorkspaceHeader({
   onRunCommand: (request: ClawpatchCommandRequest) => void;
 }) {
   const [isCommandMenuOpen, setIsCommandMenuOpen] = useState(false);
+  const commandMenuRef = useDismissiblePopover<HTMLDivElement>({
+    isOpen: isCommandMenuOpen,
+    onDismiss: () => setIsCommandMenuOpen(false),
+  });
   const runMenuCommand = (request: ClawpatchCommandRequest): void => {
     setIsCommandMenuOpen(false);
     onRunCommand(request);
@@ -91,7 +96,7 @@ export function WorkspaceHeader({
         >
           <TerminalSquareIcon aria-hidden="true" />
         </button>
-        <div className="command-menu">
+        <div className="command-menu" ref={commandMenuRef}>
           <button
             className="icon-button"
             disabled={repo === null || isRepoCommandBusy}
