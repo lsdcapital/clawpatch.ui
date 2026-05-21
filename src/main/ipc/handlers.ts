@@ -9,6 +9,7 @@ import {
   FeatureMapSnapshotSchema,
   FindingDetailSchema,
   FindingListSchema,
+  FindingWorkStatusListSchema,
   GitStatusSummarySchema,
   PublishFixResultSchema,
   RepoSettingsSchema,
@@ -26,6 +27,7 @@ import {
   FEATURES_MAP_CHANNEL,
   FINDINGS_GET_CHANNEL,
   FINDINGS_LIST_CHANNEL,
+  FINDINGS_WORK_STATUSES_CHANNEL,
   GIT_DIFF_CHANNEL,
   GIT_PUBLISH_FIX_CHANNEL,
   GIT_STATUS_CHANNEL,
@@ -135,6 +137,14 @@ export const installIpcHandlers = (publishCommandStream: (event: CommandStreamEv
         payload: FindingPayload,
         result: FindingDetailSchema,
         handler: ({ repoId, findingId }) => repos.getFinding(repoId, findingId),
+      }),
+    );
+    yield* ipc.handle(
+      makeIpcMethod({
+        channel: FINDINGS_WORK_STATUSES_CHANNEL,
+        payload: RepoIdPayload,
+        result: FindingWorkStatusListSchema,
+        handler: ({ repoId }) => repos.listFindingWorkStatuses(repoId),
       }),
     );
     yield* ipc.handle(

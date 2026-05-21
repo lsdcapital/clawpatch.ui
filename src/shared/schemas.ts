@@ -59,6 +59,21 @@ export const PublishFixResultSchema = Schema.Struct({
   prUrl: Schema.String,
 });
 
+export const GitStatusSummarySchema = Schema.Struct({
+  staged: Schema.Number,
+  modified: Schema.Number,
+  untracked: Schema.Number,
+  branch: Schema.NullOr(Schema.String),
+});
+
+export const FindingWorkStatusSchema = Schema.Struct({
+  findingId: Schema.String,
+  worktreePath: Schema.String,
+  gitStatus: Schema.NullOr(GitStatusSummarySchema),
+  prUrl: Schema.NullOr(Schema.String),
+  error: Schema.NullOr(Schema.String),
+});
+
 const CommandStreamMetadataSchema = {
   runId: Schema.String,
   repoId: Schema.optionalKey(Schema.String),
@@ -242,16 +257,10 @@ export const RepoSnapshotSchema = Schema.Struct({
   metadata: UiMetadataSchema,
 });
 
-export const GitStatusSummarySchema = Schema.Struct({
-  staged: Schema.Number,
-  modified: Schema.Number,
-  untracked: Schema.Number,
-  branch: Schema.NullOr(Schema.String),
-});
-
 export const TerminalOpenResultSchema = Schema.Struct({
   cwd: Schema.String,
 });
 
 export const RepoListSchema = Schema.Array(RepoSummarySchema);
 export const FindingListSchema = Schema.Array(FindingListItemSchema);
+export const FindingWorkStatusListSchema = Schema.Array(FindingWorkStatusSchema);

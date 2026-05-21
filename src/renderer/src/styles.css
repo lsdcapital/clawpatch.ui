@@ -1424,10 +1424,9 @@ button:disabled {
   display: grid;
   font-size: 12px;
   gap: 8px;
-  grid-template-columns: minmax(62px, 0.68fr) minmax(76px, 0.78fr) minmax(88px, 0.9fr) minmax(
-      132px,
-      2fr
-    );
+  grid-template-columns:
+    minmax(62px, 0.62fr) minmax(76px, 0.68fr) minmax(74px, 0.62fr) minmax(88px, 0.85fr)
+    minmax(132px, 2fr);
   justify-content: normal;
   min-height: 34px;
   min-width: 0;
@@ -1454,6 +1453,51 @@ button.table-row:hover:not(:disabled) {
 
 .table-row.selected {
   background: var(--success-soft);
+}
+
+.work-badge {
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: 11px;
+  font-weight: 700;
+  gap: 4px;
+  justify-self: start;
+  line-height: 1;
+  max-width: 100%;
+  min-height: 20px;
+  padding: 2px 6px;
+}
+
+.work-badge svg {
+  flex: 0 0 auto;
+  height: 12px;
+  width: 12px;
+}
+
+.work-badge-dirty {
+  background: color-mix(in srgb, var(--warning) 14%, transparent);
+  border-color: color-mix(in srgb, var(--warning) 36%, var(--border));
+  color: var(--warning);
+}
+
+.work-badge-pr {
+  background: var(--success-soft);
+  border-color: color-mix(in srgb, var(--success) 36%, var(--border));
+  color: var(--success);
+}
+
+.work-badge-worktree {
+  background: var(--accent-soft);
+  border-color: var(--accent-border);
+  color: var(--accent-text);
+}
+
+.work-badge-unknown {
+  background: color-mix(in srgb, var(--danger) 10%, transparent);
+  border-color: color-mix(in srgb, var(--danger) 28%, var(--border));
+  color: var(--danger);
 }
 
 .table-head {
@@ -1643,6 +1687,62 @@ button.table-row:hover:not(:disabled) {
   gap: 2px;
   margin-bottom: 7px;
   padding-left: 8px;
+}
+
+.work-summary {
+  background: var(--meta-bg);
+  border: 1px solid var(--row-border);
+  border-radius: 6px;
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  padding: 7px 8px;
+}
+
+.work-summary-header {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  min-width: 0;
+}
+
+.work-summary-header h3 {
+  margin: 0;
+}
+
+.work-summary-state {
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 700;
+  margin-left: auto;
+  text-transform: uppercase;
+}
+
+.work-summary dl {
+  display: grid;
+  gap: 4px 9px;
+  grid-template-columns: 74px minmax(0, 1fr);
+  margin: 0;
+  min-width: 0;
+}
+
+.work-summary dt {
+  color: var(--subtle);
+  font-size: 11px;
+}
+
+.work-summary dd {
+  font-size: 12px;
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.work-summary a {
+  color: var(--accent);
+  font-weight: 700;
 }
 
 .evidence strong {

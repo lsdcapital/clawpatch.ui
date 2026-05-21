@@ -16,6 +16,7 @@ import type {
   FeatureMapSnapshot,
   FindingDetail,
   FindingListItem,
+  FindingWorkStatus,
   GitStatusSummary,
   PublishFixResult,
   RepoSettings,
@@ -80,6 +81,9 @@ export interface RepoServiceShape {
     settings: RepoSettings,
   ) => Effect.Effect<RepoSettings, RepoServiceError>;
   readonly listFindings: (repoId: string) => Effect.Effect<FindingListItem[], RepoServiceError>;
+  readonly listFindingWorkStatuses: (
+    repoId: string,
+  ) => Effect.Effect<FindingWorkStatus[], RepoServiceError>;
   readonly readFeatureMap: (repoId: string) => Effect.Effect<FeatureMapSnapshot, RepoServiceError>;
   readonly getFinding: (
     repoId: string,
@@ -450,6 +454,46 @@ export const RepoServiceLive = (appDataDir: string) =>
         return [...byId.values()];
       });
 
+      const newestPrUrlForFinding = Effect.fn("repoService.newestPrUrlForFinding")(function* (
+        repoPath: string,
+        worktreePath: string,
+        findingId: string,
+      ) {
+        const detail = yield* state.readFindingDetail(worktreePath, findingId).pipe(
+          Effect.catch(() => state.readFindingDetail(repoPath, findingId)),
+          Effect.catch(() => Effect.succeed(null)),
+        );
+        return detail?.patchAttempts.find((patch) => patch.git.prUrl !== null)?.git.prUrl ?? null;
+      });
+
+      const workStatusForActiveWorktree = Effect.fn("repoService.workStatusForActiveWorktree")(
+        function* (repoPath: string, findingId: string, worktreePath: string) {
+          const [statusResult, prUrl] = yield* Effect.all([
+            git.readStatus(worktreePath).pipe(
+              Effect.match({
+                onFailure: (error) => ({
+                  gitStatus: null,
+                  error: errorMessage(error),
+                }),
+                onSuccess: (gitStatus) => ({
+                  gitStatus,
+                  error: null,
+                }),
+              }),
+            ),
+            newestPrUrlForFinding(repoPath, worktreePath, findingId),
+          ]);
+
+          return {
+            findingId,
+            worktreePath,
+            gitStatus: statusResult.gitStatus,
+            prUrl,
+            error: statusResult.error,
+          } satisfies FindingWorkStatus;
+        },
+      );
+
       const runCommandAtPath = Effect.fn("repoService.runCommandAtPath")(function* (
         repoIdValue: string,
         commandPath: string,
@@ -804,6 +848,18 @@ export const RepoServiceLive = (appDataDir: string) =>
           const repo = yield* requireRepo(repoIdValue);
           return yield* readFindingListWithActiveWorktrees(repo.id, repo.path);
         }),
+        listFindingWorkStatuses: Effect.fn("repoService.listFindingWorkStatuses")(
+          function* (repoIdValue) {
+            const repo = yield* requireRepo(repoIdValue);
+            const activeWorktrees = yield* activeWorktreesForRepo(repo.id);
+            return yield* Effect.all(
+              activeWorktrees.map(({ findingId, path: worktreePath }) =>
+                workStatusForActiveWorktree(repo.path, findingId, worktreePath),
+              ),
+              { concurrency: "unbounded" },
+            );
+          },
+        ),
         readFeatureMap: Effect.fn("repoService.readFeatureMap")(function* (repoIdValue) {
           const repo = yield* requireRepo(repoIdValue);
           return yield* state.readFeatureMap(repo.path);
@@ -1027,4 +1083,8 @@ function readFindingTitleForCommit(
 
 function sanitizeCommitSubject(value: string): string {
   return value.replaceAll(/\s+/g, " ").trim() || "finding";
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }

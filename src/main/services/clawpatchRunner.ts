@@ -18,15 +18,7 @@ import { childLogger } from "../logger";
 
 const clawpatchLogger = childLogger("clawpatch");
 
-const commandNames = new Set([
-  "status",
-  "map",
-  "review",
-  "triage",
-  "fix",
-  "revalidate",
-  "doctor",
-]);
+const commandNames = new Set(["status", "map", "review", "triage", "fix", "revalidate", "doctor"]);
 
 export type ClawpatchRunnerError =
   | CommandValidationError

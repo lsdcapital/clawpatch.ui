@@ -12,6 +12,7 @@ import {
   FEATURES_MAP_CHANNEL,
   FINDINGS_GET_CHANNEL,
   FINDINGS_LIST_CHANNEL,
+  FINDINGS_WORK_STATUSES_CHANNEL,
   GIT_DIFF_CHANNEL,
   GIT_PUBLISH_FIX_CHANNEL,
   GIT_STATUS_CHANNEL,
@@ -54,6 +55,7 @@ const api: Api = {
   findings: {
     list: (repoId) => ipcRenderer.invoke(FINDINGS_LIST_CHANNEL, { repoId }),
     get: (repoId, findingId) => ipcRenderer.invoke(FINDINGS_GET_CHANNEL, { repoId, findingId }),
+    workStatuses: (repoId) => ipcRenderer.invoke(FINDINGS_WORK_STATUSES_CHANNEL, { repoId }),
   },
   features: {
     map: (repoId) => ipcRenderer.invoke(FEATURES_MAP_CHANNEL, { repoId }),

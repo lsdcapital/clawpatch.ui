@@ -3,6 +3,7 @@ import type {
   ClawpatchStatus,
   FindingDetail,
   FindingListItem,
+  FindingWorkStatus,
   PublishFixResult,
 } from "../../../shared/types";
 import type { FindingFilterOptions, FindingFilters, FindingSort } from "../findingsFilters";
@@ -23,6 +24,7 @@ interface Props {
   filters: FindingFilters;
   filterOptions: FindingFilterOptions;
   sort: FindingSort;
+  workStatusByFindingId: ReadonlyMap<string, FindingWorkStatus>;
   finding: FindingDetail | null;
   isDetailLoading: boolean;
   isBusy: boolean;
@@ -51,6 +53,7 @@ export function FindingsSplitPanel({
   filters,
   filterOptions,
   sort,
+  workStatusByFindingId,
   finding,
   isDetailLoading,
   isBusy,
@@ -143,6 +146,7 @@ export function FindingsSplitPanel({
         filters={filters}
         filterOptions={filterOptions}
         sort={sort}
+        workStatusByFindingId={workStatusByFindingId}
         onFiltersChange={onFiltersChange}
         onSortChange={onSortChange}
         onSelectFinding={onSelectFinding}
@@ -164,6 +168,9 @@ export function FindingsSplitPanel({
       />
       <FindingDetailPanel
         finding={finding}
+        workStatus={
+          finding === null ? null : (workStatusByFindingId.get(finding.findingId) ?? null)
+        }
         isLoading={isDetailLoading}
         isBusy={isBusy}
         commandStateLabel={commandStateLabel}
