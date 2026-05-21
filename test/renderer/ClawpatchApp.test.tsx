@@ -36,7 +36,7 @@ describe("ClawpatchApp header actions", () => {
     expect(screen.getByText(`v${packageJson.version}`)).toBeInTheDocument();
   });
 
-  it("hides and restores the repositories panel from the workspace header", async () => {
+  it("hides and restores the repositories panel from the left sidebar rail", async () => {
     window.clawpatch = makeApi(vi.fn<Api["commands"]["run"]>(async () => makeCommandResult("map")));
 
     renderApp();
@@ -50,16 +50,18 @@ describe("ClawpatchApp header actions", () => {
 
     fireEvent.click(hideButton);
 
+    const rail = screen.getByRole("complementary", { name: "Repositories sidebar" });
     expect(screen.queryByText("Clawpatch UI")).not.toBeInTheDocument();
     expect(screen.queryByText("Repositories (1)")).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "auth" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Show repositories panel" })).toHaveAttribute(
+    expect(within(rail).getByRole("button", { name: "Show repositories panel" })).toHaveAttribute(
       "aria-expanded",
       "false",
     );
+    expect(within(rail).getByRole("button", { name: "General settings" })).toBeInTheDocument();
     expect(window.localStorage.getItem(repoSidebarCollapsedStorageKey)).toBe("true");
 
-    fireEvent.click(screen.getByRole("button", { name: "Show repositories panel" }));
+    fireEvent.click(within(rail).getByRole("button", { name: "Show repositories panel" }));
 
     expect(screen.getByText("Clawpatch UI")).toBeInTheDocument();
     expect(screen.getByText("Repositories (1)")).toBeInTheDocument();
@@ -78,12 +80,14 @@ describe("ClawpatchApp header actions", () => {
 
     await screen.findByRole("heading", { name: "auth" });
 
+    const rail = screen.getByRole("complementary", { name: "Repositories sidebar" });
     expect(screen.queryByText("Clawpatch UI")).not.toBeInTheDocument();
     expect(screen.queryByText("Repositories (1)")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Show repositories panel" })).toHaveAttribute(
+    expect(within(rail).getByRole("button", { name: "Show repositories panel" })).toHaveAttribute(
       "aria-expanded",
       "false",
     );
+    expect(within(rail).getByRole("button", { name: "General settings" })).toBeInTheDocument();
   });
 
   it("opens a terminal for the selected finding context from the header", async () => {

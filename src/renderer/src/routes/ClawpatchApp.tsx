@@ -5,7 +5,7 @@ import { visibleCommandLogEntries } from "../commandLogEntries";
 import { FindingsSplitPanel } from "../components/FindingsSplitPanel";
 import { GitStatusStrip } from "../components/GitStatusStrip";
 import { RepoSettingsPage, type SettingsSection } from "../components/RepoSettingsPage";
-import { RepoSidebar } from "../components/RepoSidebar";
+import { RepoSidebar, RepoSidebarRail } from "../components/RepoSidebar";
 import { ReviewMapPanel } from "../components/ReviewMapPanel";
 import { WorkspaceHeader } from "../components/WorkspaceHeader";
 import { WorkspaceInspector } from "../components/WorkspaceInspector";
@@ -173,7 +173,13 @@ export function ClawpatchApp() {
     />
   ) : (
     <main className={isRepoSidebarCollapsed ? "app-shell sidebar-collapsed" : "app-shell"}>
-      {isRepoSidebarCollapsed ? null : (
+      {isRepoSidebarCollapsed ? (
+        <RepoSidebarRail
+          id={REPO_SIDEBAR_ID}
+          onExpand={toggleRepoSidebar}
+          onOpenSettings={() => setSettingsSection({ kind: "general" })}
+        />
+      ) : (
         <RepoSidebar
           id={REPO_SIDEBAR_ID}
           repos={reposQuery.data ?? []}
@@ -181,6 +187,7 @@ export function ClawpatchApp() {
           isAdding={addRepoMutation.isPending}
           addError={addRepoMutation.error}
           onAddRepo={(repoPath) => addRepoMutation.mutate(repoPath)}
+          onCollapse={toggleRepoSidebar}
           onOpenSettings={() => setSettingsSection({ kind: "general" })}
           onOpenRepoSettings={(repo) => setSettingsSection({ kind: "repo", repoId: repo.id })}
           onSelectRepo={(repoId) => {
@@ -192,13 +199,10 @@ export function ClawpatchApp() {
       <section className="workspace">
         <WorkspaceHeader
           repo={selectedRepo}
-          repoSidebarId={REPO_SIDEBAR_ID}
-          isRepoSidebarCollapsed={isRepoSidebarCollapsed}
           activeWorkspace={activeWorkspace}
           activeInspector={activeInspector}
           isRepoCommandBusy={commandRunner.isRepoCommandBusy}
           isOpeningTerminal={terminalMutation.isPending}
-          onToggleRepoSidebar={toggleRepoSidebar}
           onWorkspaceChange={setActiveWorkspace}
           onToggleInspector={toggleInspector}
           onOpenTerminal={openTerminal}

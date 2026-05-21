@@ -1,5 +1,11 @@
 import { useMemo, useState } from "react";
-import { PlusIcon, SearchIcon, SettingsIcon } from "lucide-react";
+import {
+  PanelLeftCloseIcon,
+  PanelLeftOpenIcon,
+  PlusIcon,
+  SearchIcon,
+  SettingsIcon,
+} from "lucide-react";
 import type { RepoSummary } from "../../../shared/types";
 import { appName, appVersion } from "../appInfo";
 
@@ -10,6 +16,7 @@ interface Props {
   isAdding: boolean;
   addError: unknown;
   onAddRepo: (repoPath: string) => void;
+  onCollapse: () => void;
   onOpenSettings: () => void;
   onSelectRepo: (repoId: string) => void;
   onOpenRepoSettings: (repo: RepoSummary) => void;
@@ -22,6 +29,7 @@ export function RepoSidebar({
   isAdding,
   addError,
   onAddRepo,
+  onCollapse,
   onOpenSettings,
   onSelectRepo,
   onOpenRepoSettings,
@@ -50,12 +58,22 @@ export function RepoSidebar({
   };
 
   return (
-    <aside className="repo-sidebar" id={id}>
+    <aside className="repo-sidebar" id={id} aria-label="Repositories">
       <div className="sidebar-header">
         <div className="brand">
           <span className="brand-name">{appName}</span>
           <span className="brand-version">v{appVersion}</span>
         </div>
+        <button
+          className="icon-button sidebar-collapse-button"
+          onClick={onCollapse}
+          aria-controls={id}
+          aria-expanded="true"
+          aria-label="Hide repositories panel"
+          title="Hide repositories panel"
+        >
+          <PanelLeftCloseIcon aria-hidden="true" />
+        </button>
       </div>
       <div className="repo-section-header">
         <span>Repositories ({repos.length})</span>
@@ -134,6 +152,42 @@ export function RepoSidebar({
           <span>General settings</span>
         </button>
       </div>
+    </aside>
+  );
+}
+
+export function RepoSidebarRail({
+  id,
+  onExpand,
+  onOpenSettings,
+}: {
+  id: string;
+  onExpand: () => void;
+  onOpenSettings: () => void;
+}) {
+  return (
+    <aside className="repo-sidebar-rail" id={id} aria-label="Repositories sidebar">
+      <div className="sidebar-logo-mark" aria-hidden="true">
+        <span />
+      </div>
+      <button
+        className="icon-button sidebar-collapse-button"
+        onClick={onExpand}
+        aria-controls={id}
+        aria-expanded="false"
+        aria-label="Show repositories panel"
+        title="Show repositories panel"
+      >
+        <PanelLeftOpenIcon aria-hidden="true" />
+      </button>
+      <button
+        className="icon-button"
+        onClick={onOpenSettings}
+        aria-label="General settings"
+        title="General settings"
+      >
+        <SettingsIcon aria-hidden="true" />
+      </button>
     </aside>
   );
 }

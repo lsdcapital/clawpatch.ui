@@ -8,15 +8,24 @@ describe("renderer layout styles", () => {
   it("keeps the main workspace height chained to the viewport", () => {
     expect(ruleFor("html,\\s*body,\\s*#root")).toContain("height: 100%;");
     expect(ruleFor("body")).toContain("overflow: hidden;");
-    expect(ruleFor("\\.app-shell")).toContain("height: 100%;");
+    const appShellRule = ruleFor("\\.app-shell");
+    expect(appShellRule).toContain("height: 100%;");
+    expect(appShellRule).toContain("overflow: hidden;");
     expect(ruleFor("\\.app-shell\\.sidebar-collapsed")).toContain(
-      "grid-template-columns: minmax(0, 1fr);",
+      "grid-template-columns: 52px minmax(0, 1fr);",
     );
     const repoSidebarRule = ruleFor("\\.repo-sidebar");
+    expect(repoSidebarRule).toContain("height: 100%;");
+    expect(repoSidebarRule).toContain("max-height: 100%;");
     expect(repoSidebarRule).toContain("min-height: 0;");
     expect(repoSidebarRule).toContain("overflow: hidden;");
+    const repoSidebarRailRule = ruleFor("\\.repo-sidebar-rail");
+    expect(repoSidebarRailRule).toContain("border-right: 1px solid var(--border);");
+    expect(repoSidebarRailRule).toContain("min-width: 52px;");
+    expect(repoSidebarRailRule).toContain("width: 52px;");
+    expect(ruleFor("\\.sidebar-collapse-button")).toContain("flex: none;");
     const repoListRule = ruleFor("\\.repo-list");
-    expect(repoListRule).toContain("flex: 1 1 auto;");
+    expect(repoListRule).toContain("flex: 1 1 0;");
     expect(repoListRule).toContain("min-height: 0;");
     expect(repoListRule).toContain("overflow: auto;");
     const repoSidebarFooterRule = ruleFor("\\.repo-sidebar-footer");

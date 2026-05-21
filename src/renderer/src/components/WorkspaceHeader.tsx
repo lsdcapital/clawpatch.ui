@@ -4,8 +4,6 @@ import {
   DiffIcon,
   FileTextIcon,
   MoreHorizontalIcon,
-  PanelLeftCloseIcon,
-  PanelLeftOpenIcon,
   StethoscopeIcon,
   TerminalSquareIcon,
 } from "lucide-react";
@@ -14,26 +12,20 @@ import type { ActiveInspector, ActiveWorkspace } from "../workspaceTypes";
 
 export function WorkspaceHeader({
   repo,
-  repoSidebarId,
-  isRepoSidebarCollapsed,
   activeWorkspace,
   activeInspector,
   isRepoCommandBusy,
   isOpeningTerminal,
-  onToggleRepoSidebar,
   onWorkspaceChange,
   onToggleInspector,
   onOpenTerminal,
   onRunCommand,
 }: {
   repo: RepoSummary | null;
-  repoSidebarId: string;
-  isRepoSidebarCollapsed: boolean;
   activeWorkspace: ActiveWorkspace;
   activeInspector: ActiveInspector;
   isRepoCommandBusy: boolean;
   isOpeningTerminal: boolean;
-  onToggleRepoSidebar: () => void;
   onWorkspaceChange: (workspace: ActiveWorkspace) => void;
   onToggleInspector: (inspector: Exclude<ActiveInspector, null>) => void;
   onOpenTerminal: () => void;
@@ -47,20 +39,6 @@ export function WorkspaceHeader({
 
   return (
     <header className="workspace-header">
-      <button
-        className="icon-button sidebar-toggle"
-        onClick={onToggleRepoSidebar}
-        aria-controls={repoSidebarId}
-        aria-expanded={!isRepoSidebarCollapsed}
-        aria-label={isRepoSidebarCollapsed ? "Show repositories panel" : "Hide repositories panel"}
-        title={isRepoSidebarCollapsed ? "Show repositories panel" : "Hide repositories panel"}
-      >
-        {isRepoSidebarCollapsed ? (
-          <PanelLeftOpenIcon aria-hidden="true" />
-        ) : (
-          <PanelLeftCloseIcon aria-hidden="true" />
-        )}
-      </button>
       <div className="workspace-title">
         <h1>{repo?.name ?? "Clawpatch"}</h1>
         <p>{repo?.path ?? "Add a repository with .clawpatch state to begin."}</p>
