@@ -109,7 +109,6 @@ function makeLiveService(
 export function defaultRepoSettings(): RepoSettings {
   return {
     schemaVersion: 1,
-    terminalAppName: "Terminal",
     terminalStartupScript: "",
     worktreeSetupScript: "",
     updatedAt: new Date(0).toISOString(),
@@ -118,12 +117,10 @@ export function defaultRepoSettings(): RepoSettings {
 
 function normalizeSettings(settings: RepoSettings): RepoSettings {
   const defaults = defaultRepoSettings();
-  const terminalAppName = settings.terminalAppName.trim() || defaults.terminalAppName;
   return {
     ...defaults,
     ...settings,
     schemaVersion: 1,
-    terminalAppName,
     terminalStartupScript: settings.terminalStartupScript,
     worktreeSetupScript: settings.worktreeSetupScript,
   };

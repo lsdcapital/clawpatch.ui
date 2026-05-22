@@ -1,3 +1,6 @@
+export const APP_SETTINGS_GET_CHANNEL = "app-settings:get";
+export const APP_SETTINGS_PICK_TERMINAL_APP_CHANNEL = "app-settings:pick-terminal-app";
+export const APP_SETTINGS_UPDATE_CHANNEL = "app-settings:update";
 export const REPO_LIST_CHANNEL = "repo:list";
 export const REPO_ADD_CHANNEL = "repo:add";
 export const REPO_PICK_FOLDER_CHANNEL = "repo:pick-folder";

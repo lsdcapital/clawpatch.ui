@@ -436,7 +436,6 @@ describe("ClawpatchApp header actions", () => {
   it("opens and saves repository settings from a full settings page", async () => {
     const getSettings = vi.fn<Api["repo"]["getSettings"]>(async () => ({
       schemaVersion: 1,
-      terminalAppName: "Terminal",
       terminalStartupScript: "",
       worktreeSetupScript: "",
       updatedAt: "2026-05-19T00:00:00.000Z",
@@ -459,8 +458,8 @@ describe("ClawpatchApp header actions", () => {
     expect(screen.queryByRole("dialog", { name: "Repository Settings" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Back to app" })).toBeInTheDocument();
     expect(getSettings).toHaveBeenCalledWith("repo-auth");
+    expect(screen.queryByLabelText("Terminal app")).not.toBeInTheDocument();
 
-    fireEvent.change(await screen.findByLabelText("Terminal app"), { target: { value: "iTerm" } });
     fireEvent.change(await screen.findByLabelText("Terminal startup script"), {
       target: { value: "pnpm dev" },
     });
@@ -473,7 +472,6 @@ describe("ClawpatchApp header actions", () => {
       expect(updateSettings).toHaveBeenCalledWith(
         "repo-auth",
         expect.objectContaining({
-          terminalAppName: "iTerm",
           terminalStartupScript: "pnpm dev",
           worktreeSetupScript: "pnpm install",
         }),
@@ -487,10 +485,22 @@ describe("ClawpatchApp header actions", () => {
     expect(screen.getByRole("tab", { name: "Findings" })).toBeInTheDocument();
   });
 
-  it("shows read-only General settings without loading repository settings", async () => {
-    const getSettings = vi.fn<Api["repo"]["getSettings"]>(async () => ({
+  it("shows and saves General settings without loading repository settings", async () => {
+    const getAppSettings = vi.fn<Api["appSettings"]["get"]>(async () => ({
       schemaVersion: 1,
       terminalAppName: "Terminal",
+      terminalAppPath: null,
+      updatedAt: "2026-05-19T00:00:00.000Z",
+    }));
+    const pickTerminalApp = vi.fn<Api["appSettings"]["pickTerminalApp"]>(
+      async () => "/Applications/iTerm.app",
+    );
+    const updateAppSettings = vi.fn<Api["appSettings"]["update"]>(async (settings) => ({
+      ...settings,
+      updatedAt: "2026-05-20T00:00:00.000Z",
+    }));
+    const getSettings = vi.fn<Api["repo"]["getSettings"]>(async () => ({
+      schemaVersion: 1,
       terminalStartupScript: "",
       worktreeSetupScript: "",
       updatedAt: "2026-05-19T00:00:00.000Z",
@@ -502,7 +512,13 @@ describe("ClawpatchApp header actions", () => {
     }));
     window.clawpatch = makeApi(
       vi.fn<Api["commands"]["run"]>(async () => makeCommandResult("map")),
-      { repoDoctor: doctor, repoGetSettings: getSettings },
+      {
+        appGetSettings: getAppSettings,
+        appPickTerminalApp: pickTerminalApp,
+        appUpdateSettings: updateAppSettings,
+        repoDoctor: doctor,
+        repoGetSettings: getSettings,
+      },
     );
 
     renderApp();
@@ -515,7 +531,21 @@ describe("ClawpatchApp header actions", () => {
     expect(screen.getByText("Clawpatch UI")).toBeInTheDocument();
     expect(screen.getByText(`v${packageJson.version}`)).toBeInTheDocument();
     expect(screen.getAllByText("Repositories").length).toBeGreaterThan(0);
+    fireEvent.click(await screen.findByRole("button", { name: "Choose..." }));
+    expect(await screen.findByText("iTerm.app")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() =>
+      expect(updateAppSettings).toHaveBeenCalledWith(
+        expect.objectContaining({
+          terminalAppName: "iTerm.app",
+          terminalAppPath: "/Applications/iTerm.app",
+        }),
+      ),
+    );
     expect(await screen.findByText(/"status": "ok"/)).toBeInTheDocument();
+    expect(getAppSettings).toHaveBeenCalledWith();
+    expect(pickTerminalApp).toHaveBeenCalledWith();
     expect(doctor).toHaveBeenCalledWith("repo-auth");
     expect(getSettings).not.toHaveBeenCalled();
   });
@@ -1761,6 +1791,9 @@ function installLocalStorage(): void {
 function makeApi(
   run: Api["commands"]["run"],
   options: {
+    appGetSettings?: Api["appSettings"]["get"];
+    appPickTerminalApp?: Api["appSettings"]["pickTerminalApp"];
+    appUpdateSettings?: Api["appSettings"]["update"];
     add?: Api["repo"]["add"];
     findings?: readonly FindingListItem[];
     findingGet?: Api["findings"]["get"];
@@ -1783,6 +1816,24 @@ function makeApi(
   } = {},
 ): Api {
   return {
+    appSettings: {
+      get:
+        options.appGetSettings ??
+        (async () => ({
+          schemaVersion: 1,
+          terminalAppName: "Terminal",
+          terminalAppPath: null,
+          updatedAt: "2026-05-19T00:00:00.000Z",
+        })),
+      pickTerminalApp: options.appPickTerminalApp ?? (async () => null),
+      update:
+        options.appUpdateSettings ??
+        (async (settings) => ({
+          ...settings,
+          schemaVersion: 1,
+          updatedAt: "2026-05-20T00:00:00.000Z",
+        })),
+    },
     repo: {
       list: options.repoList ?? (async () => [makeRepo()]),
       add: options.add ?? (async () => makeRepo()),
@@ -1803,7 +1854,6 @@ function makeApi(
         options.repoGetSettings ??
         (async () => ({
           schemaVersion: 1,
-          terminalAppName: "Terminal",
           terminalStartupScript: "",
           worktreeSetupScript: "",
           updatedAt: "2026-05-19T00:00:00.000Z",

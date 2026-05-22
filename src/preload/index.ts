@@ -6,6 +6,9 @@ import type {
   CommandStreamEvent,
 } from "../shared/types";
 import {
+  APP_SETTINGS_GET_CHANNEL,
+  APP_SETTINGS_PICK_TERMINAL_APP_CHANNEL,
+  APP_SETTINGS_UPDATE_CHANNEL,
   COMMANDS_INTERRUPT_CHANNEL,
   COMMANDS_RUN_CHANNEL,
   COMMANDS_STREAM_CHANNEL,
@@ -42,6 +45,11 @@ const triagePayload = (
   note === undefined ? { repoId, findingId, status } : { repoId, findingId, status, note };
 
 const api: Api = {
+  appSettings: {
+    get: () => ipcRenderer.invoke(APP_SETTINGS_GET_CHANNEL),
+    pickTerminalApp: () => ipcRenderer.invoke(APP_SETTINGS_PICK_TERMINAL_APP_CHANNEL),
+    update: (settings) => ipcRenderer.invoke(APP_SETTINGS_UPDATE_CHANNEL, { settings }),
+  },
   repo: {
     list: () => ipcRenderer.invoke(REPO_LIST_CHANNEL),
     add: (repoPath) => ipcRenderer.invoke(REPO_ADD_CHANNEL, { repoPath }),

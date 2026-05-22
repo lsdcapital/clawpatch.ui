@@ -1,11 +1,13 @@
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vitest";
 import {
+  AppSettingsSchema,
   ClawpatchCommandRequestSchema,
   ClawpatchStatusSchema,
   CommandResultSchema,
   CommandStreamEventSchema,
   UiMetadataSchema,
+  RepoSettingsSchema,
 } from "../../src/shared/schemas";
 
 describe("shared schemas", () => {
@@ -52,6 +54,34 @@ describe("shared schemas", () => {
     };
 
     expect(Schema.decodeUnknownSync(UiMetadataSchema)(metadata)).toEqual(metadata);
+  });
+
+  it("decodes app settings", () => {
+    const settings = {
+      schemaVersion: 1,
+      terminalAppName: "Terminal",
+      terminalAppPath: null,
+      updatedAt: "2026-05-19T00:00:00.000Z",
+    };
+
+    expect(Schema.decodeUnknownSync(AppSettingsSchema)(settings)).toEqual(settings);
+  });
+
+  it("decodes repo settings with legacy terminal app names", () => {
+    const settings = {
+      schemaVersion: 1,
+      terminalAppName: "iTerm",
+      terminalStartupScript: "pnpm dev",
+      worktreeSetupScript: "pnpm install",
+      updatedAt: "2026-05-19T00:00:00.000Z",
+    };
+
+    expect(Schema.decodeUnknownSync(RepoSettingsSchema)(settings)).toEqual({
+      schemaVersion: 1,
+      terminalStartupScript: "pnpm dev",
+      worktreeSetupScript: "pnpm install",
+      updatedAt: "2026-05-19T00:00:00.000Z",
+    });
   });
 
   it("decodes command output stream events", () => {

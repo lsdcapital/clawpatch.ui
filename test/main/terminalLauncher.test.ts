@@ -124,7 +124,7 @@ describe("TerminalLauncher", () => {
       Effect.gen(function* () {
         const terminal = yield* TerminalLauncher;
         return yield* terminal.open(cwd, {
-          appName: "Terminal",
+          appName: "/Applications/Terminal.app",
           startupScript: "pnpm dev",
         });
       }).pipe(

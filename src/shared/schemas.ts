@@ -109,9 +109,15 @@ export const UiMetadataSchema = Schema.Struct({
   updatedAt: Schema.String,
 });
 
-export const RepoSettingsSchema = Schema.Struct({
+export const AppSettingsSchema = Schema.Struct({
   schemaVersion: Schema.Literal(1),
   terminalAppName: Schema.String,
+  terminalAppPath: Schema.NullOr(Schema.String),
+  updatedAt: Schema.String,
+});
+
+export const RepoSettingsSchema = Schema.Struct({
+  schemaVersion: Schema.Literal(1),
   terminalStartupScript: Schema.String,
   worktreeSetupScript: Schema.String,
   updatedAt: Schema.String,

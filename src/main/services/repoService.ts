@@ -8,6 +8,7 @@ import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
 import * as Semaphore from "effect/Semaphore";
 import type {
+  AppSettings,
   ClawpatchCommandRequest,
   ClawpatchStatus,
   CommandInterruptResult,
@@ -41,6 +42,7 @@ import {
   type ClawpatchStateServiceShape,
 } from "./clawpatchState";
 import { GitService, type GitLifecycleEvent } from "./gitService";
+import { AppSettingsService, type AppSettingsError } from "./appSettings";
 import { RepoSettingsService, type RepoSettingsError } from "./repoSettings";
 import { SetupScriptRunner, type SetupScriptRunnerShape } from "./setupScriptRunner";
 import { TerminalLauncher, type TerminalLauncherError } from "./terminalLauncher";
@@ -72,10 +74,15 @@ export type RepoServiceError =
   | ClawpatchRunnerError
   | ClawpatchStateError
   | TerminalLauncherError
+  | AppSettingsError
   | RepoSettingsError
   | UiMetadataError;
 
 export interface RepoServiceShape {
+  readonly getAppSettings: () => Effect.Effect<AppSettings, RepoServiceError>;
+  readonly updateAppSettings: (
+    settings: AppSettings,
+  ) => Effect.Effect<AppSettings, RepoServiceError>;
   readonly listRepos: () => Effect.Effect<RepoSummary[], RepoServiceError>;
   readonly addRepo: (repoPath: string) => Effect.Effect<RepoSummary, RepoServiceError>;
   readonly refreshRepo: (repoId: string) => Effect.Effect<RepoSnapshot, RepoServiceError>;
@@ -138,6 +145,7 @@ export const RepoServiceLive = (appDataDir: string) =>
       const runner = yield* ClawpatchRunner;
       const state = yield* ClawpatchStateService;
       const metadata = yield* UiMetadataService;
+      const appSettings = yield* AppSettingsService;
       const repoSettings = yield* RepoSettingsService;
       const git = yield* GitService;
       const setupScripts = yield* SetupScriptRunner;
@@ -780,6 +788,12 @@ export const RepoServiceLive = (appDataDir: string) =>
       });
 
       return RepoService.of({
+        getAppSettings: Effect.fn("repoService.getAppSettings")(function* () {
+          return yield* appSettings.read();
+        }),
+        updateAppSettings: Effect.fn("repoService.updateAppSettings")(function* (settings) {
+          return yield* appSettings.write(settings);
+        }),
         listRepos: Effect.fn("repoService.listRepos")(function* () {
           const registry = yield* readRegistry();
           return yield* Effect.all(
@@ -937,12 +951,13 @@ export const RepoServiceLive = (appDataDir: string) =>
         }),
         openTerminal: Effect.fn("repoService.openTerminal")(function* (repoIdValue, findingId) {
           const repo = yield* requireRepo(repoIdValue);
-          const settings = yield* repoSettings.read(repo.id);
+          const appSettingsValue = yield* appSettings.read();
+          const repoSettingsValue = yield* repoSettings.read(repo.id);
           return yield* terminal.open(
             (yield* activeWorktreePathForFinding(repo.id, findingId)) ?? repo.path,
             {
-              appName: settings.terminalAppName,
-              startupScript: settings.terminalStartupScript,
+              appName: appSettingsValue.terminalAppPath ?? appSettingsValue.terminalAppName,
+              startupScript: repoSettingsValue.terminalStartupScript,
             },
           );
         }),

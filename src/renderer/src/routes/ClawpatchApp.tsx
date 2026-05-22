@@ -14,7 +14,12 @@ import { useDiffInspector } from "../hooks/useDiffInspector";
 import { useFindingsWorkspace } from "../hooks/useFindingsWorkspace";
 import { useRepoSidebarState } from "../hooks/useRepoSidebarState";
 import { useSelectedRepo } from "../hooks/useSelectedRepo";
-import type { FindingWorkStatus, PublishFixResult, RepoSettings } from "../../../shared/types";
+import type {
+  AppSettings,
+  FindingWorkStatus,
+  PublishFixResult,
+  RepoSettings,
+} from "../../../shared/types";
 import type { ActiveInspector, ActiveWorkspace } from "../workspaceTypes";
 
 const REPO_SIDEBAR_ID = "repo-sidebar";
@@ -95,6 +100,12 @@ export function ClawpatchApp() {
     enabled: settingsRepo !== null,
   });
 
+  const appSettingsQuery = useQuery({
+    queryKey: clawpatchQueryKeys.appSettings(),
+    queryFn: () => window.clawpatch.appSettings.get(),
+    enabled: settingsSection?.kind === "general",
+  });
+
   const repoDoctorQuery = useQuery({
     queryKey: clawpatchQueryKeys.repoDoctor(settingsDoctorRepo?.id),
     queryFn: () => window.clawpatch.repo.doctor(settingsDoctorRepo!.id),
@@ -109,6 +120,18 @@ export function ClawpatchApp() {
         queryKey: clawpatchQueryKeys.repoSettings(variables.repoId),
       });
     },
+  });
+
+  const appSettingsMutation = useMutation({
+    mutationFn: (settings: AppSettings) => window.clawpatch.appSettings.update(settings),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: clawpatchQueryKeys.appSettings(),
+      });
+    },
+  });
+  const terminalAppPickerMutation = useMutation({
+    mutationFn: () => window.clawpatch.appSettings.pickTerminalApp(),
   });
 
   const selectedFindingId = selectedFinding?.findingId;
@@ -188,6 +211,13 @@ export function ClawpatchApp() {
       repos={reposQuery.data ?? []}
       selectedRepo={settingsDoctorRepo}
       selectedSection={settingsSection}
+      appSettings={appSettingsQuery.data}
+      isAppSettingsLoading={appSettingsQuery.isLoading}
+      isAppSettingsSaving={appSettingsMutation.isPending}
+      isTerminalAppPickerOpen={terminalAppPickerMutation.isPending}
+      appSettingsError={
+        appSettingsQuery.error ?? appSettingsMutation.error ?? terminalAppPickerMutation.error
+      }
       settings={repoSettingsQuery.data}
       isLoading={repoSettingsQuery.isLoading}
       isSaving={repoSettingsMutation.isPending}
@@ -198,6 +228,8 @@ export function ClawpatchApp() {
       onBack={() => setSettingsSection(null)}
       onSelectGeneral={() => setSettingsSection({ kind: "general" })}
       onSelectRepo={(repoId) => setSettingsSection({ kind: "repo", repoId })}
+      onPickTerminalApp={() => terminalAppPickerMutation.mutateAsync()}
+      onSaveAppSettings={(settings) => appSettingsMutation.mutate(settings)}
       onSave={(repoId, settings) => repoSettingsMutation.mutate({ repoId, settings })}
     />
   ) : (

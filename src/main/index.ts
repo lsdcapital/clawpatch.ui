@@ -13,6 +13,7 @@ import { childLogger, logger } from "./logger";
 import { ClawpatchRunnerLive } from "./services/clawpatchRunner";
 import { ClawpatchStateServiceLive } from "./services/clawpatchState";
 import { GitServiceLive } from "./services/gitService";
+import { AppSettingsServiceLive } from "./services/appSettings";
 import { RepoSettingsServiceLive } from "./services/repoSettings";
 import { TerminalLauncherLive } from "./services/terminalLauncher";
 import { UiMetadataServiceLive } from "./services/uiMetadata";
@@ -337,6 +338,7 @@ function makeAppLayer(
     ClawpatchRunnerLive,
     ClawpatchStateServiceLive,
     UiMetadataServiceLive(userDataPath),
+    AppSettingsServiceLive(userDataPath),
     RepoSettingsServiceLive(userDataPath),
     GitServiceLive,
     SetupScriptRunnerLive,

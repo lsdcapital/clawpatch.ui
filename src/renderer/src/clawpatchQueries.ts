@@ -1,6 +1,7 @@
 import type { QueryClient } from "@tanstack/react-query";
 
 export const clawpatchQueryKeys = {
+  appSettings: () => ["appSettings"] as const,
   repos: () => ["repos"] as const,
   repoDoctor: (repoId?: string | null) => ["repoDoctor", repoId] as const,
   repoSettings: (repoId?: string | null) => ["repoSettings", repoId] as const,

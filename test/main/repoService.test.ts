@@ -29,6 +29,7 @@ import {
   type TerminalLauncherShape,
 } from "../../src/main/services/terminalLauncher";
 import { UiMetadataServiceLive } from "../../src/main/services/uiMetadata";
+import { AppSettingsServiceLive } from "../../src/main/services/appSettings";
 import { RepoSettingsServiceLive } from "../../src/main/services/repoSettings";
 import {
   SetupScriptRunner,
@@ -219,7 +220,7 @@ describe("RepoService", () => {
     );
   });
 
-  it("opens a terminal with configured repo settings", async () => {
+  it("opens a terminal with configured app settings and repo startup script", async () => {
     const calls: RunnerCall[] = [];
     const terminalCalls: Array<{
       readonly cwd: string;
@@ -246,9 +247,14 @@ describe("RepoService", () => {
         Effect.gen(function* () {
           const service = yield* RepoService;
           const summary = yield* service.addRepo(fixtureRepo);
-          yield* service.updateSettings(summary.id, {
+          yield* service.updateAppSettings({
             schemaVersion: 1,
             terminalAppName: "iTerm",
+            terminalAppPath: "/Applications/iTerm.app",
+            updatedAt: "2026-05-19T00:00:00.000Z",
+          });
+          yield* service.updateSettings(summary.id, {
+            schemaVersion: 1,
             terminalStartupScript: "pnpm dev",
             worktreeSetupScript: "",
             updatedAt: "2026-05-19T00:00:00.000Z",
@@ -258,7 +264,7 @@ describe("RepoService", () => {
       );
 
       expect(terminalCalls).toEqual([
-        { cwd: fixtureRepo, appName: "iTerm", startupScript: "pnpm dev" },
+        { cwd: fixtureRepo, appName: "/Applications/iTerm.app", startupScript: "pnpm dev" },
       ]);
     } finally {
       await runtime.dispose();
@@ -284,9 +290,95 @@ describe("RepoService", () => {
       );
 
       expect(settings).toMatchObject({
-        terminalAppName: "Terminal",
         terminalStartupScript: "",
         worktreeSetupScript: "",
+      });
+    } finally {
+      await runtime.dispose();
+    }
+  });
+
+  it("falls back to default app settings when the settings file is invalid", async () => {
+    const calls: RunnerCall[] = [];
+    const appData = await makeTempDir();
+    const runtime = ManagedRuntime.make(makeRepoServiceTestLayer(fixtureRepo, calls, appData));
+
+    try {
+      const settings = await runtime.runPromise(
+        Effect.gen(function* () {
+          const service = yield* RepoService;
+          yield* Effect.promise(() => writeFile(join(appData, "app-settings.json"), "{not-json"));
+          return yield* service.getAppSettings();
+        }),
+      );
+
+      expect(settings).toMatchObject({
+        terminalAppName: "Terminal",
+        terminalAppPath: null,
+      });
+    } finally {
+      await runtime.dispose();
+    }
+  });
+
+  it("normalizes blank app terminal names", async () => {
+    const calls: RunnerCall[] = [];
+    const appData = await makeTempDir();
+    const runtime = ManagedRuntime.make(makeRepoServiceTestLayer(fixtureRepo, calls, appData));
+
+    try {
+      const settings = await runtime.runPromise(
+        Effect.gen(function* () {
+          const service = yield* RepoService;
+          return yield* service.updateAppSettings({
+            schemaVersion: 1,
+            terminalAppName: "   ",
+            terminalAppPath: "   ",
+            updatedAt: "2026-05-19T00:00:00.000Z",
+          });
+        }),
+      );
+
+      expect(settings.terminalAppName).toBe("Terminal");
+      expect(settings.terminalAppPath).toBeNull();
+    } finally {
+      await runtime.dispose();
+    }
+  });
+
+  it("reads existing repo settings files that include legacy terminal app names", async () => {
+    const calls: RunnerCall[] = [];
+    const appData = await makeTempDir();
+    const runtime = ManagedRuntime.make(makeRepoServiceTestLayer(fixtureRepo, calls, appData));
+
+    try {
+      const settings = await runtime.runPromise(
+        Effect.gen(function* () {
+          const service = yield* RepoService;
+          const summary = yield* service.addRepo(fixtureRepo);
+          yield* Effect.promise(() => mkdir(join(appData, "repo-settings"), { recursive: true }));
+          yield* Effect.promise(() =>
+            writeFile(
+              join(appData, "repo-settings", `${summary.id}.json`),
+              JSON.stringify({
+                schemaVersion: 1,
+                terminalAppName: "iTerm",
+                terminalStartupScript: "pnpm dev",
+                worktreeSetupScript: "pnpm install",
+                updatedAt: "2026-05-19T00:00:00.000Z",
+              }),
+              "utf8",
+            ),
+          );
+          return yield* service.getSettings(summary.id);
+        }),
+      );
+
+      expect(settings).toEqual({
+        schemaVersion: 1,
+        terminalStartupScript: "pnpm dev",
+        worktreeSetupScript: "pnpm install",
+        updatedAt: "2026-05-19T00:00:00.000Z",
       });
     } finally {
       await runtime.dispose();
@@ -633,7 +725,6 @@ describe("RepoService", () => {
           const summary = yield* service.addRepo(fixtureRepo);
           yield* service.updateSettings(summary.id, {
             schemaVersion: 1,
-            terminalAppName: "Terminal",
             terminalStartupScript: "",
             worktreeSetupScript: "pnpm install",
             updatedAt: "2026-05-19T00:00:00.000Z",
@@ -662,7 +753,6 @@ describe("RepoService", () => {
       const summary = yield* service.addRepo(fixtureRepo);
       yield* service.updateSettings(summary.id, {
         schemaVersion: 1,
-        terminalAppName: "Terminal",
         terminalStartupScript: "",
         worktreeSetupScript: "pnpm install",
         updatedAt: "2026-05-19T00:00:00.000Z",
@@ -712,7 +802,6 @@ describe("RepoService", () => {
       const summary = yield* service.addRepo(fixtureRepo);
       yield* service.updateSettings(summary.id, {
         schemaVersion: 1,
-        terminalAppName: "Terminal",
         terminalStartupScript: "",
         worktreeSetupScript: "exit 1",
         updatedAt: "2026-05-19T00:00:00.000Z",
@@ -1564,6 +1653,7 @@ function makeRepoServiceTestLayer(
             runnerLayer,
             ClawpatchStateServiceLive,
             UiMetadataServiceLive(appData),
+            AppSettingsServiceLive(appData),
             RepoSettingsServiceLive(appData),
             gitService === undefined
               ? GitServiceLive
