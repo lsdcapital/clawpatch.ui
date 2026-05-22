@@ -447,7 +447,7 @@ describe("RepoService", () => {
           return {
             ...makeCommandResult(repoPath, request.command),
             exitCode: 1,
-            stdout: "{\"error\":\"not saved\"}",
+            stdout: '{"error":"not saved"}',
             stderr: "triage failed",
           };
         }),
@@ -469,7 +469,7 @@ describe("RepoService", () => {
 
       expect(error).toMatchObject({
         message:
-          "clawpatch triage failed with exit 1\nstderr: triage failed\nstdout: {\"error\":\"not saved\"}",
+          'clawpatch triage failed with exit 1\nstderr: triage failed\nstdout: {"error":"not saved"}',
       });
       expect(calls.at(-1)?.request).toMatchObject({
         command: "triage",
@@ -478,14 +478,7 @@ describe("RepoService", () => {
       });
     }).pipe(
       Effect.provide(
-        makeRepoServiceTestLayer(
-          fixtureRepo,
-          calls,
-          undefined,
-          false,
-          undefined,
-          runnerService,
-        ),
+        makeRepoServiceTestLayer(fixtureRepo, calls, undefined, false, undefined, runnerService),
       ),
     );
   });

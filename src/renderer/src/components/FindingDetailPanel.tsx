@@ -171,9 +171,7 @@ export function FindingDetailPanel({
         {publishFixError !== null ? (
           <p className="detail-action-message error">{publishFixError.message}</p>
         ) : null}
-        {triageError !== null ? (
-          <p className="detail-action-message error">{triageError}</p>
-        ) : null}
+        {triageError !== null ? <p className="detail-action-message error">{triageError}</p> : null}
         {publishFixResult !== null ? (
           <p className="detail-action-message success">
             PR draft opened for {publishFixResult.branchName}.{" "}
