@@ -250,7 +250,7 @@ export const RepoServiceLive = (appDataDir: string) =>
         id: string,
         registryUpdatedAt: string | undefined,
       ) {
-        const activeWorktrees = yield* activeWorktreesForRepo(id);
+        const activeWorktrees = yield* activeWorktreesForRepo(id, repoPath);
         const activeWorktreePath = activeWorktrees[0]?.path ?? null;
         const hasClawpatch = yield* state.detect(repoPath);
         let isValid = false;
@@ -301,7 +301,7 @@ export const RepoServiceLive = (appDataDir: string) =>
 
       const discoverActiveWorktreesForRepo = Effect.fn(
         "repoService.discoverActiveWorktreesForRepo",
-      )(function* (repoIdValue: string) {
+      )(function* (repoIdValue: string, repoPath: string) {
         const worktreesRoot = path.join(appDataDir, "worktrees", repoIdValue);
         const names = yield* fs
           .readDirectory(worktreesRoot)
@@ -329,6 +329,14 @@ export const RepoServiceLive = (appDataDir: string) =>
               if (finding === undefined) {
                 return null;
               }
+              const isRetired = yield* isManagedWorktreeRetired(
+                { id: repoIdValue, path: repoPath },
+                finding.findingId,
+                worktreePath,
+              );
+              if (isRetired) {
+                return null;
+              }
               return [finding.findingId, worktreePath] as const;
             }),
           ),
@@ -342,8 +350,8 @@ export const RepoServiceLive = (appDataDir: string) =>
 
       const hydrateDiscoveredWorktreesForRepo = Effect.fn(
         "repoService.hydrateDiscoveredWorktreesForRepo",
-      )(function* (repoIdValue: string) {
-        const discovered = yield* discoverActiveWorktreesForRepo(repoIdValue);
+      )(function* (repoIdValue: string, repoPath: string) {
+        const discovered = yield* discoverActiveWorktreesForRepo(repoIdValue, repoPath);
         if (discovered.size === 0) {
           return;
         }
@@ -358,10 +366,50 @@ export const RepoServiceLive = (appDataDir: string) =>
         });
       });
 
+      const pruneRetiredActiveWorktreesForRepo = Effect.fn(
+        "repoService.pruneRetiredActiveWorktreesForRepo",
+      )(function* (repoIdValue: string, repoPath: string) {
+        const paths = yield* Ref.get(activeWorktreePaths);
+        const repoWorktrees = paths.get(repoIdValue);
+        if (repoWorktrees === undefined || repoWorktrees.size === 0) {
+          return;
+        }
+
+        const retiredFindingIds = yield* Effect.all(
+          [...repoWorktrees.entries()].map(([findingId, worktreePath]) =>
+            isManagedWorktreeRetired({ id: repoIdValue, path: repoPath }, findingId, worktreePath)
+              .pipe(Effect.map((isRetired) => (isRetired ? findingId : null))),
+          ),
+          { concurrency: REPO_SERVICE_COLLECTION_CONCURRENCY },
+        );
+        const retired = new Set(
+          retiredFindingIds.filter((findingId): findingId is string => findingId !== null),
+        );
+        if (retired.size === 0) {
+          return;
+        }
+
+        yield* Ref.update(activeWorktreePaths, (currentPaths) => {
+          const nextPaths = new Map(currentPaths);
+          const nextRepoWorktrees = new Map(nextPaths.get(repoIdValue));
+          for (const findingId of retired) {
+            nextRepoWorktrees.delete(findingId);
+          }
+          if (nextRepoWorktrees.size === 0) {
+            nextPaths.delete(repoIdValue);
+          } else {
+            nextPaths.set(repoIdValue, nextRepoWorktrees);
+          }
+          return nextPaths;
+        });
+      });
+
       const activeWorktreesForRepo = Effect.fn("repoService.activeWorktreesForRepo")(function* (
         repoIdValue: string,
+        repoPath: string,
       ) {
-        yield* hydrateDiscoveredWorktreesForRepo(repoIdValue);
+        yield* hydrateDiscoveredWorktreesForRepo(repoIdValue, repoPath);
+        yield* pruneRetiredActiveWorktreesForRepo(repoIdValue, repoPath);
         const paths = yield* Ref.get(activeWorktreePaths);
         return [...(paths.get(repoIdValue)?.entries() ?? [])]
           .toSorted(([left], [right]) => left.localeCompare(right))
@@ -372,11 +420,12 @@ export const RepoServiceLive = (appDataDir: string) =>
       });
 
       const activeWorktreePathForFinding = Effect.fn("repoService.activeWorktreePathForFinding")(
-        function* (repoIdValue: string, findingId: string | undefined) {
+        function* (repoIdValue: string, repoPath: string, findingId: string | undefined) {
           if (findingId === undefined) {
             return null;
           }
-          yield* hydrateDiscoveredWorktreesForRepo(repoIdValue);
+          yield* hydrateDiscoveredWorktreesForRepo(repoIdValue, repoPath);
+          yield* pruneRetiredActiveWorktreesForRepo(repoIdValue, repoPath);
           const paths = yield* Ref.get(activeWorktreePaths);
           return paths.get(repoIdValue)?.get(findingId) ?? null;
         },
@@ -417,6 +466,14 @@ export const RepoServiceLive = (appDataDir: string) =>
         return [...paths.keys()].some((key) => key.startsWith(`${repoIdValue}\0`));
       });
 
+      const isFindingCommandRunning = Effect.fn("repoService.isFindingCommandRunning")(function* (
+        repoIdValue: string,
+        findingId: string,
+      ) {
+        const paths = yield* Ref.get(runningFindingCommandPaths);
+        return paths.has(findingCommandKey(repoIdValue, findingId));
+      });
+
       const findingCommandPath = Effect.fn("repoService.findingCommandPath")(function* (
         repoIdValue: string,
         findingId: string,
@@ -436,6 +493,34 @@ export const RepoServiceLive = (appDataDir: string) =>
         };
       };
 
+      const isManagedWorktreeRetired = Effect.fn("repoService.isManagedWorktreeRetired")(
+        function* (repo: Pick<RepoSummary, "id" | "path">, findingId: string, worktreePath: string) {
+          if (yield* isFindingCommandRunning(repo.id, findingId)) {
+            return false;
+          }
+
+          const { branchName } = managedWorktreeForFinding(repo, findingId);
+          const status = yield* git
+            .readStatus(worktreePath)
+            .pipe(catchAll(() => Effect.succeed(null)));
+          if (
+            status === null ||
+            status.branch !== branchName ||
+            status.staged + status.modified + status.untracked > 0
+          ) {
+            return false;
+          }
+
+          return yield* git
+            .isBranchAppliedToBase({
+              repoPath: repo.path,
+              branchName,
+              baseRef: TARGET_BASE_REF,
+            })
+            .pipe(catchAll(() => Effect.succeed(false)));
+        },
+      );
+
       const readFindingListWithActiveWorktrees = Effect.fn(
         "repoService.readFindingListWithActiveWorktrees",
       )(function* (repoIdValue: string, repoPath: string) {
@@ -443,7 +528,7 @@ export const RepoServiceLive = (appDataDir: string) =>
           .readFindingList(repoPath)
           .pipe(catchAll(() => Effect.succeed([])));
         const byId = new Map(baseFindings.map((finding) => [finding.findingId, finding]));
-        const activeWorktrees = yield* activeWorktreesForRepo(repoIdValue);
+        const activeWorktrees = yield* activeWorktreesForRepo(repoIdValue, repoPath);
 
         yield* Effect.all(
           activeWorktrees.map(({ findingId, path: worktreePath }) =>
@@ -585,7 +670,11 @@ export const RepoServiceLive = (appDataDir: string) =>
         repo: Pick<RepoSummary, "id" | "path">,
         findingId: string,
       ) {
-        const activeWorktreePath = yield* activeWorktreePathForFinding(repo.id, findingId);
+        const activeWorktreePath = yield* activeWorktreePathForFinding(
+          repo.id,
+          repo.path,
+          findingId,
+        );
         if (activeWorktreePath === null) {
           return yield* new CommandValidationError({
             message: "Run fix before publishing a PR for this finding.",
@@ -862,7 +951,7 @@ export const RepoServiceLive = (appDataDir: string) =>
         listFindingWorkStatuses: Effect.fn("repoService.listFindingWorkStatuses")(
           function* (repoIdValue) {
             const repo = yield* requireRepo(repoIdValue);
-            const activeWorktrees = yield* activeWorktreesForRepo(repo.id);
+            const activeWorktrees = yield* activeWorktreesForRepo(repo.id, repo.path);
             return yield* Effect.all(
               activeWorktrees.map(({ findingId, path: worktreePath }) =>
                 workStatusForActiveWorktree(repo.path, findingId, worktreePath),
@@ -878,7 +967,7 @@ export const RepoServiceLive = (appDataDir: string) =>
         getFinding: Effect.fn("repoService.getFinding")(function* (repoIdValue, findingId) {
           const repo = yield* requireRepo(repoIdValue);
           return yield* state.readFindingDetail(
-            (yield* activeWorktreePathForFinding(repo.id, findingId)) ?? repo.path,
+            (yield* activeWorktreePathForFinding(repo.id, repo.path, findingId)) ?? repo.path,
             findingId,
           );
         }),
@@ -898,7 +987,7 @@ export const RepoServiceLive = (appDataDir: string) =>
             if (findingId !== undefined) {
               return yield* runner.interrupt(
                 (yield* findingCommandPath(repo.id, findingId)) ??
-                  (yield* activeWorktreePathForFinding(repo.id, findingId)) ??
+                  (yield* activeWorktreePathForFinding(repo.id, repo.path, findingId)) ??
                   repo.path,
               );
             }
@@ -936,13 +1025,13 @@ export const RepoServiceLive = (appDataDir: string) =>
         readDiff: Effect.fn("repoService.readDiff")(function* (repoIdValue, findingId) {
           const repo = yield* requireRepo(repoIdValue);
           return yield* git.readDiff(
-            (yield* activeWorktreePathForFinding(repo.id, findingId)) ?? repo.path,
+            (yield* activeWorktreePathForFinding(repo.id, repo.path, findingId)) ?? repo.path,
           );
         }),
         readGitStatus: Effect.fn("repoService.readGitStatus")(function* (repoIdValue, findingId) {
           const repo = yield* requireRepo(repoIdValue);
           return yield* git.readStatus(
-            (yield* activeWorktreePathForFinding(repo.id, findingId)) ?? repo.path,
+            (yield* activeWorktreePathForFinding(repo.id, repo.path, findingId)) ?? repo.path,
           );
         }),
         publishFix: Effect.fn("repoService.publishFix")(function* (repoIdValue, findingId) {
@@ -954,7 +1043,7 @@ export const RepoServiceLive = (appDataDir: string) =>
           const appSettingsValue = yield* appSettings.read();
           const repoSettingsValue = yield* repoSettings.read(repo.id);
           return yield* terminal.open(
-            (yield* activeWorktreePathForFinding(repo.id, findingId)) ?? repo.path,
+            (yield* activeWorktreePathForFinding(repo.id, repo.path, findingId)) ?? repo.path,
             {
               appName: appSettingsValue.terminalAppPath ?? appSettingsValue.terminalAppName,
               startupScript: repoSettingsValue.terminalStartupScript,
