@@ -39,22 +39,47 @@ function formatCommandOutput(entries: readonly CommandLogEntry[], isRunning: boo
   if (entries.length === 0) {
     return isRunning ? "Command starting..." : "No commands run yet.";
   }
-  return entries
-    .map((entry) => {
-      if (entry.kind === "stream") {
-        if (entry.event.kind === "output") {
-          return `${entryLabel(entry.event)}[${entry.event.stream}] ${entry.event.chunk}`;
+
+  let output = "";
+  let previousOutputKey: string | null = null;
+
+  const appendLine = (line: string): void => {
+    if (output !== "" && !output.endsWith("\n")) {
+      output += "\n";
+    }
+    output += line;
+    previousOutputKey = null;
+  };
+
+  for (const entry of entries) {
+    if (entry.kind === "stream") {
+      if (entry.event.kind === "output") {
+        const outputKey = outputEntryKey(entry.event);
+        if (previousOutputKey !== outputKey) {
+          if (output !== "" && !output.endsWith("\n")) {
+            output += "\n";
+          }
+          output += `${entryLabel(entry.event)}[${entry.event.stream}] `;
         }
-        return `${entryLabel(entry.event)}[${entry.event.phase}] ${entry.event.message} (cwd: ${entry.event.cwd})`;
+        output += entry.event.chunk;
+        previousOutputKey = outputKey;
+      } else {
+        appendLine(
+          `${entryLabel(entry.event)}[${entry.event.phase}] ${entry.event.message} (cwd: ${entry.event.cwd})`,
+        );
       }
-      if (entry.kind === "result") {
-        return `${entryLabel(entry)}[exit ${
+    } else if (entry.kind === "result") {
+      appendLine(
+        `${entryLabel(entry)}[exit ${
           entry.result.exitCode ?? "null"
-        }] clawpatch ${entry.result.args.join(" ")} (${entry.result.durationMs}ms)`;
-      }
-      return `${entryLabel(entry)}[error] ${entry.message}`;
-    })
-    .join("\n");
+        }] clawpatch ${entry.result.args.join(" ")} (${entry.result.durationMs}ms)`,
+      );
+    } else {
+      appendLine(`${entryLabel(entry)}[error] ${entry.message}`);
+    }
+  }
+
+  return output;
 }
 
 function entryLabel(entry: { readonly findingId?: string; readonly command?: string }): string {
@@ -62,4 +87,12 @@ function entryLabel(entry: { readonly findingId?: string; readonly command?: str
     (part): part is string => part !== undefined && part !== "",
   );
   return parts.length === 0 ? "" : `[${parts.join(" ")}] `;
+}
+
+function outputEntryKey(entry: {
+  readonly findingId?: string;
+  readonly command?: string;
+  readonly stream: string;
+}): string {
+  return `${entry.findingId ?? ""}\0${entry.command ?? ""}\0${entry.stream}`;
 }
