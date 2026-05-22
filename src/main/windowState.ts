@@ -2,6 +2,7 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import type * as PlatformError from "effect/PlatformError";
+import { catchAll } from "./effectCompat";
 
 export const WINDOW_STATE_FILE = "window-state.json";
 export const DEFAULT_WINDOW_BOUNDS = {
@@ -49,7 +50,7 @@ export function readWindowState(
     const path = yield* Path.Path;
     const raw = yield* fs
       .readFileString(path.join(userDataPath, WINDOW_STATE_FILE))
-      .pipe(Effect.catch(() => Effect.succeed(null)));
+      .pipe(catchAll(() => Effect.succeed(null)));
     if (raw === null) {
       return defaultWindowState();
     }

@@ -14,6 +14,7 @@ import type {
   PatchAttempt,
   ReviewRunSummary,
 } from "../../shared/types";
+import { catchAll } from "../effectCompat";
 import { FindingNotFoundError, JsonDecodeError } from "../errors";
 
 const RawFindingSchema = Schema.Struct({
@@ -72,7 +73,7 @@ export const ClawpatchStateServiceLive = Layer.effect(
       directory: string,
     ) {
       const dir = path.join(repoPath, ".clawpatch", directory);
-      const names = yield* fs.readDirectory(dir).pipe(Effect.catch(() => Effect.succeed([])));
+      const names = yield* fs.readDirectory(dir).pipe(catchAll(() => Effect.succeed([])));
 
       const records: unknown[] = [];
       for (const name of names.toSorted()) {
@@ -82,7 +83,7 @@ export const ClawpatchStateServiceLive = Layer.effect(
         const filePath = path.join(dir, path.basename(name));
         const parsed = yield* fs.readFileString(filePath).pipe(
           Effect.map((raw) => JSON.parse(raw) as unknown),
-          Effect.catch(() => Effect.succeed(null)),
+          catchAll(() => Effect.succeed(null)),
         );
         if (parsed !== null) {
           records.push(parsed);
@@ -108,9 +109,7 @@ export const ClawpatchStateServiceLive = Layer.effect(
         const stateDir = path.join(repoPath, ".clawpatch");
         const candidates = [path.join(stateDir, "config.json"), path.join(stateDir, "findings")];
         for (const candidate of candidates) {
-          const exists = yield* fs
-            .exists(candidate)
-            .pipe(Effect.catch(() => Effect.succeed(false)));
+          const exists = yield* fs.exists(candidate).pipe(catchAll(() => Effect.succeed(false)));
           if (exists) {
             return true;
           }

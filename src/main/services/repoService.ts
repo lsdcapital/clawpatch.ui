@@ -24,6 +24,8 @@ import type {
   RepoSummary,
   TerminalOpenResult,
 } from "../../shared/types";
+import { emitCommandStream } from "../commandStream";
+import { catchAll } from "../effectCompat";
 import {
   CommandAlreadyRunningError,
   CommandExecutionError,
@@ -56,6 +58,7 @@ interface RegistryFile {
 }
 
 const TARGET_BASE_REF = "origin/main";
+const REPO_SERVICE_COLLECTION_CONCURRENCY = 4;
 
 type ActiveWorktreePaths = Map<string, Map<string, string>>;
 type RunningCommandPaths = Map<string, string>;
@@ -150,7 +153,7 @@ export const RepoServiceLive = (appDataDir: string) =>
       const readRegistry = Effect.fn("repoService.readRegistry")(function* () {
         const raw = yield* fs
           .readFileString(registryPath)
-          .pipe(Effect.catch(() => Effect.succeed(null)));
+          .pipe(catchAll(() => Effect.succeed(null)));
         if (raw === null) {
           return { repos: [] } satisfies RegistryFile;
         }
@@ -163,7 +166,7 @@ export const RepoServiceLive = (appDataDir: string) =>
             } satisfies RegistryFile;
           },
           catch: (cause) => cause,
-        }).pipe(Effect.catch(() => Effect.succeed({ repos: [] } satisfies RegistryFile)));
+        }).pipe(catchAll(() => Effect.succeed({ repos: [] } satisfies RegistryFile)));
       });
 
       const writeRegistry = Effect.fn("repoService.writeRegistry")(function* (
@@ -257,7 +260,7 @@ export const RepoServiceLive = (appDataDir: string) =>
             isValid = true;
           } else {
             const status = yield* runner.run(repoPath, { command: "status" }).pipe(
-              Effect.catch((error: unknown) =>
+              catchAll((error: unknown) =>
                 Effect.succeed({
                   exitCode: 1,
                   stderr: error instanceof Error ? error.message : String(error),
@@ -294,7 +297,7 @@ export const RepoServiceLive = (appDataDir: string) =>
         const worktreesRoot = path.join(appDataDir, "worktrees", repoIdValue);
         const names = yield* fs
           .readDirectory(worktreesRoot)
-          .pipe(Effect.catch(() => Effect.succeed([])));
+          .pipe(catchAll(() => Effect.succeed([])));
         const entries = yield* Effect.all(
           names.toSorted().map((name) =>
             Effect.gen(function* () {
@@ -304,16 +307,14 @@ export const RepoServiceLive = (appDataDir: string) =>
               }
 
               const worktreePath = path.join(worktreesRoot, slug);
-              const stats = yield* fs
-                .stat(worktreePath)
-                .pipe(Effect.catch(() => Effect.succeed(null)));
+              const stats = yield* fs.stat(worktreePath).pipe(catchAll(() => Effect.succeed(null)));
               if (stats?.type !== "Directory") {
                 return null;
               }
 
               const findings = yield* state
                 .readFindingList(worktreePath)
-                .pipe(Effect.catch(() => Effect.succeed([])));
+                .pipe(catchAll(() => Effect.succeed([])));
               const finding = findings.find(
                 (item) => sanitizeWorktreeFragment(item.findingId) === slug,
               );
@@ -323,7 +324,7 @@ export const RepoServiceLive = (appDataDir: string) =>
               return [finding.findingId, worktreePath] as const;
             }),
           ),
-          { concurrency: "unbounded" },
+          { concurrency: REPO_SERVICE_COLLECTION_CONCURRENCY },
         );
 
         return new Map(
@@ -432,7 +433,7 @@ export const RepoServiceLive = (appDataDir: string) =>
       )(function* (repoIdValue: string, repoPath: string) {
         const baseFindings = yield* state
           .readFindingList(repoPath)
-          .pipe(Effect.catch(() => Effect.succeed([])));
+          .pipe(catchAll(() => Effect.succeed([])));
         const byId = new Map(baseFindings.map((finding) => [finding.findingId, finding]));
         const activeWorktrees = yield* activeWorktreesForRepo(repoIdValue);
 
@@ -447,10 +448,10 @@ export const RepoServiceLive = (appDataDir: string) =>
                   }
                 }),
               ),
-              Effect.catch(() => Effect.succeed([])),
+              catchAll(() => Effect.succeed([])),
             ),
           ),
-          { concurrency: "unbounded" },
+          { concurrency: REPO_SERVICE_COLLECTION_CONCURRENCY },
         );
 
         return [...byId.values()];
@@ -462,8 +463,8 @@ export const RepoServiceLive = (appDataDir: string) =>
         findingId: string,
       ) {
         const detail = yield* state.readFindingDetail(worktreePath, findingId).pipe(
-          Effect.catch(() => state.readFindingDetail(repoPath, findingId)),
-          Effect.catch(() => Effect.succeed(null)),
+          catchAll(() => state.readFindingDetail(repoPath, findingId)),
+          catchAll(() => Effect.succeed(null)),
         );
         return detail?.patchAttempts.find((patch) => patch.git.prUrl !== null)?.git.prUrl ?? null;
       });
@@ -504,7 +505,7 @@ export const RepoServiceLive = (appDataDir: string) =>
         findingId?: string,
       ) {
         return yield* runner.run(commandPath, request, (event) =>
-          onStream?.({
+          emitCommandStream(onStream, {
             ...event,
             repoId: repoIdValue,
             findingId,
@@ -783,7 +784,7 @@ export const RepoServiceLive = (appDataDir: string) =>
           const registry = yield* readRegistry();
           return yield* Effect.all(
             registry.repos.map((repo) => summarizeRepo(repo.path, repo.id, repo.updatedAt)),
-            { concurrency: "unbounded" },
+            { concurrency: REPO_SERVICE_COLLECTION_CONCURRENCY },
           );
         }),
         addRepo: Effect.fn("repoService.addRepo")(function* (repoPath) {
@@ -852,7 +853,7 @@ export const RepoServiceLive = (appDataDir: string) =>
               activeWorktrees.map(({ findingId, path: worktreePath }) =>
                 workStatusForActiveWorktree(repo.path, findingId, worktreePath),
               ),
-              { concurrency: "unbounded" },
+              { concurrency: REPO_SERVICE_COLLECTION_CONCURRENCY },
             );
           },
         ),
@@ -1030,7 +1031,7 @@ function emitLifecycle(
     readonly argv?: readonly string[];
   },
 ): void {
-  onStream?.({
+  emitCommandStream(onStream, {
     kind: "lifecycle",
     runId: metadata.runId,
     repoId: metadata.repoId,
@@ -1080,9 +1081,9 @@ function readFindingTitleForCommit(
   findingId: string,
 ): Effect.Effect<string, never> {
   return state.readFindingDetail(worktreePath, findingId).pipe(
-    Effect.catch(() => state.readFindingDetail(repoPath, findingId)),
+    catchAll(() => state.readFindingDetail(repoPath, findingId)),
     Effect.map((finding) => finding.title),
-    Effect.catch(() => Effect.succeed(findingId)),
+    catchAll(() => Effect.succeed(findingId)),
   );
 }
 

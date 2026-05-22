@@ -109,6 +109,24 @@ describe("RepoService", () => {
     }).pipe(Effect.provide(makeRepoServiceTestLayer(fixtureRepo, calls)));
   });
 
+  it.effect("does not fail commands when stream publishing throws", () => {
+    const calls: RunnerCall[] = [];
+    return Effect.gen(function* () {
+      const service = yield* RepoService;
+      const summary = yield* service.addRepo(fixtureRepo);
+
+      const result = yield* service.runCommand(summary.id, { command: "map" }, () => {
+        throw new Error("renderer send failed");
+      });
+
+      expect(result).toMatchObject({
+        exitCode: 0,
+        args: ["map"],
+        cwd: fixtureRepo,
+      });
+    }).pipe(Effect.provide(makeRepoServiceTestLayer(fixtureRepo, calls)));
+  });
+
   it.effect("summarizes repo updates from latest finding activity", () => {
     const calls: RunnerCall[] = [];
     return Effect.gen(function* () {
