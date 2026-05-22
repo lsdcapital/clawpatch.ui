@@ -216,7 +216,7 @@ button:disabled {
   min-height: 0;
   min-width: 52px;
   overflow: hidden;
-  padding: 12px;
+  padding: 12px 10px;
   width: 52px;
 }
 
@@ -514,7 +514,7 @@ button:disabled {
 
 .repo-rail-item.selected {
   border-color: var(--accent);
-  box-shadow: 0 0 0 2px var(--focus-ring);
+  box-shadow: inset 0 0 0 2px var(--focus-ring);
 }
 
 .repo-rail-item.invalid::after {
