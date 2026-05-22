@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "runId": "20260522T105010-443473",
+  "command": "revalidate",
+  "args": [
+    "--json",
+    "--no-color",
+    "--no-input",
+    "revalidate",
+    "--finding",
+    "fnd_sig-feat-library-a20e6fdd04-d3b4_b9e005704e"
+  ],
+  "rootPath": "/Users/steflsd/Library/Application Support/Clawpatch UI/worktrees/20cfbef174090674/fnd_sig-feat-library-a20e6fdd04-d3b4_b9e005704e",
+  "headSha": "0fb1ef98deb9bfa4e501f3fdade9dba063d9aa8e",
+  "startedAt": "2026-05-22T10:50:10.527Z",
+  "finishedAt": "2026-05-22T10:51:20.074Z",
+  "status": "completed",
+  "claimedFeatureIds": [],
+  "findingIds": [
+    "fnd_sig-feat-library-a20e6fdd04-d3b4_b9e005704e"
+  ],
+  "patchAttemptIds": [],
+  "errors": []
+}

@@ -723,7 +723,7 @@ describe("ClawpatchApp header actions", () => {
     const output = screen.getByRole("complementary", { name: "Command output" });
     expect(output.textContent).not.toContain("[stdout] chunk-4\n");
     expect(output.textContent).toContain("[stdout] chunk-5\n");
-    expect(output.textContent).toContain("[stdout] chunk-204\n");
+    expect(output.textContent).toContain("chunk-204\n");
   });
 
   it("revalidates the selected finding without opening command output", async () => {

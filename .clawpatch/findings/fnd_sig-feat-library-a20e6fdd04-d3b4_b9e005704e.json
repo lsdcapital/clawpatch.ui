@@ -30,10 +30,36 @@
   "suggestedRegressionTest": "Add a CommandPanel test with two stdout stream entries whose chunks are `hel` and `lo\\n`, then assert the pre text contains `hello\\n` and not `hel\\nlo`.",
   "minimumFixScope": "src/renderer/src/components/CommandPanel.tsx plus a focused renderer test for streamed command output.",
   "status": "open",
-  "history": [],
+  "history": [
+    {
+      "runId": "20260522T105010-443473",
+      "kind": "revalidate",
+      "status": "open",
+      "note": null,
+      "reasoning": "The original evidence still exists in src/renderer/src/components/CommandPanel.tsx at current lines 42-57: stream output entries are mapped independently, output chunks are formatted as `${entryLabel(entry.event)}[${entry.event.stream}] ${entry.event.chunk}`, and all entries are then joined with `\"\\n\"`. That still inserts an artificial newline between adjacent stream chunks and also adds an extra separator after chunks that already end in a newline. Searches found no CommandPanel-specific regression test for preserving split chunks such as `hel` + `lo\\n`; existing renderer tests only assert labeled chunks are present and capped. The relevant existing tests pass, but they do not cover this corruption case, so the bug remains open.",
+      "commands": [
+        "sed -n '1,220p' src/renderer/src/components/CommandPanel.tsx",
+        "rg -n \"CommandPanel|entryLabel|event\\.chunk|join\\(\\\"\\\\n\\\"\\)|command output|stdout|stderr\" src/renderer/src -S",
+        "rg --files -g 'package.json' -g 'vitest*' -g '*CommandPanel*' -g '*command*test*' -g '*command*spec*'",
+        "nl -ba src/renderer/src/components/CommandPanel.tsx | sed -n '1,120p'",
+        "sed -n '1,220p' test/renderer/commandLogEntries.test.ts",
+        "cat package.json",
+        "rg -n \"CommandPanel|formatCommandOutput|Command Output|stdout|stderr|stream|chunk\" src test -S",
+        "pnpm exec vitest run test/renderer/commandLogEntries.test.ts",
+        "sed -n '1,220p' src/renderer/src/workspaceTypes.ts",
+        "sed -n '1,220p' src/renderer/src/commandLogEntries.ts",
+        "sed -n '650,735p' test/renderer/ClawpatchApp.test.tsx",
+        "sed -n '1000,1080p' test/renderer/ClawpatchApp.test.tsx",
+        "pnpm exec vitest run test/renderer/ClawpatchApp.test.tsx -t \"renders lifecycle, stderr, and exit code for a failed fix|retains only the latest command stream entries\""
+      ],
+      "createdAt": "2026-05-22T10:51:20.069Z"
+    }
+  ],
   "signature": "sig_feat-library-a20e6fdd04_d3b40735b3",
-  "linkedPatchAttemptIds": [],
+  "linkedPatchAttemptIds": [
+    "pat_fnd-sig-feat-library-a20e6fdd04-_d9c5a0cf38"
+  ],
   "createdByRunId": "20260520T112637-b414a4",
   "createdAt": "2026-05-20T11:28:11.219Z",
-  "updatedAt": "2026-05-20T11:28:11.219Z"
+  "updatedAt": "2026-05-22T11:38:51.005Z"
 }
