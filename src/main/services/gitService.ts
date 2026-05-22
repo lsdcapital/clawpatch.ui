@@ -75,6 +75,14 @@ export interface GitServiceShape {
     },
     onLifecycle?: (event: GitLifecycleEvent) => void,
   ) => Effect.Effect<GitPublishFixResult, CommandSpawnError>;
+  readonly isBranchAppliedToBase: (
+    input: {
+      readonly repoPath: string;
+      readonly branchName: string;
+      readonly baseRef: string;
+    },
+    onLifecycle?: (event: GitLifecycleEvent) => void,
+  ) => Effect.Effect<boolean, CommandSpawnError>;
 }
 
 export class GitService extends Context.Service<GitService, GitServiceShape>()(
@@ -102,6 +110,18 @@ export const GitServiceLive = Layer.effect(
           onLifecycle,
         ).pipe(Effect.mapError((cause) => new CommandSpawnError({ repoPath, cause })));
         return parseGitStatus(output);
+      }),
+      isBranchAppliedToBase: Effect.fn("git.isBranchAppliedToBase")(function* (
+        { repoPath, branchName, baseRef },
+        onLifecycle,
+      ) {
+        const output = yield* runGitOutput(
+          spawner,
+          repoPath,
+          ["cherry", baseRef, branchName],
+          onLifecycle,
+        ).pipe(Effect.mapError((cause) => new CommandSpawnError({ repoPath, cause })));
+        return parseGitCherryAppliedToBase(output);
       }),
       requireCleanCheckout: Effect.fn("git.requireCleanCheckout")(
         function* (repoPath, onLifecycle) {
@@ -286,6 +306,15 @@ function parseGitStatus(output: string): GitStatusSummary {
   }
 
   return { staged, modified, untracked, branch };
+}
+
+function parseGitCherryAppliedToBase(output: string): boolean {
+  const lines = output
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line !== "");
+
+  return lines.every((line) => line.startsWith("- "));
 }
 
 function runGitOutput(

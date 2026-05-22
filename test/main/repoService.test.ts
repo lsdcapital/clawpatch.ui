@@ -678,6 +678,63 @@ describe("RepoService", () => {
     );
   });
 
+  it.effect("prunes cached managed worktrees after their branch is applied to origin/main", () => {
+    const calls: RunnerCall[] = [];
+    const gitCalls: Array<{
+      kind: string;
+      repoPath: string;
+      worktreePath?: string;
+      branchName?: string;
+      baseRef?: string;
+    }> = [];
+    let branchApplied = false;
+    return Effect.gen(function* () {
+      const service = yield* RepoService;
+
+      const summary = yield* service.addRepo(fixtureRepo);
+      const result = yield* service.runCommand(summary.id, {
+        command: "fix",
+        findingId: "fnd-1",
+      });
+      expect(yield* service.readDiff(summary.id, "fnd-1")).toBe(`diff:${result.cwd}`);
+
+      branchApplied = true;
+      const repos = yield* service.listRepos();
+      const diff = yield* service.readDiff(summary.id, "fnd-1");
+
+      expect(repos[0]).toMatchObject({
+        activeWorktreePath: null,
+        activeWorktrees: [],
+      });
+      expect(diff).toBe(`diff:${fixtureRepo}`);
+      expect(gitCalls).toContainEqual({
+        kind: "applied",
+        repoPath: fixtureRepo,
+        branchName: "clawpatch/fix/fnd-1",
+        baseRef: "origin/main",
+      });
+    }).pipe(
+      Effect.provide(
+        makeRepoServiceTestLayer(
+          fixtureRepo,
+          calls,
+          undefined,
+          false,
+          makeGitMock(gitCalls, {
+            readStatus: (repoPath) =>
+              Effect.succeed({
+                staged: 0,
+                modified: 0,
+                untracked: 0,
+                branch: repoPath === fixtureRepo ? "main" : "clawpatch/fix/fnd-1",
+              }),
+            isBranchAppliedToBase: () => Effect.succeed(branchApplied),
+          }),
+        ),
+      ),
+    );
+  });
+
   it("runs configured setup scripts once after creating a managed worktree", async () => {
     const calls: RunnerCall[] = [];
     const setupCalls: Array<{ readonly cwd: string; readonly script: string }> = [];
@@ -1022,6 +1079,225 @@ describe("RepoService", () => {
       expect(gitCalls).toContainEqual({ kind: "diff", repoPath: worktreePath });
       expect(gitCalls).toContainEqual({ kind: "status", repoPath: worktreePath });
       expect(gitCalls).toContainEqual({ kind: "diff", repoPath: fixtureRepo });
+    } finally {
+      await runtime.dispose();
+    }
+  });
+
+  it("retires clean managed worktrees whose branch patch is applied to origin/main", async () => {
+    const calls: RunnerCall[] = [];
+    const gitCalls: Array<{
+      kind: string;
+      repoPath: string;
+      worktreePath?: string;
+      branchName?: string;
+      baseRef?: string;
+    }> = [];
+    const appData = await makeTempDir();
+    const repoId = "repo-fixture";
+    const worktreePath = join(appData, "worktrees", repoId, "fnd-1");
+    await writeRepoRegistry(appData, repoId);
+    await writeFinding(worktreePath, {
+      findingId: "fnd-1",
+      title: "Fixed in worktree",
+      status: "fixed",
+      linkedPatchAttemptIds: ["pat-1"],
+    });
+    await writePatch(worktreePath, {
+      patchAttemptId: "pat-1",
+      findingIds: ["fnd-1"],
+      prUrl: "https://github.com/acme/repo/compare/main...clawpatch/fix/fnd-1?expand=1",
+    });
+    const runtime = ManagedRuntime.make(
+      makeRepoServiceTestLayer(
+        fixtureRepo,
+        calls,
+        appData,
+        false,
+        makeGitMock(gitCalls, {
+          readStatus: (repoPath) =>
+            Effect.succeed({
+              staged: 0,
+              modified: 0,
+              untracked: 0,
+              branch:
+                repoPath === worktreePath
+                  ? "clawpatch/fix/fnd-1"
+                  : "main",
+            }),
+          isBranchAppliedToBase: () => Effect.succeed(true),
+        }),
+      ),
+    );
+
+    try {
+      const result = await runtime.runPromise(
+        Effect.gen(function* () {
+          const service = yield* RepoService;
+          const repos = yield* service.listRepos();
+          const findings = yield* service.listFindings(repoId);
+          const detail = yield* service.getFinding(repoId, "fnd-1");
+          const diff = yield* service.readDiff(repoId, "fnd-1");
+          const status = yield* service.readGitStatus(repoId, "fnd-1");
+          const workStatuses = yield* service.listFindingWorkStatuses(repoId);
+          return { repos, findings, detail, diff, status, workStatuses };
+        }),
+      );
+
+      expect(result.repos[0]).toMatchObject({
+        id: repoId,
+        activeWorktreePath: null,
+        activeWorktrees: [],
+        findingCount: 1,
+        openFindingCount: 1,
+      });
+      expect(result.findings[0]).toMatchObject({
+        findingId: "fnd-1",
+        title: "Null branch can throw",
+        status: "open",
+      });
+      expect(result.detail).toMatchObject({
+        findingId: "fnd-1",
+        title: "Null branch can throw",
+        status: "open",
+      });
+      expect(result.diff).toBe(`diff:${fixtureRepo}`);
+      expect(result.status.branch).toBe("main");
+      expect(result.workStatuses).toEqual([]);
+      expect(gitCalls).toContainEqual({
+        kind: "applied",
+        repoPath: fixtureRepo,
+        branchName: "clawpatch/fix/fnd-1",
+        baseRef: "origin/main",
+      });
+      expect(gitCalls).toContainEqual({ kind: "diff", repoPath: fixtureRepo });
+    } finally {
+      await runtime.dispose();
+    }
+  });
+
+  it("keeps clean managed worktrees active when their branch has unapplied commits", async () => {
+    const calls: RunnerCall[] = [];
+    const gitCalls: Array<{
+      kind: string;
+      repoPath: string;
+      worktreePath?: string;
+      branchName?: string;
+      baseRef?: string;
+    }> = [];
+    const appData = await makeTempDir();
+    const repoId = "repo-fixture";
+    const worktreePath = join(appData, "worktrees", repoId, "fnd-1");
+    await writeRepoRegistry(appData, repoId);
+    await writeFinding(worktreePath, {
+      findingId: "fnd-1",
+      title: "Fixed in worktree",
+      status: "fixed",
+    });
+    const runtime = ManagedRuntime.make(
+      makeRepoServiceTestLayer(
+        fixtureRepo,
+        calls,
+        appData,
+        false,
+        makeGitMock(gitCalls, {
+          readStatus: (repoPath) =>
+            Effect.succeed({
+              staged: 0,
+              modified: 0,
+              untracked: 0,
+              branch:
+                repoPath === worktreePath
+                  ? "clawpatch/fix/fnd-1"
+                  : "main",
+            }),
+          isBranchAppliedToBase: () => Effect.succeed(false),
+        }),
+      ),
+    );
+
+    try {
+      const result = await runtime.runPromise(
+        Effect.gen(function* () {
+          const service = yield* RepoService;
+          const repos = yield* service.listRepos();
+          const findings = yield* service.listFindings(repoId);
+          const diff = yield* service.readDiff(repoId, "fnd-1");
+          return { repos, findings, diff };
+        }),
+      );
+
+      expect(result.repos[0]).toMatchObject({
+        activeWorktreePath: worktreePath,
+        activeWorktrees: [{ findingId: "fnd-1", path: worktreePath }],
+      });
+      expect(result.findings[0]).toMatchObject({
+        findingId: "fnd-1",
+        title: "Fixed in worktree",
+        status: "fixed",
+      });
+      expect(result.diff).toBe(`diff:${worktreePath}`);
+    } finally {
+      await runtime.dispose();
+    }
+  });
+
+  it("keeps managed worktrees active when applied-to-base detection fails", async () => {
+    const calls: RunnerCall[] = [];
+    const gitCalls: Array<{
+      kind: string;
+      repoPath: string;
+      worktreePath?: string;
+      branchName?: string;
+      baseRef?: string;
+    }> = [];
+    const appData = await makeTempDir();
+    const repoId = "repo-fixture";
+    const worktreePath = join(appData, "worktrees", repoId, "fnd-1");
+    await writeRepoRegistry(appData, repoId);
+    await writeFinding(worktreePath, {
+      findingId: "fnd-1",
+      title: "Fixed in worktree",
+      status: "fixed",
+    });
+    const runtime = ManagedRuntime.make(
+      makeRepoServiceTestLayer(
+        fixtureRepo,
+        calls,
+        appData,
+        false,
+        makeGitMock(gitCalls, {
+          readStatus: (repoPath) =>
+            Effect.succeed({
+              staged: 0,
+              modified: 0,
+              untracked: 0,
+              branch:
+                repoPath === worktreePath
+                  ? "clawpatch/fix/fnd-1"
+                  : "main",
+            }),
+          isBranchAppliedToBase: ({ repoPath }) =>
+            Effect.fail(new CommandSpawnError({ repoPath, cause: new Error("cherry failed") })),
+        }),
+      ),
+    );
+
+    try {
+      const result = await runtime.runPromise(
+        Effect.gen(function* () {
+          const service = yield* RepoService;
+          const repos = yield* service.listRepos();
+          const diff = yield* service.readDiff(repoId, "fnd-1");
+          return { repos, diff };
+        }),
+      );
+
+      expect(result.repos[0]).toMatchObject({
+        activeWorktreePath: worktreePath,
+        activeWorktrees: [{ findingId: "fnd-1", path: worktreePath }],
+      });
+      expect(result.diff).toBe(`diff:${worktreePath}`);
     } finally {
       await runtime.dispose();
     }
@@ -1734,6 +2010,7 @@ function makeGitMock(
   }>,
   options: {
     readonly readStatus?: (repoPath: string) => Effect.Effect<GitStatusSummary, CommandSpawnError>;
+    readonly isBranchAppliedToBase?: GitServiceShape["isBranchAppliedToBase"];
   } = {},
 ): GitServiceShape {
   return {
@@ -1747,6 +2024,13 @@ function makeGitMock(
       return (
         options.readStatus?.(repoPath) ??
         Effect.succeed({ staged: 0, modified: 0, untracked: 0, branch: "main" })
+      );
+    },
+    isBranchAppliedToBase: ({ repoPath, branchName, baseRef }, onLifecycle) => {
+      calls.push({ kind: "applied", repoPath, branchName, baseRef });
+      return (
+        options.isBranchAppliedToBase?.({ repoPath, branchName, baseRef }, onLifecycle) ??
+        Effect.succeed(false)
       );
     },
     requireCleanCheckout: (repoPath, onLifecycle) =>

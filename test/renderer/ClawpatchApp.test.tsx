@@ -333,6 +333,32 @@ describe("ClawpatchApp header actions", () => {
     expect(screen.getByText("1 modified")).toBeInTheDocument();
   });
 
+  it("shows base checkout status when a selected finding worktree has been retired", async () => {
+    const finding = makeFixFinding();
+    const gitStatus = vi.fn<Api["git"]["status"]>(async () => ({
+      staged: 0,
+      modified: 0,
+      untracked: 0,
+      branch: "main",
+    }));
+    window.clawpatch = makeApi(
+      vi.fn<Api["commands"]["run"]>(async () => makeCommandResult("map")),
+      {
+        findings: [finding],
+        findingDetail: finding,
+        findingWorkStatuses: async () => [],
+        gitStatus,
+      },
+    );
+
+    renderApp();
+
+    await screen.findByRole("heading", { name: "Null branch can throw" });
+    await screen.findByText("branch main");
+    expect(screen.getByText("Working tree clean")).toBeInTheDocument();
+    expect(gitStatus).toHaveBeenCalledWith("repo-auth", "fnd-bug");
+  });
+
   it("does not poll git status when no repository is selected", async () => {
     vi.useFakeTimers();
     const gitStatus = vi.fn<Api["git"]["status"]>(async () => ({

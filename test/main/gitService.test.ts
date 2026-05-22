@@ -335,6 +335,45 @@ describe("GitService", () => {
     ).rejects.toThrow("Fix branch already exists");
   });
 
+  it("detects branch patches already applied to the base ref", async () => {
+    const commands: string[][] = [];
+    const layer = makeMockGitLayer((args) => {
+      commands.push([...args]);
+      return "- abc123 already applied\n";
+    });
+
+    const result = await Effect.runPromise(
+      Effect.gen(function* () {
+        const gitService = yield* GitService;
+        return yield* gitService.isBranchAppliedToBase({
+          repoPath: "/tmp/repo",
+          branchName: "clawpatch/fix/fnd-1",
+          baseRef: "origin/main",
+        });
+      }).pipe(Effect.provide(layer)),
+    );
+
+    expect(result).toBe(true);
+    expect(commands).toContainEqual(["cherry", "origin/main", "clawpatch/fix/fnd-1"]);
+  });
+
+  it("keeps branch patches active when git cherry reports unapplied commits", async () => {
+    const layer = makeMockGitLayer(() => "- abc123 already applied\n+ def456 pending\n");
+
+    const result = await Effect.runPromise(
+      Effect.gen(function* () {
+        const gitService = yield* GitService;
+        return yield* gitService.isBranchAppliedToBase({
+          repoPath: "/tmp/repo",
+          branchName: "clawpatch/fix/fnd-1",
+          baseRef: "origin/main",
+        });
+      }).pipe(Effect.provide(layer)),
+    );
+
+    expect(result).toBe(false);
+  });
+
   it("commits dirty fix worktrees before pushing and returns a GitHub PR URL", async () => {
     const commands: string[][] = [];
     const layer = makeMockGitLayer((args) => {
