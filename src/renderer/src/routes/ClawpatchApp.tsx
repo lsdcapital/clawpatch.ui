@@ -237,8 +237,14 @@ export function ClawpatchApp() {
       {isRepoSidebarCollapsed ? (
         <RepoSidebarRail
           id={REPO_SIDEBAR_ID}
+          repos={reposQuery.data ?? []}
+          selectedRepoId={selectedRepo?.id ?? null}
           onExpand={toggleRepoSidebar}
           onOpenSettings={() => setSettingsSection({ kind: "general" })}
+          onSelectRepo={(repoId) => {
+            selectRepo(repoId);
+            findingsWorkspace.setSelectedFindingId(null);
+          }}
         />
       ) : (
         <RepoSidebar

@@ -188,12 +188,18 @@ export function RepoSidebar({
 
 export function RepoSidebarRail({
   id,
+  repos,
+  selectedRepoId,
   onExpand,
   onOpenSettings,
+  onSelectRepo,
 }: {
   id: string;
+  repos: readonly RepoSummary[];
+  selectedRepoId: string | null;
   onExpand: () => void;
   onOpenSettings: () => void;
+  onSelectRepo: (repoId: string) => void;
 }) {
   return (
     <aside className="repo-sidebar-rail" id={id} aria-label="Repositories sidebar">
@@ -206,6 +212,31 @@ export function RepoSidebarRail({
         icon={<PanelLeftOpenIcon aria-hidden="true" />}
         label="Show repositories panel"
       />
+      <div className="repo-rail-list" aria-label="Repositories">
+        {repos.map((repo) => {
+          const mark = repoMark(repo);
+          return (
+            <button
+              key={repo.id}
+              className={[
+                "repo-rail-item",
+                `repo-rail-item-${mark.color}`,
+                repo.id === selectedRepoId ? "selected" : "",
+                repo.isValid ? "" : "invalid",
+              ]
+                .filter(Boolean)
+                .join(" ")}
+              onClick={() => onSelectRepo(repo.id)}
+              aria-label={`Select ${repo.name}`}
+              title={`${repo.name} - ${repo.path} - ${repo.openFindingCount} open`}
+            >
+              <span className="repo-rail-mark" aria-hidden="true">
+                {mark.initials}
+              </span>
+            </button>
+          );
+        })}
+      </div>
       <IconButton
         className="icon-button"
         containerClassName="sidebar-rail-settings-button"
@@ -233,4 +264,32 @@ function sortRepos(repos: readonly RepoSummary[], sort: RepoSort): readonly Repo
 function timestamp(value: string): number {
   const parsed = Date.parse(value);
   return Number.isFinite(parsed) ? parsed : 0;
+}
+
+const repoMarkColorCount = 8;
+
+function repoMark(repo: RepoSummary): { readonly initials: string; readonly color: number } {
+  return {
+    initials: repoInitials(repo),
+    color: hashRepoKey(`${repo.name}:${repo.id}`) % repoMarkColorCount,
+  };
+}
+
+function repoInitials(repo: Pick<RepoSummary, "id" | "name">): string {
+  const words = repo.name
+    .split(/[^A-Za-z0-9]+/)
+    .map((word) => word.trim())
+    .filter((word) => word !== "");
+  const letters =
+    words.length >= 2 ? `${words[0]?.[0] ?? ""}${words[1]?.[0] ?? ""}` : words[0]?.slice(0, 2);
+  const fallback = repo.id.match(/[A-Za-z0-9]/)?.[0] ?? "?";
+  return (letters === undefined || letters === "" ? fallback : letters).toUpperCase();
+}
+
+function hashRepoKey(value: string): number {
+  let hash = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    hash = (hash * 31 + value.charCodeAt(index)) >>> 0;
+  }
+  return hash;
 }

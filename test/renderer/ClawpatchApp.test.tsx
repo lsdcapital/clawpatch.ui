@@ -113,6 +113,10 @@ describe("ClawpatchApp header actions", () => {
       "aria-expanded",
       "false",
     );
+    expect(within(rail).getByRole("button", { name: "Select auth" })).toHaveClass(
+      "repo-rail-item",
+      "selected",
+    );
     expect(within(rail).getByRole("button", { name: "Settings" })).toBeInTheDocument();
     expect(window.localStorage.getItem(repoSidebarCollapsedStorageKey)).toBe("true");
 
@@ -143,7 +147,67 @@ describe("ClawpatchApp header actions", () => {
       "aria-expanded",
       "false",
     );
+    expect(within(rail).getByRole("button", { name: "Select auth" })).toHaveTextContent("AU");
     expect(within(rail).getByRole("button", { name: "Settings" })).toBeInTheDocument();
+  });
+
+  it("selects repositories from the collapsed sidebar rail", async () => {
+    window.localStorage.setItem(repoSidebarCollapsedStorageKey, "true");
+    window.clawpatch = makeApi(
+      vi.fn<Api["commands"]["run"]>(async () => makeCommandResult("map")),
+      { repoList: async () => [makeRepo(), makeRepo({ id: "repo-billing", name: "billing" })] },
+    );
+
+    renderApp();
+
+    await screen.findByRole("heading", { name: "auth" });
+    const rail = screen.getByRole("complementary", { name: "Repositories sidebar" });
+    const billingButton = within(rail).getByRole("button", { name: "Select billing" });
+    expect(screen.queryByText("Repositories (2)")).not.toBeInTheDocument();
+    expect(billingButton).toHaveTextContent("BI");
+    expect(billingButton).toHaveAttribute("title", "billing - /tmp/billing - 0 open");
+
+    fireEvent.click(billingButton);
+
+    await screen.findByRole("heading", { name: "billing" });
+    expect(window.localStorage.getItem(selectedRepoStorageKey)).toBe("repo-billing");
+    expect(billingButton).toHaveClass("selected");
+    expect(within(rail).getByRole("button", { name: "Select auth" })).not.toHaveClass("selected");
+  });
+
+  it("keeps collapsed repo marks distinguishable for invalid repos and matching initials", async () => {
+    window.localStorage.setItem(repoSidebarCollapsedStorageKey, "true");
+    window.clawpatch = makeApi(
+      vi.fn<Api["commands"]["run"]>(async () => makeCommandResult("map")),
+      {
+        repoList: async () => [
+          makeRepo({ id: "repo-app-api", name: "app api", path: "/work/app-api" }),
+          makeRepo({
+            id: "repo-app-auth",
+            name: "app auth",
+            path: "/work/app-auth",
+            isValid: false,
+          }),
+        ],
+      },
+    );
+
+    renderApp();
+
+    await screen.findByRole("heading", { name: "app api" });
+    const rail = screen.getByRole("complementary", { name: "Repositories sidebar" });
+    const appApiButton = within(rail).getByRole("button", { name: "Select app api" });
+    const appAuthButton = within(rail).getByRole("button", { name: "Select app auth" });
+    const appApiColor = appApiButton.className.match(/\brepo-rail-item-(\d)\b/)?.[1];
+    const appAuthColor = appAuthButton.className.match(/\brepo-rail-item-(\d)\b/)?.[1];
+
+    expect(appApiButton).toHaveTextContent("AA");
+    expect(appAuthButton).toHaveTextContent("AA");
+    expect(appApiColor).toBeDefined();
+    expect(appAuthColor).toBeDefined();
+    expect(appApiColor).not.toBe(appAuthColor);
+    expect(appAuthButton).toHaveClass("invalid");
+    expect(appAuthButton).toHaveAttribute("title", "app auth - /work/app-auth - 0 open");
   });
 
   it("opens a terminal for the selected finding context from the header", async () => {
