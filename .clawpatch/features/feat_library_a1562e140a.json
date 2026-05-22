@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "featureId": "feat_library_a1562e140a",
   "title": "Node source src/main",
-  "summary": "Node/TypeScript source group src/main with 5 files.",
+  "summary": "Node/TypeScript source group src/main with 7 files.",
   "kind": "library",
   "source": "node-source-group",
   "confidence": "medium",
@@ -15,6 +15,14 @@
     }
   ],
   "ownedFiles": [
+    {
+      "path": "src/main/commandStream.ts",
+      "reason": "source group src/main"
+    },
+    {
+      "path": "src/main/effectCompat.ts",
+      "reason": "source group src/main"
+    },
     {
       "path": "src/main/errors.ts",
       "reason": "source group src/main"
@@ -112,5 +120,5 @@
     }
   ],
   "createdAt": "2026-05-19T08:07:07.260Z",
-  "updatedAt": "2026-05-21T06:01:51.470Z"
+  "updatedAt": "2026-05-22T14:38:07.345Z"
 }

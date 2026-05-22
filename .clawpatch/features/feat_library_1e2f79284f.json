@@ -42,6 +42,14 @@
       "reason": "package entrypoint"
     },
     {
+      "path": "src/main/commandStream.ts",
+      "reason": "package source overview"
+    },
+    {
+      "path": "src/main/effectCompat.ts",
+      "reason": "package source overview"
+    },
+    {
       "path": "src/main/errors.ts",
       "reason": "package source overview"
     },
@@ -59,6 +67,10 @@
     },
     {
       "path": "src/main/logger.ts",
+      "reason": "package source overview"
+    },
+    {
+      "path": "src/main/services/appSettings.ts",
       "reason": "package source overview"
     },
     {
@@ -118,23 +130,11 @@
       "reason": "package source overview"
     },
     {
+      "path": "src/renderer/src/components/ActionIconButton.tsx",
+      "reason": "package source overview"
+    },
+    {
       "path": "src/renderer/src/components/CommandPanel.tsx",
-      "reason": "package source overview"
-    },
-    {
-      "path": "src/renderer/src/components/DiffViewer.tsx",
-      "reason": "package source overview"
-    },
-    {
-      "path": "src/renderer/src/components/DiffWorkerPoolProvider.tsx",
-      "reason": "package source overview"
-    },
-    {
-      "path": "src/renderer/src/components/FindingDetailPanel.tsx",
-      "reason": "package source overview"
-    },
-    {
-      "path": "src/renderer/src/components/FindingsSplitPanel.tsx",
       "reason": "package source overview"
     },
     {
@@ -212,5 +212,5 @@
     }
   ],
   "createdAt": "2026-05-20T11:25:49.042Z",
-  "updatedAt": "2026-05-21T06:01:51.470Z"
+  "updatedAt": "2026-05-22T14:38:07.345Z"
 }

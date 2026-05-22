@@ -1,67 +1,67 @@
 {
   "schemaVersion": 1,
-  "featureId": "feat_library_a20e6fdd04",
-  "title": "Node source src/renderer/src/components",
-  "summary": "Node/TypeScript source group src/renderer/src/components with 12 files.",
+  "featureId": "feat_library_cad29eb5e8",
+  "title": "Node source src/renderer/src/components#1",
+  "summary": "Node/TypeScript source group src/renderer/src/components#1 with 12 files.",
   "kind": "library",
   "source": "node-source-group",
   "confidence": "medium",
   "entrypoints": [
     {
       "path": "package.json",
-      "symbol": "src/renderer/src/components",
+      "symbol": "src/renderer/src/components#1",
       "route": null,
       "command": null
     }
   ],
   "ownedFiles": [
     {
+      "path": "src/renderer/src/components/ActionIconButton.tsx",
+      "reason": "source group src/renderer/src/components#1"
+    },
+    {
       "path": "src/renderer/src/components/CommandPanel.tsx",
-      "reason": "source group src/renderer/src/components"
+      "reason": "source group src/renderer/src/components#1"
     },
     {
       "path": "src/renderer/src/components/DiffViewer.tsx",
-      "reason": "source group src/renderer/src/components"
+      "reason": "source group src/renderer/src/components#1"
     },
     {
       "path": "src/renderer/src/components/DiffWorkerPoolProvider.tsx",
-      "reason": "source group src/renderer/src/components"
+      "reason": "source group src/renderer/src/components#1"
     },
     {
       "path": "src/renderer/src/components/FindingDetailPanel.tsx",
-      "reason": "source group src/renderer/src/components"
+      "reason": "source group src/renderer/src/components#1"
     },
     {
       "path": "src/renderer/src/components/FindingsSplitPanel.tsx",
-      "reason": "source group src/renderer/src/components"
+      "reason": "source group src/renderer/src/components#1"
     },
     {
       "path": "src/renderer/src/components/FindingsTable.tsx",
-      "reason": "source group src/renderer/src/components"
+      "reason": "source group src/renderer/src/components#1"
     },
     {
       "path": "src/renderer/src/components/GitStatusStrip.tsx",
-      "reason": "source group src/renderer/src/components"
+      "reason": "source group src/renderer/src/components#1"
+    },
+    {
+      "path": "src/renderer/src/components/IconButton.tsx",
+      "reason": "source group src/renderer/src/components#1"
     },
     {
       "path": "src/renderer/src/components/RepoSettingsPage.tsx",
-      "reason": "source group src/renderer/src/components"
+      "reason": "source group src/renderer/src/components#1"
     },
     {
       "path": "src/renderer/src/components/RepoSidebar.tsx",
-      "reason": "source group src/renderer/src/components"
+      "reason": "source group src/renderer/src/components#1"
     },
     {
       "path": "src/renderer/src/components/ReviewMapPanel.tsx",
-      "reason": "source group src/renderer/src/components"
-    },
-    {
-      "path": "src/renderer/src/components/WorkspaceHeader.tsx",
-      "reason": "source group src/renderer/src/components"
-    },
-    {
-      "path": "src/renderer/src/components/WorkspaceInspector.tsx",
-      "reason": "source group src/renderer/src/components"
+      "reason": "source group src/renderer/src/components#1"
     }
   ],
   "contextFiles": [
@@ -70,11 +70,19 @@
       "reason": "package manifest"
     },
     {
+      "path": "test/renderer/CommandPanel.test.tsx",
+      "reason": "associated test"
+    },
+    {
       "path": "test/renderer/FindingsSplitPanel.test.tsx",
       "reason": "associated test"
     },
     {
       "path": "test/renderer/FindingsTable.test.tsx",
+      "reason": "associated test"
+    },
+    {
+      "path": "test/renderer/IconButton.test.tsx",
       "reason": "associated test"
     },
     {
@@ -84,11 +92,19 @@
   ],
   "tests": [
     {
+      "path": "test/renderer/CommandPanel.test.tsx",
+      "command": "pnpm test"
+    },
+    {
       "path": "test/renderer/FindingsSplitPanel.test.tsx",
       "command": "pnpm test"
     },
     {
       "path": "test/renderer/FindingsTable.test.tsx",
+      "command": "pnpm test"
+    },
+    {
+      "path": "test/renderer/IconButton.test.tsx",
       "command": "pnpm test"
     },
     {
@@ -104,24 +120,11 @@
     "project-root:."
   ],
   "trustBoundaries": [],
-  "status": "skipped",
+  "status": "pending",
   "lock": null,
-  "findingIds": [
-    "fnd_sig-feat-library-a20e6fdd04-d3b4_b9e005704e",
-    "fnd_sig-feat-library-a20e6fdd04-b658_ad13f39ffd"
-  ],
+  "findingIds": [],
   "patchAttemptIds": [],
-  "analysisHistory": [
-    {
-      "runId": "20260520T112637-b414a4",
-      "kind": "review",
-      "summary": "2 finding(s)",
-      "provider": "codex",
-      "model": null,
-      "reasoningEffort": null,
-      "createdAt": "2026-05-20T11:28:11.220Z"
-    }
-  ],
-  "createdAt": "2026-05-20T11:25:49.042Z",
-  "updatedAt": "2026-05-22T14:38:07.473Z"
+  "analysisHistory": [],
+  "createdAt": "2026-05-22T14:38:07.345Z",
+  "updatedAt": "2026-05-22T14:38:07.345Z"
 }

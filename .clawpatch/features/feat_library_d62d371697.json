@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "featureId": "feat_library_d62d371697",
   "title": "Node source src/renderer/src/hooks",
-  "summary": "Node/TypeScript source group src/renderer/src/hooks with 5 files.",
+  "summary": "Node/TypeScript source group src/renderer/src/hooks with 6 files.",
   "kind": "library",
   "source": "node-source-group",
   "confidence": "medium",
@@ -21,6 +21,10 @@
     },
     {
       "path": "src/renderer/src/hooks/useDiffInspector.ts",
+      "reason": "source group src/renderer/src/hooks"
+    },
+    {
+      "path": "src/renderer/src/hooks/useDismissiblePopover.ts",
       "reason": "source group src/renderer/src/hooks"
     },
     {
@@ -69,5 +73,5 @@
     }
   ],
   "createdAt": "2026-05-20T11:25:49.042Z",
-  "updatedAt": "2026-05-21T06:01:51.470Z"
+  "updatedAt": "2026-05-22T14:38:07.345Z"
 }
