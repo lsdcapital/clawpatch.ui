@@ -181,6 +181,29 @@ describe("buildClawpatchArgs", () => {
     await runtime.dispose();
   });
 
+  it("does not fail commands when stream publishing throws", async () => {
+    const runtime = makeRunnerRuntime(() =>
+      Effect.succeed(
+        mockHandle({
+          stdout: "started\n",
+        }),
+      ),
+    );
+
+    await expect(
+      runtime.runPromise(
+        Effect.gen(function* () {
+          const runner = yield* ClawpatchRunner;
+          return yield* runner.run("/tmp/repo", { command: "status" }, () => {
+            throw new Error("renderer send failed");
+          });
+        }),
+      ),
+    ).resolves.toMatchObject({ exitCode: 0, stdout: "started\n" });
+
+    await runtime.dispose();
+  });
+
   it("rejects overlapping command runs for the same repo", async () => {
     let finishFirstRun: ((result: CommandResult) => void) | undefined;
     const runtime = makeRunnerRuntime(() =>

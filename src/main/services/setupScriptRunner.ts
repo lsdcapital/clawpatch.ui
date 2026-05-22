@@ -6,6 +6,7 @@ import * as Stream from "effect/Stream";
 import * as ChildProcess from "effect/unstable/process/ChildProcess";
 import * as ChildProcessSpawner from "effect/unstable/process/ChildProcessSpawner";
 import type { CommandResult, CommandStreamEvent } from "../../shared/types";
+import { emitCommandStream } from "../commandStream";
 import { CommandSpawnError } from "../errors";
 
 interface ScriptMetadata {
@@ -39,7 +40,7 @@ export const SetupScriptRunnerLive = Layer.effect(
           const args = ["-lc", script];
           const argv = ["/bin/zsh", ...args];
           const started = Date.now();
-          onStream?.({
+          emitCommandStream(onStream, {
             kind: "lifecycle",
             runId,
             repoId: metadata.repoId,
@@ -87,7 +88,7 @@ export const SetupScriptRunnerLive = Layer.effect(
             stderr,
             parsedJson: null,
           };
-          onStream?.({
+          emitCommandStream(onStream, {
             kind: "lifecycle",
             runId,
             repoId: metadata.repoId,
@@ -124,7 +125,7 @@ function collectOutput(
     Stream.decodeText(),
     Stream.tap((chunk) =>
       Effect.sync(() => {
-        onStream?.({
+        emitCommandStream(onStream, {
           kind: "output",
           runId,
           repoId: metadata.repoId,
