@@ -22,6 +22,7 @@ describe("renderer layout styles", () => {
     const repoSidebarRailRule = ruleFor("\\.repo-sidebar-rail");
     expect(repoSidebarRailRule).toContain("border-right: 1px solid var(--border);");
     expect(repoSidebarRailRule).toContain("min-width: 52px;");
+    expect(repoSidebarRailRule).toContain("padding: 12px 10px;");
     expect(repoSidebarRailRule).toContain("width: 52px;");
     expect(ruleFor("\\.sidebar-collapse-button")).toContain("flex: none;");
     expect(ruleFor("\\.sidebar-rail-settings-button")).toContain("margin-top: auto;");
@@ -34,6 +35,8 @@ describe("renderer layout styles", () => {
     expect(repoRailItemRule).toContain("height: 30px;");
     expect(repoRailItemRule).toContain("min-height: 30px;");
     expect(repoRailItemRule).toContain("width: 30px;");
+    const selectedRepoRailItemRule = ruleFor("\\.repo-rail-item\\.selected");
+    expect(selectedRepoRailItemRule).toContain("box-shadow: inset 0 0 0 2px var(--focus-ring);");
     const repoListRule = ruleFor("\\.repo-list");
     expect(repoListRule).toContain("align-content: start;");
     expect(repoListRule).toContain("flex: 1 1 0;");
