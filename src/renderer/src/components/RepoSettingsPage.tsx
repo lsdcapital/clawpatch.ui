@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { ArrowLeftIcon, InfoIcon, Settings2Icon } from "lucide-react";
-import type { CommandResult, RepoSettings, RepoSummary } from "../../../shared/types";
+import { ArrowLeftIcon, FolderOpenIcon, InfoIcon, Settings2Icon } from "lucide-react";
+import type { AppSettings, CommandResult, RepoSettings, RepoSummary } from "../../../shared/types";
 import { appName, appVersion } from "../appInfo";
 
 export type SettingsSection =
@@ -11,6 +11,11 @@ export function RepoSettingsPage({
   repos,
   selectedRepo,
   selectedSection,
+  appSettings,
+  isAppSettingsLoading,
+  isAppSettingsSaving,
+  isTerminalAppPickerOpen,
+  appSettingsError,
   settings,
   isLoading,
   isSaving,
@@ -21,11 +26,18 @@ export function RepoSettingsPage({
   onBack,
   onSelectGeneral,
   onSelectRepo,
+  onPickTerminalApp,
+  onSaveAppSettings,
   onSave,
 }: {
   repos: readonly RepoSummary[];
   selectedRepo: RepoSummary | null;
   selectedSection: SettingsSection;
+  appSettings: AppSettings | undefined;
+  isAppSettingsLoading: boolean;
+  isAppSettingsSaving: boolean;
+  isTerminalAppPickerOpen: boolean;
+  appSettingsError: unknown;
   settings: RepoSettings | undefined;
   isLoading: boolean;
   isSaving: boolean;
@@ -36,6 +48,8 @@ export function RepoSettingsPage({
   onBack: () => void;
   onSelectGeneral: () => void;
   onSelectRepo: (repoId: string) => void;
+  onPickTerminalApp: () => Promise<string | null>;
+  onSaveAppSettings: (settings: AppSettings) => void;
   onSave: (repoId: string, settings: RepoSettings) => void;
 }) {
   const selectedSettingsRepo =
@@ -90,9 +104,16 @@ export function RepoSettingsPage({
           <GeneralSettings
             repoCount={repos.length}
             selectedRepo={selectedRepo}
+            appSettings={appSettings}
+            isAppSettingsLoading={isAppSettingsLoading}
+            isAppSettingsSaving={isAppSettingsSaving}
+            isTerminalAppPickerOpen={isTerminalAppPickerOpen}
+            appSettingsError={appSettingsError}
             doctorResult={doctorResult}
             isDoctorLoading={isDoctorLoading}
             doctorError={doctorError}
+            onPickTerminalApp={onPickTerminalApp}
+            onSaveAppSettings={onSaveAppSettings}
           />
         ) : selectedSettingsRepo === null ? (
           <MissingRepoSettings onSelectGeneral={onSelectGeneral} />
@@ -114,16 +135,67 @@ export function RepoSettingsPage({
 function GeneralSettings({
   repoCount,
   selectedRepo,
+  appSettings,
+  isAppSettingsLoading,
+  isAppSettingsSaving,
+  isTerminalAppPickerOpen,
+  appSettingsError,
   doctorResult,
   isDoctorLoading,
   doctorError,
+  onPickTerminalApp,
+  onSaveAppSettings,
 }: {
   repoCount: number;
   selectedRepo: RepoSummary | null;
+  appSettings: AppSettings | undefined;
+  isAppSettingsLoading: boolean;
+  isAppSettingsSaving: boolean;
+  isTerminalAppPickerOpen: boolean;
+  appSettingsError: unknown;
   doctorResult: CommandResult | undefined;
   isDoctorLoading: boolean;
   doctorError: unknown;
+  onPickTerminalApp: () => Promise<string | null>;
+  onSaveAppSettings: (settings: AppSettings) => void;
 }) {
+  const [terminalAppName, setTerminalAppName] = useState("Terminal");
+  const [terminalAppPath, setTerminalAppPath] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (appSettings === undefined) {
+      return;
+    }
+    setTerminalAppName(appSettings.terminalAppName);
+    setTerminalAppPath(appSettings.terminalAppPath);
+  }, [appSettings]);
+
+  const resetForm = (): void => {
+    if (appSettings === undefined) {
+      return;
+    }
+    setTerminalAppName(appSettings.terminalAppName);
+    setTerminalAppPath(appSettings.terminalAppPath);
+  };
+
+  const chooseTerminalApp = async (): Promise<void> => {
+    const path = await onPickTerminalApp();
+    if (path === null) {
+      return;
+    }
+    setTerminalAppPath(path);
+    setTerminalAppName(appNameFromPath(path));
+  };
+
+  const save = (): void => {
+    onSaveAppSettings({
+      schemaVersion: 1,
+      terminalAppName,
+      terminalAppPath,
+      updatedAt: appSettings?.updatedAt ?? new Date(0).toISOString(),
+    });
+  };
+
   return (
     <div className="settings-panel">
       <div className="settings-panel-header">
@@ -147,6 +219,70 @@ function GeneralSettings({
           <dd>{repoCount}</dd>
         </div>
       </dl>
+      <section className="settings-editable-section" aria-label="Terminal settings">
+        <h2>Terminal</h2>
+        {isAppSettingsLoading ? (
+          <div className="settings-loading">Loading settings...</div>
+        ) : (
+          <form
+            className="settings-form compact"
+            onSubmit={(event) => {
+              event.preventDefault();
+              save();
+            }}
+          >
+            <div className="settings-field">
+              <span className="settings-field-label">Terminal app</span>
+              <div className="terminal-app-picker">
+                <span title={terminalAppPath ?? terminalAppName}>
+                  {terminalAppPath === null ? terminalAppName : appNameFromPath(terminalAppPath)}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => void chooseTerminalApp()}
+                  disabled={isTerminalAppPickerOpen}
+                >
+                  <FolderOpenIcon aria-hidden="true" />
+                  Choose...
+                </button>
+              </div>
+            </div>
+            <details className="settings-advanced">
+              <summary>Advanced</summary>
+              <label>
+                App name
+                <input
+                  value={terminalAppName}
+                  onChange={(event) => {
+                    setTerminalAppName(event.target.value);
+                    setTerminalAppPath(null);
+                  }}
+                  placeholder="Terminal"
+                />
+              </label>
+            </details>
+            {appSettingsError ? (
+              <div className="form-error">
+                {appSettingsError instanceof Error
+                  ? appSettingsError.message
+                  : String(appSettingsError)}
+              </div>
+            ) : null}
+            <div className="settings-actions">
+              <button
+                type="button"
+                onClick={resetForm}
+                disabled={isAppSettingsSaving || appSettings === undefined}
+              >
+                Cancel
+              </button>
+              <button type="submit" className="primary-button" disabled={isAppSettingsSaving}>
+                Save
+              </button>
+            </div>
+          </form>
+        )}
+      </section>
       <section className="settings-readonly-section" aria-label="Doctor diagnostics">
         <div className="settings-readonly-header">
           <h2>Doctor</h2>
@@ -168,6 +304,10 @@ function GeneralSettings({
       </section>
     </div>
   );
+}
+
+function appNameFromPath(path: string): string {
+  return path.split(/[\\/]/).at(-1) ?? path;
 }
 
 function formatDoctorOutput(result: CommandResult): string {
@@ -210,7 +350,6 @@ function RepositorySettings({
   error: unknown;
   onSave: (settings: RepoSettings) => void;
 }) {
-  const [terminalAppName, setTerminalAppName] = useState("Terminal");
   const [terminalStartupScript, setTerminalStartupScript] = useState("");
   const [worktreeSetupScript, setWorktreeSetupScript] = useState("");
 
@@ -218,7 +357,6 @@ function RepositorySettings({
     if (settings === undefined) {
       return;
     }
-    setTerminalAppName(settings.terminalAppName);
     setTerminalStartupScript(settings.terminalStartupScript);
     setWorktreeSetupScript(settings.worktreeSetupScript);
   }, [repo.id, settings]);
@@ -227,7 +365,6 @@ function RepositorySettings({
     if (settings === undefined) {
       return;
     }
-    setTerminalAppName(settings.terminalAppName);
     setTerminalStartupScript(settings.terminalStartupScript);
     setWorktreeSetupScript(settings.worktreeSetupScript);
   };
@@ -235,7 +372,6 @@ function RepositorySettings({
   const save = (): void => {
     onSave({
       schemaVersion: 1,
-      terminalAppName,
       terminalStartupScript,
       worktreeSetupScript,
       updatedAt: settings?.updatedAt ?? new Date(0).toISOString(),
@@ -263,14 +399,6 @@ function RepositorySettings({
             save();
           }}
         >
-          <label>
-            Terminal app
-            <input
-              value={terminalAppName}
-              onChange={(event) => setTerminalAppName(event.target.value)}
-              placeholder="Terminal"
-            />
-          </label>
           <label>
             Terminal startup script
             <textarea

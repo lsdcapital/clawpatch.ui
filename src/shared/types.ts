@@ -1,4 +1,5 @@
 import type {
+  AppSettingsSchema,
   ClawpatchCommandRequestSchema,
   CommandInterruptResultSchema,
   ClawpatchStatusSchema,
@@ -27,6 +28,7 @@ import type {
 } from "./schemas";
 export { clawpatchStatuses } from "./constants";
 
+export type AppSettings = typeof AppSettingsSchema.Type;
 export type ClawpatchStatus = typeof ClawpatchStatusSchema.Type;
 export type ClawpatchCommandRequest = typeof ClawpatchCommandRequestSchema.Type;
 export type CommandInterruptResult = typeof CommandInterruptResultSchema.Type;
@@ -54,6 +56,11 @@ export type FeatureMapSnapshot = typeof FeatureMapSnapshotSchema.Type;
 export type TerminalOpenResult = typeof TerminalOpenResultSchema.Type;
 
 export interface Api {
+  appSettings: {
+    get: () => Promise<AppSettings>;
+    pickTerminalApp: () => Promise<string | null>;
+    update: (settings: AppSettings) => Promise<AppSettings>;
+  };
   repo: {
     list: () => Promise<readonly RepoSummary[]>;
     add: (repoPath: string) => Promise<RepoSummary>;

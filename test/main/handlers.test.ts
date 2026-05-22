@@ -4,6 +4,9 @@ import * as Layer from "effect/Layer";
 import * as ManagedRuntime from "effect/ManagedRuntime";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  APP_SETTINGS_GET_CHANNEL,
+  APP_SETTINGS_PICK_TERMINAL_APP_CHANNEL,
+  APP_SETTINGS_UPDATE_CHANNEL,
   COMMANDS_INTERRUPT_CHANNEL,
   COMMANDS_RUN_CHANNEL,
   FINDINGS_WORK_STATUSES_CHANNEL,
@@ -86,6 +89,35 @@ describe("IPC handlers", () => {
     try {
       await expect(listener({} as IpcMainInvokeEvent, undefined)).resolves.toBeNull();
       expect(showOpenDialogMock).toHaveBeenCalledWith({ properties: ["openDirectory"] });
+    } finally {
+      await runtime.dispose();
+    }
+  });
+
+  it("returns the selected terminal app from the native app picker", async () => {
+    getFocusedWindowMock.mockReturnValue(null);
+    getAllWindowsMock.mockReturnValue([]);
+    showOpenDialogMock.mockResolvedValue({
+      canceled: false,
+      filePaths: ["/Applications/iTerm.app"],
+    });
+    const { registered, runtime } = await installHandlersForTest();
+    const listener = registered.get(APP_SETTINGS_PICK_TERMINAL_APP_CHANNEL);
+    if (listener === undefined) {
+      throw new Error("terminal app picker IPC handler was not registered");
+    }
+
+    try {
+      await expect(listener({} as IpcMainInvokeEvent, undefined)).resolves.toBe(
+        "/Applications/iTerm.app",
+      );
+      expect(showOpenDialogMock).toHaveBeenCalledWith({
+        title: "Choose Terminal App",
+        buttonLabel: "Choose",
+        defaultPath: "/Applications",
+        filters: [{ name: "Applications", extensions: ["app"] }],
+        properties: ["openFile"],
+      });
     } finally {
       await runtime.dispose();
     }
@@ -267,7 +299,6 @@ describe("IPC handlers", () => {
     const getSettings = vi.fn<RepoServiceShape["getSettings"]>(() =>
       Effect.succeed({
         schemaVersion: 1,
-        terminalAppName: "iTerm",
         terminalStartupScript: "pnpm dev",
         worktreeSetupScript: "pnpm install",
         updatedAt: "2026-05-19T00:00:00.000Z",
@@ -285,7 +316,6 @@ describe("IPC handlers", () => {
 
     const settings = {
       schemaVersion: 1 as const,
-      terminalAppName: "Terminal",
       terminalStartupScript: "",
       worktreeSetupScript: "pnpm install",
       updatedAt: "2026-05-19T00:00:00.000Z",
@@ -294,12 +324,55 @@ describe("IPC handlers", () => {
     try {
       await expect(
         getListener({} as IpcMainInvokeEvent, { repoId: "repo-1" }),
-      ).resolves.toMatchObject({ terminalAppName: "iTerm" });
+      ).resolves.toMatchObject({ terminalStartupScript: "pnpm dev" });
       await expect(
         updateListener({} as IpcMainInvokeEvent, { repoId: "repo-1", settings }),
       ).resolves.toMatchObject({ worktreeSetupScript: "pnpm install" });
       expect(getSettings).toHaveBeenCalledWith("repo-1");
       expect(updateSettings).toHaveBeenCalledWith("repo-1", settings);
+    } finally {
+      await runtime.dispose();
+    }
+  });
+
+  it("reads and updates app settings through IPC", async () => {
+    const getAppSettings = vi.fn<RepoServiceShape["getAppSettings"]>(() =>
+      Effect.succeed({
+        schemaVersion: 1,
+        terminalAppName: "iTerm",
+        terminalAppPath: "/Applications/iTerm.app",
+        updatedAt: "2026-05-19T00:00:00.000Z",
+      }),
+    );
+    const updateAppSettings = vi.fn<RepoServiceShape["updateAppSettings"]>((settings) =>
+      Effect.succeed({ ...settings, updatedAt: "2026-05-20T00:00:00.000Z" }),
+    );
+    const { registered, runtime } = await installHandlersForTest({
+      getAppSettings,
+      updateAppSettings,
+    });
+    const getListener = registered.get(APP_SETTINGS_GET_CHANNEL);
+    const updateListener = registered.get(APP_SETTINGS_UPDATE_CHANNEL);
+    if (getListener === undefined || updateListener === undefined) {
+      throw new Error("app settings IPC handlers were not registered");
+    }
+
+    const settings = {
+      schemaVersion: 1 as const,
+      terminalAppName: "Terminal",
+      terminalAppPath: null,
+      updatedAt: "2026-05-19T00:00:00.000Z",
+    };
+
+    try {
+      await expect(getListener({} as IpcMainInvokeEvent, undefined)).resolves.toMatchObject({
+        terminalAppName: "iTerm",
+      });
+      await expect(updateListener({} as IpcMainInvokeEvent, { settings })).resolves.toMatchObject({
+        terminalAppName: "Terminal",
+      });
+      expect(getAppSettings).toHaveBeenCalledWith();
+      expect(updateAppSettings).toHaveBeenCalledWith(settings);
     } finally {
       await runtime.dispose();
     }
@@ -315,6 +388,7 @@ async function installHandlersForTest(): Promise<{
 }>;
 async function installHandlersForTest(options: {
   readonly doctor?: RepoServiceShape["doctor"];
+  readonly getAppSettings?: RepoServiceShape["getAppSettings"];
   readonly interruptCommand?: RepoServiceShape["interruptCommand"];
   readonly openTerminal?: RepoServiceShape["openTerminal"];
   readonly publish?: (event: CommandStreamEvent) => void;
@@ -322,6 +396,7 @@ async function installHandlersForTest(options: {
   readonly getSettings?: RepoServiceShape["getSettings"];
   readonly listFindingWorkStatuses?: RepoServiceShape["listFindingWorkStatuses"];
   readonly updateSettings?: RepoServiceShape["updateSettings"];
+  readonly updateAppSettings?: RepoServiceShape["updateAppSettings"];
   readonly runCommand?: RepoServiceShape["runCommand"];
 }): Promise<{
   readonly registered: Map<string, RegisteredListener>;
@@ -331,6 +406,7 @@ async function installHandlersForTest(options: {
 async function installHandlersForTest(
   options: {
     readonly doctor?: RepoServiceShape["doctor"];
+    readonly getAppSettings?: RepoServiceShape["getAppSettings"];
     readonly interruptCommand?: RepoServiceShape["interruptCommand"];
     readonly openTerminal?: RepoServiceShape["openTerminal"];
     readonly publish?: (event: CommandStreamEvent) => void;
@@ -338,6 +414,7 @@ async function installHandlersForTest(
     readonly getSettings?: RepoServiceShape["getSettings"];
     readonly listFindingWorkStatuses?: RepoServiceShape["listFindingWorkStatuses"];
     readonly updateSettings?: RepoServiceShape["updateSettings"];
+    readonly updateAppSettings?: RepoServiceShape["updateAppSettings"];
     readonly runCommand?: RepoServiceShape["runCommand"];
   } = {},
 ): Promise<{
@@ -371,18 +448,37 @@ async function installHandlersForTest(
 function makeRepoServiceLayer(
   options: {
     readonly doctor?: RepoServiceShape["doctor"];
+    readonly getAppSettings?: RepoServiceShape["getAppSettings"];
     readonly interruptCommand?: RepoServiceShape["interruptCommand"];
     readonly openTerminal?: RepoServiceShape["openTerminal"];
     readonly publishFix?: RepoServiceShape["publishFix"];
     readonly getSettings?: RepoServiceShape["getSettings"];
     readonly listFindingWorkStatuses?: RepoServiceShape["listFindingWorkStatuses"];
     readonly updateSettings?: RepoServiceShape["updateSettings"];
+    readonly updateAppSettings?: RepoServiceShape["updateAppSettings"];
     readonly runCommand?: RepoServiceShape["runCommand"];
   } = {},
 ) {
   return Layer.succeed(
     RepoService,
     RepoService.of({
+      getAppSettings:
+        options.getAppSettings ??
+        (() =>
+          Effect.succeed({
+            schemaVersion: 1,
+            terminalAppName: "Terminal",
+            terminalAppPath: null,
+            updatedAt: "2026-05-19T00:00:00.000Z",
+          })),
+      updateAppSettings:
+        options.updateAppSettings ??
+        ((settings) =>
+          Effect.succeed({
+            ...settings,
+            schemaVersion: 1 as const,
+            updatedAt: "2026-05-19T00:00:00.000Z",
+          })),
       listRepos: () => Effect.succeed([]),
       addRepo: () => Effect.succeed(makeRepoSummary()),
       refreshRepo: () =>
@@ -406,7 +502,6 @@ function makeRepoServiceLayer(
         (() =>
           Effect.succeed({
             schemaVersion: 1,
-            terminalAppName: "Terminal",
             terminalStartupScript: "",
             worktreeSetupScript: "",
             updatedAt: "2026-05-19T00:00:00.000Z",

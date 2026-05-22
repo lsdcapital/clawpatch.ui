@@ -914,6 +914,7 @@ button:disabled {
   margin: 0;
 }
 
+.settings-editable-section,
 .settings-readonly-section {
   border-top: 1px solid var(--border);
   display: grid;
@@ -929,6 +930,7 @@ button:disabled {
   min-width: 0;
 }
 
+.settings-editable-section h2,
 .settings-readonly-header h2 {
   color: var(--text-heading);
   font-size: 16px;
@@ -964,12 +966,73 @@ button:disabled {
   padding-top: 24px;
 }
 
+.settings-form.compact {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.settings-field,
 .settings-form label {
   color: var(--text-heading);
   display: grid;
   font-size: 13px;
   font-weight: 700;
   gap: 7px;
+}
+
+.settings-field-label {
+  color: var(--text-heading);
+}
+
+.terminal-app-picker {
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  display: flex;
+  gap: 8px;
+  min-height: 36px;
+  min-width: 0;
+  padding: 4px 4px 4px 9px;
+}
+
+.terminal-app-picker span {
+  color: var(--text);
+  flex: 1 1 auto;
+  font-size: 13px;
+  font-weight: 500;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.terminal-app-picker button {
+  flex: none;
+  gap: 7px;
+  min-height: 28px;
+  padding: 4px 8px;
+}
+
+.terminal-app-picker svg {
+  height: 14px;
+  width: 14px;
+}
+
+.settings-advanced {
+  display: grid;
+  gap: 12px;
+}
+
+.settings-advanced summary {
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.settings-advanced[open] summary {
+  margin-bottom: 10px;
 }
 
 .settings-form input,

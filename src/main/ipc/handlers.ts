@@ -2,6 +2,7 @@ import { BrowserWindow, dialog, shell, type OpenDialogOptions } from "electron";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import {
+  AppSettingsSchema,
   ClawpatchCommandRequestSchema,
   ClawpatchStatusSchema,
   CommandInterruptResultSchema,
@@ -22,6 +23,9 @@ import type { CommandStreamEvent } from "../../shared/types";
 import { CommandSpawnError, DialogOpenError } from "../errors";
 import { RepoService } from "../services/repoService";
 import {
+  APP_SETTINGS_GET_CHANNEL,
+  APP_SETTINGS_PICK_TERMINAL_APP_CHANNEL,
+  APP_SETTINGS_UPDATE_CHANNEL,
   COMMANDS_INTERRUPT_CHANNEL,
   COMMANDS_RUN_CHANNEL,
   FEATURES_MAP_CHANNEL,
@@ -44,6 +48,7 @@ import {
 import { EffectIpc, makeIpcMethod } from "./effectIpc";
 
 const RepoIdPayload = Schema.Struct({ repoId: Schema.String });
+const AppSettingsPayload = Schema.Struct({ settings: AppSettingsSchema });
 const RepoFindingPayload = Schema.Struct({
   repoId: Schema.String,
   findingId: Schema.optionalKey(Schema.String),
@@ -67,6 +72,30 @@ export const installIpcHandlers = (publishCommandStream: (event: CommandStreamEv
     const ipc = yield* EffectIpc;
     const repos = yield* RepoService;
 
+    yield* ipc.handle(
+      makeIpcMethod({
+        channel: APP_SETTINGS_GET_CHANNEL,
+        payload: Schema.Void,
+        result: AppSettingsSchema,
+        handler: () => repos.getAppSettings(),
+      }),
+    );
+    yield* ipc.handle(
+      makeIpcMethod({
+        channel: APP_SETTINGS_PICK_TERMINAL_APP_CHANNEL,
+        payload: Schema.Void,
+        result: Schema.NullOr(Schema.String),
+        handler: () => pickTerminalApp(),
+      }),
+    );
+    yield* ipc.handle(
+      makeIpcMethod({
+        channel: APP_SETTINGS_UPDATE_CHANNEL,
+        payload: AppSettingsPayload,
+        result: AppSettingsSchema,
+        handler: ({ settings }) => repos.updateAppSettings(settings),
+      }),
+    );
     yield* ipc.handle(
       makeIpcMethod({
         channel: REPO_LIST_CHANNEL,
@@ -226,6 +255,27 @@ export const installIpcHandlers = (publishCommandStream: (event: CommandStreamEv
 const pickRepoFolder = Effect.fn("repo.pickFolder")(function* () {
   const owner = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0] ?? null;
   const options: OpenDialogOptions = { properties: ["openDirectory"] };
+  const result = yield* Effect.tryPromise({
+    try: () =>
+      owner === null ? dialog.showOpenDialog(options) : dialog.showOpenDialog(owner, options),
+    catch: (cause) => new DialogOpenError({ cause }),
+  });
+
+  if (result.canceled) {
+    return null;
+  }
+  return result.filePaths[0] ?? null;
+});
+
+const pickTerminalApp = Effect.fn("appSettings.pickTerminalApp")(function* () {
+  const owner = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0] ?? null;
+  const options: OpenDialogOptions = {
+    title: "Choose Terminal App",
+    buttonLabel: "Choose",
+    defaultPath: "/Applications",
+    filters: [{ name: "Applications", extensions: ["app"] }],
+    properties: ["openFile"],
+  };
   const result = yield* Effect.tryPromise({
     try: () =>
       owner === null ? dialog.showOpenDialog(options) : dialog.showOpenDialog(owner, options),

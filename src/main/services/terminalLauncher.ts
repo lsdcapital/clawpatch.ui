@@ -130,12 +130,8 @@ function makeTerminalStartupCommand(
 }
 
 function isTerminalApp(appName: string): boolean {
-  return (
-    appName
-      .trim()
-      .toLowerCase()
-      .replace(/\.app$/, "") === "terminal"
-  );
+  const appBasename = appName.trim().split(/[\\/]/).at(-1) ?? "";
+  return appBasename.toLowerCase().replace(/\.app$/, "") === "terminal";
 }
 
 function shellQuote(value: string): string {

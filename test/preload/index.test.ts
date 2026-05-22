@@ -1,5 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  APP_SETTINGS_GET_CHANNEL,
+  APP_SETTINGS_PICK_TERMINAL_APP_CHANNEL,
+  APP_SETTINGS_UPDATE_CHANNEL,
   COMMANDS_INTERRUPT_CHANNEL,
   COMMANDS_STREAM_CHANNEL,
   FINDINGS_WORK_STATUSES_CHANNEL,
@@ -120,7 +123,6 @@ describe("preload api", () => {
   it("exposes repo settings over IPC", async () => {
     invokeMock.mockResolvedValue({
       schemaVersion: 1,
-      terminalAppName: "Terminal",
       terminalStartupScript: "",
       worktreeSetupScript: "pnpm install",
       updatedAt: "2026-05-19T00:00:00.000Z",
@@ -134,7 +136,6 @@ describe("preload api", () => {
     }
     const settings = {
       schemaVersion: 1 as const,
-      terminalAppName: "Terminal",
       terminalStartupScript: "",
       worktreeSetupScript: "pnpm install",
       updatedAt: "2026-05-19T00:00:00.000Z",
@@ -151,6 +152,51 @@ describe("preload api", () => {
       repoId: "repo-1",
       settings,
     });
+  });
+
+  it("exposes app settings over IPC", async () => {
+    invokeMock.mockResolvedValue({
+      schemaVersion: 1,
+      terminalAppName: "iTerm",
+      terminalAppPath: "/Applications/iTerm.app",
+      updatedAt: "2026-05-19T00:00:00.000Z",
+    });
+
+    await import("../../src/preload/index");
+
+    const api = exposeInMainWorldMock.mock.calls[0]?.[1] as Api | undefined;
+    if (api === undefined) {
+      throw new Error("preload api was not exposed");
+    }
+    const settings = {
+      schemaVersion: 1 as const,
+      terminalAppName: "Terminal",
+      terminalAppPath: null,
+      updatedAt: "2026-05-19T00:00:00.000Z",
+    };
+
+    await expect(api.appSettings.get()).resolves.toMatchObject({
+      terminalAppName: "iTerm",
+    });
+    await expect(api.appSettings.update(settings)).resolves.toMatchObject({
+      terminalAppName: "iTerm",
+    });
+    expect(invokeMock).toHaveBeenCalledWith(APP_SETTINGS_GET_CHANNEL);
+    expect(invokeMock).toHaveBeenCalledWith(APP_SETTINGS_UPDATE_CHANNEL, { settings });
+  });
+
+  it("exposes terminal app picking over IPC", async () => {
+    invokeMock.mockResolvedValue("/Applications/iTerm.app");
+
+    await import("../../src/preload/index");
+
+    const api = exposeInMainWorldMock.mock.calls[0]?.[1] as Api | undefined;
+    if (api === undefined) {
+      throw new Error("preload api was not exposed");
+    }
+
+    await expect(api.appSettings.pickTerminalApp()).resolves.toBe("/Applications/iTerm.app");
+    expect(invokeMock).toHaveBeenCalledWith(APP_SETTINGS_PICK_TERMINAL_APP_CHANNEL);
   });
 
   it("exposes repo doctor diagnostics over IPC", async () => {
