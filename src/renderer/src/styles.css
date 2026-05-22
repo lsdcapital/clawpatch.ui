@@ -480,6 +480,160 @@ button:disabled {
   margin-top: auto;
 }
 
+.repo-rail-list {
+  align-content: start;
+  display: grid;
+  flex: 1 1 auto;
+  gap: 6px;
+  grid-auto-rows: max-content;
+  justify-items: center;
+  min-height: 0;
+  overflow: auto;
+  width: 100%;
+}
+
+.repo-rail-item {
+  --repo-mark-bg: var(--surface-muted);
+  --repo-mark-border: var(--border-strong);
+  --repo-mark-text: var(--text);
+  background: var(--repo-mark-bg);
+  border-color: var(--repo-mark-border);
+  border-radius: 7px;
+  color: var(--repo-mark-text);
+  height: 30px;
+  min-height: 30px;
+  padding: 0;
+  position: relative;
+  width: 30px;
+}
+
+.repo-rail-item:hover:not(:disabled) {
+  background: var(--repo-mark-bg);
+  border-color: var(--button-hover-border);
+}
+
+.repo-rail-item.selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--focus-ring);
+}
+
+.repo-rail-item.invalid::after {
+  background: var(--danger);
+  border: 2px solid var(--sidebar);
+  border-radius: 999px;
+  content: "";
+  height: 7px;
+  position: absolute;
+  right: -2px;
+  top: -2px;
+  width: 7px;
+}
+
+.repo-rail-mark {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0;
+  line-height: 1;
+}
+
+.repo-rail-item-0 {
+  --repo-mark-bg: #eef4ff;
+  --repo-mark-border: #c8d9ff;
+  --repo-mark-text: #19386c;
+}
+
+.repo-rail-item-1 {
+  --repo-mark-bg: #edf8f2;
+  --repo-mark-border: #bfe7cf;
+  --repo-mark-text: #145c36;
+}
+
+.repo-rail-item-2 {
+  --repo-mark-bg: #fff4df;
+  --repo-mark-border: #f4d49a;
+  --repo-mark-text: #704800;
+}
+
+.repo-rail-item-3 {
+  --repo-mark-bg: #f2efff;
+  --repo-mark-border: #d8cdfb;
+  --repo-mark-text: #463174;
+}
+
+.repo-rail-item-4 {
+  --repo-mark-bg: #eaf8f8;
+  --repo-mark-border: #b8e2e0;
+  --repo-mark-text: #165554;
+}
+
+.repo-rail-item-5 {
+  --repo-mark-bg: #fff0ee;
+  --repo-mark-border: #ffd2cc;
+  --repo-mark-text: #7b241d;
+}
+
+.repo-rail-item-6 {
+  --repo-mark-bg: #f1f4f7;
+  --repo-mark-border: #d4dbe3;
+  --repo-mark-text: #334155;
+}
+
+.repo-rail-item-7 {
+  --repo-mark-bg: #f7f2ea;
+  --repo-mark-border: #dfd0ba;
+  --repo-mark-text: #52412c;
+}
+
+@media (prefers-color-scheme: dark) {
+  .repo-rail-item-0 {
+    --repo-mark-bg: #1d2b45;
+    --repo-mark-border: #2d4775;
+    --repo-mark-text: #b8cdfd;
+  }
+
+  .repo-rail-item-1 {
+    --repo-mark-bg: #13281d;
+    --repo-mark-border: #28583d;
+    --repo-mark-text: #9ee3b8;
+  }
+
+  .repo-rail-item-2 {
+    --repo-mark-bg: #33240f;
+    --repo-mark-border: #6a4b18;
+    --repo-mark-text: #f0c36f;
+  }
+
+  .repo-rail-item-3 {
+    --repo-mark-bg: #251d3c;
+    --repo-mark-border: #4d3b78;
+    --repo-mark-text: #cbbcff;
+  }
+
+  .repo-rail-item-4 {
+    --repo-mark-bg: #12292a;
+    --repo-mark-border: #28595a;
+    --repo-mark-text: #96dddd;
+  }
+
+  .repo-rail-item-5 {
+    --repo-mark-bg: #301a18;
+    --repo-mark-border: #65332d;
+    --repo-mark-text: #ffb7ae;
+  }
+
+  .repo-rail-item-6 {
+    --repo-mark-bg: #20242c;
+    --repo-mark-border: #3a424f;
+    --repo-mark-text: #d9e0ea;
+  }
+
+  .repo-rail-item-7 {
+    --repo-mark-bg: #2a251e;
+    --repo-mark-border: #5a4b38;
+    --repo-mark-text: #d8c4a7;
+  }
+}
+
 .repo-name,
 .repo-path,
 .repo-count,

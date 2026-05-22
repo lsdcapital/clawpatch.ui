@@ -25,6 +25,15 @@ describe("renderer layout styles", () => {
     expect(repoSidebarRailRule).toContain("width: 52px;");
     expect(ruleFor("\\.sidebar-collapse-button")).toContain("flex: none;");
     expect(ruleFor("\\.sidebar-rail-settings-button")).toContain("margin-top: auto;");
+    const repoRailListRule = ruleFor("\\.repo-rail-list");
+    expect(repoRailListRule).toContain("flex: 1 1 auto;");
+    expect(repoRailListRule).toContain("grid-auto-rows: max-content;");
+    expect(repoRailListRule).toContain("min-height: 0;");
+    expect(repoRailListRule).toContain("overflow: auto;");
+    const repoRailItemRule = ruleFor("\\.repo-rail-item");
+    expect(repoRailItemRule).toContain("height: 30px;");
+    expect(repoRailItemRule).toContain("min-height: 30px;");
+    expect(repoRailItemRule).toContain("width: 30px;");
     const repoListRule = ruleFor("\\.repo-list");
     expect(repoListRule).toContain("align-content: start;");
     expect(repoListRule).toContain("flex: 1 1 0;");
