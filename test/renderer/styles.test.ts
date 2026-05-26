@@ -132,6 +132,23 @@ describe("renderer layout styles", () => {
     expect(styles).not.toMatch(/header-tooltip-trigger/);
     expect(styles).not.toMatch(/header-icon-tooltip/);
   });
+
+  it("keeps findings table sort icons in a fixed slot", () => {
+    const sortHeaderRule = ruleFor("\\.sort-header");
+    expect(sortHeaderRule).toContain("display: inline-flex;");
+    expect(sortHeaderRule).toContain("gap: 6px;");
+    expect(sortHeaderRule).toContain("width: 100%;");
+
+    const sortHeaderIconRule = ruleFor("\\.sort-header-icon");
+    expect(sortHeaderIconRule).toContain("display: inline-flex;");
+    expect(sortHeaderIconRule).toContain("flex: 0 0 12px;");
+    expect(sortHeaderIconRule).toContain("height: 12px;");
+    expect(sortHeaderIconRule).toContain("width: 12px;");
+
+    const sortHeaderIconSvgRule = ruleFor("\\.sort-header-icon svg");
+    expect(sortHeaderIconSvgRule).toContain("height: 12px;");
+    expect(sortHeaderIconSvgRule).toContain("width: 12px;");
+  });
 });
 
 function ruleFor(selectorPattern: string): string {
