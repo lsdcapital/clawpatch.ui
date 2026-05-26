@@ -6,7 +6,6 @@ import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import { UiMetadataSchema } from "../../shared/schemas";
 import type { UiMetadata } from "../../shared/types";
-import { catchAll } from "../effectCompat";
 import { JsonDecodeError } from "../errors";
 
 type MetadataReadResult =
@@ -49,12 +48,12 @@ function makeLiveService(
     path.join(repoPath, ".clawpatch", "ui", "state.json");
 
   const readMetadataFile = Effect.fn("uiMetadata.readMetadataFile")(function* (filePath: string) {
-    const exists = yield* fs.exists(filePath).pipe(catchAll(() => Effect.succeed(false)));
+    const exists = yield* fs.exists(filePath).pipe(Effect.catch(() => Effect.succeed(false)));
     if (!exists) {
       return missingMetadata();
     }
 
-    const raw = yield* fs.readFileString(filePath).pipe(catchAll(() => Effect.succeed(null)));
+    const raw = yield* fs.readFileString(filePath).pipe(Effect.catch(() => Effect.succeed(null)));
     if (raw === null) {
       return invalidMetadata();
     }
@@ -62,7 +61,7 @@ function makeLiveService(
     const parsed = yield* Effect.try({
       try: () => JSON.parse(raw) as unknown,
       catch: (cause) => cause,
-    }).pipe(catchAll(() => Effect.succeed(undefined)));
+    }).pipe(Effect.catch(() => Effect.succeed(undefined)));
     if (parsed === undefined) {
       return invalidMetadata();
     }
@@ -74,7 +73,7 @@ function makeLiveService(
           metadata: normalizeMetadata(metadata),
         }),
       ),
-      catchAll(() => Effect.succeed(invalidMetadata())),
+      Effect.catch(() => Effect.succeed(invalidMetadata())),
     );
   });
 

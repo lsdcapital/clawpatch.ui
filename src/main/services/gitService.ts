@@ -6,7 +6,6 @@ import * as Path from "effect/Path";
 import * as Stream from "effect/Stream";
 import * as ChildProcess from "effect/unstable/process/ChildProcess";
 import * as ChildProcessSpawner from "effect/unstable/process/ChildProcessSpawner";
-import { catchAll } from "../effectCompat";
 import { CommandSpawnError } from "../errors";
 import { childLogger } from "../logger";
 
@@ -153,7 +152,7 @@ export const GitServiceLive = Layer.effect(
         ).pipe(Effect.mapError((cause) => new CommandSpawnError({ repoPath, cause })));
         const existingStats = yield* fs.stat(worktreePath).pipe(
           Effect.map((stats) => stats),
-          catchAll(() => Effect.succeed(null)),
+          Effect.catch(() => Effect.succeed(null)),
         );
 
         if (existingStats !== null) {
@@ -411,7 +410,7 @@ function interruptChild(child: ChildProcessSpawner.ChildProcessHandle): Effect.E
     hasInterrupted = true;
     yield* child.kill({ killSignal: "SIGINT", forceKillAfter: "2 seconds" });
     return true;
-  }).pipe(catchAll(() => Effect.succeed(false)));
+  }).pipe(Effect.catch(() => Effect.succeed(false)));
 }
 
 function localBranchExists(
@@ -531,7 +530,7 @@ function resolvePublishBaseBranch(
       onLifecycle,
     ).pipe(
       Effect.map((output) => output.trim()),
-      catchAll(() => Effect.succeed("")),
+      Effect.catch(() => Effect.succeed("")),
     );
     if (originHead.startsWith(`${DEFAULT_TARGET_REMOTE}/`)) {
       return originHead.slice(DEFAULT_TARGET_REMOTE.length + 1);
@@ -552,7 +551,7 @@ function branchHasPublishableCommit(
     `${DEFAULT_TARGET_REMOTE}/${baseBranch}`,
     onLifecycle,
   ).pipe(
-    catchAll(() => countCommitsAhead(spawner, worktreePath, baseBranch, onLifecycle)),
+    Effect.catch(() => countCommitsAhead(spawner, worktreePath, baseBranch, onLifecycle)),
     Effect.map((count) => count > 0),
   );
 }
@@ -643,7 +642,7 @@ function assertExistingWorktree(
       onLifecycle,
     ).pipe(
       Effect.map((output) => output.trim() === "true"),
-      catchAll(() => Effect.succeed(false)),
+      Effect.catch(() => Effect.succeed(false)),
     );
     if (!isWorktree) {
       return yield* worktreeError(
