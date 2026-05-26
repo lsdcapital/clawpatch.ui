@@ -21,10 +21,12 @@ import {
   GIT_STATUS_CHANNEL,
   REPO_ADD_CHANNEL,
   REPO_DOCTOR_CHANNEL,
+  REPO_GET_CONFIG_CHANNEL,
   REPO_GET_SETTINGS_CHANNEL,
   REPO_LIST_CHANNEL,
   REPO_PICK_FOLDER_CHANNEL,
   REPO_REFRESH_CHANNEL,
+  REPO_UPDATE_CONFIG_CHANNEL,
   REPO_UPDATE_SETTINGS_CHANNEL,
   TERMINAL_OPEN_CHANNEL,
   TRIAGE_SET_CHANNEL,
@@ -56,6 +58,9 @@ const api: Api = {
     pickFolder: () => ipcRenderer.invoke(REPO_PICK_FOLDER_CHANNEL),
     refresh: (repoId) => ipcRenderer.invoke(REPO_REFRESH_CHANNEL, { repoId }),
     doctor: (repoId) => ipcRenderer.invoke(REPO_DOCTOR_CHANNEL, { repoId }),
+    getConfig: (repoId) => ipcRenderer.invoke(REPO_GET_CONFIG_CHANNEL, { repoId }),
+    updateConfig: (repoId, config) =>
+      ipcRenderer.invoke(REPO_UPDATE_CONFIG_CHANNEL, { repoId, config }),
     getSettings: (repoId) => ipcRenderer.invoke(REPO_GET_SETTINGS_CHANNEL, { repoId }),
     updateSettings: (repoId, settings) =>
       ipcRenderer.invoke(REPO_UPDATE_SETTINGS_CHANNEL, { repoId, settings }),

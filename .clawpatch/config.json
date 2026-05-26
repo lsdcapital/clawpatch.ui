@@ -1,6 +1,7 @@
 {
   "schemaVersion": 1,
   "stateDir": ".clawpatch",
+  "stateTracking": "audit",
   "include": ["**/*"],
   "exclude": [
     "node_modules/**",

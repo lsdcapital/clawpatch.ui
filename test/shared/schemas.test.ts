@@ -3,7 +3,9 @@ import { describe, expect, it } from "vitest";
 import {
   AppSettingsSchema,
   ClawpatchCommandRequestSchema,
+  ClawpatchConfigSchema,
   ClawpatchStatusSchema,
+  ClawpatchStateTrackingSchema,
   CommandResultSchema,
   CommandStreamEventSchema,
   UiMetadataSchema,
@@ -18,6 +20,13 @@ describe("shared schemas", () => {
 
   it("rejects invalid clawpatch status literals", () => {
     expect(() => Schema.decodeUnknownSync(ClawpatchStatusSchema)("closed")).toThrow();
+  });
+
+  it("decodes Clawpatch state tracking literals", () => {
+    expect(Schema.decodeUnknownSync(ClawpatchStateTrackingSchema)("local")).toBe("local");
+    expect(Schema.decodeUnknownSync(ClawpatchStateTrackingSchema)("team")).toBe("team");
+    expect(Schema.decodeUnknownSync(ClawpatchStateTrackingSchema)("audit")).toBe("audit");
+    expect(() => Schema.decodeUnknownSync(ClawpatchStateTrackingSchema)("commit")).toThrow();
   });
 
   it("decodes triage command requests with status literals", () => {
@@ -82,6 +91,15 @@ describe("shared schemas", () => {
       worktreeSetupScript: "pnpm install",
       updatedAt: "2026-05-19T00:00:00.000Z",
     });
+  });
+
+  it("decodes shared Clawpatch config", () => {
+    const config = {
+      schemaVersion: 1,
+      stateTracking: "team",
+    };
+
+    expect(Schema.decodeUnknownSync(ClawpatchConfigSchema)(config)).toEqual(config);
   });
 
   it("decodes command output stream events", () => {

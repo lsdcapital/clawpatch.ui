@@ -16,6 +16,7 @@ import { useRepoSidebarState } from "../hooks/useRepoSidebarState";
 import { useSelectedRepo } from "../hooks/useSelectedRepo";
 import type {
   AppSettings,
+  ClawpatchConfig,
   FindingWorkStatus,
   PublishFixResult,
   RepoSettings,
@@ -99,6 +100,11 @@ export function ClawpatchApp() {
     queryFn: () => window.clawpatch.repo.getSettings(settingsRepo!.id),
     enabled: settingsRepo !== null,
   });
+  const repoConfigQuery = useQuery({
+    queryKey: clawpatchQueryKeys.repoConfig(settingsRepo?.id),
+    queryFn: () => window.clawpatch.repo.getConfig(settingsRepo!.id),
+    enabled: settingsRepo !== null,
+  });
 
   const appSettingsQuery = useQuery({
     queryKey: clawpatchQueryKeys.appSettings(),
@@ -118,6 +124,15 @@ export function ClawpatchApp() {
     onSuccess: (_settings, variables) => {
       void queryClient.invalidateQueries({
         queryKey: clawpatchQueryKeys.repoSettings(variables.repoId),
+      });
+    },
+  });
+  const repoConfigMutation = useMutation({
+    mutationFn: ({ repoId, config }: { repoId: string; config: ClawpatchConfig }) =>
+      window.clawpatch.repo.updateConfig(repoId, config),
+    onSuccess: (_config, variables) => {
+      void queryClient.invalidateQueries({
+        queryKey: clawpatchQueryKeys.repoConfig(variables.repoId),
       });
     },
   });
@@ -219,9 +234,15 @@ export function ClawpatchApp() {
         appSettingsQuery.error ?? appSettingsMutation.error ?? terminalAppPickerMutation.error
       }
       settings={repoSettingsQuery.data}
-      isLoading={repoSettingsQuery.isLoading}
-      isSaving={repoSettingsMutation.isPending}
-      error={repoSettingsQuery.error ?? repoSettingsMutation.error}
+      config={repoConfigQuery.data}
+      isLoading={repoSettingsQuery.isLoading || repoConfigQuery.isLoading}
+      isSaving={repoSettingsMutation.isPending || repoConfigMutation.isPending}
+      error={
+        repoSettingsQuery.error ??
+        repoSettingsMutation.error ??
+        repoConfigQuery.error ??
+        repoConfigMutation.error
+      }
       doctorResult={repoDoctorQuery.data}
       isDoctorLoading={repoDoctorQuery.isLoading}
       doctorError={repoDoctorQuery.error}
@@ -230,7 +251,10 @@ export function ClawpatchApp() {
       onSelectRepo={(repoId) => setSettingsSection({ kind: "repo", repoId })}
       onPickTerminalApp={() => terminalAppPickerMutation.mutateAsync()}
       onSaveAppSettings={(settings) => appSettingsMutation.mutate(settings)}
-      onSave={(repoId, settings) => repoSettingsMutation.mutate({ repoId, settings })}
+      onSave={(repoId, settings, config) => {
+        repoSettingsMutation.mutate({ repoId, settings });
+        repoConfigMutation.mutate({ repoId, config });
+      }}
     />
   ) : (
     <main className={isRepoSidebarCollapsed ? "app-shell sidebar-collapsed" : "app-shell"}>

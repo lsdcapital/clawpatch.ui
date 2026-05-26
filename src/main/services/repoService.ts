@@ -10,6 +10,7 @@ import * as Semaphore from "effect/Semaphore";
 import type {
   AppSettings,
   ClawpatchCommandRequest,
+  ClawpatchConfig,
   ClawpatchStatus,
   CommandInterruptResult,
   CommandResult,
@@ -36,6 +37,7 @@ import {
   RepoNotFoundError,
 } from "../errors";
 import { ClawpatchRunner, type ClawpatchRunnerError } from "./clawpatchRunner";
+import { ClawpatchConfigService, type ClawpatchConfigError } from "./clawpatchConfig";
 import {
   ClawpatchStateService,
   type ClawpatchStateError,
@@ -75,6 +77,7 @@ export type RepoServiceError =
   | ClawpatchStateError
   | TerminalLauncherError
   | AppSettingsError
+  | ClawpatchConfigError
   | RepoSettingsError
   | UiMetadataError;
 
@@ -87,6 +90,11 @@ export interface RepoServiceShape {
   readonly addRepo: (repoPath: string) => Effect.Effect<RepoSummary, RepoServiceError>;
   readonly refreshRepo: (repoId: string) => Effect.Effect<RepoSnapshot, RepoServiceError>;
   readonly doctor: (repoId: string) => Effect.Effect<CommandResult, RepoServiceError>;
+  readonly getConfig: (repoId: string) => Effect.Effect<ClawpatchConfig, RepoServiceError>;
+  readonly updateConfig: (
+    repoId: string,
+    config: ClawpatchConfig,
+  ) => Effect.Effect<ClawpatchConfig, RepoServiceError>;
   readonly getSettings: (repoId: string) => Effect.Effect<RepoSettings, RepoServiceError>;
   readonly updateSettings: (
     repoId: string,
@@ -146,6 +154,7 @@ export const RepoServiceLive = (appDataDir: string) =>
       const state = yield* ClawpatchStateService;
       const metadata = yield* UiMetadataService;
       const appSettings = yield* AppSettingsService;
+      const clawpatchConfig = yield* ClawpatchConfigService;
       const repoSettings = yield* RepoSettingsService;
       const git = yield* GitService;
       const setupScripts = yield* SetupScriptRunner;
@@ -944,6 +953,14 @@ export const RepoServiceLive = (appDataDir: string) =>
         doctor: Effect.fn("repoService.doctor")(function* (repoIdValue) {
           const repo = yield* requireRepo(repoIdValue);
           return yield* runTrackedRepoCommand(repo.id, repo.path, { command: "doctor" });
+        }),
+        getConfig: Effect.fn("repoService.getConfig")(function* (repoIdValue) {
+          const repo = yield* requireRepo(repoIdValue);
+          return yield* clawpatchConfig.read(repo.path);
+        }),
+        updateConfig: Effect.fn("repoService.updateConfig")(function* (repoIdValue, config) {
+          const repo = yield* requireRepo(repoIdValue);
+          return yield* clawpatchConfig.write(repo.path, config);
         }),
         updateSettings: Effect.fn("repoService.updateSettings")(function* (repoIdValue, settings) {
           const repo = yield* requireRepo(repoIdValue);

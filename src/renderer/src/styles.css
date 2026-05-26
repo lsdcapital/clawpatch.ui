@@ -1190,6 +1190,7 @@ button:disabled {
 }
 
 .settings-form input,
+.settings-form select,
 .settings-form textarea {
   background: var(--surface);
   border: 1px solid var(--border-strong);

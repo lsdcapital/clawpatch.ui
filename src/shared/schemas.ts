@@ -2,6 +2,7 @@ import * as Schema from "effect/Schema";
 import { clawpatchStatuses } from "./constants";
 
 export const ClawpatchStatusSchema = Schema.Literals(clawpatchStatuses);
+export const ClawpatchStateTrackingSchema = Schema.Literals(["local", "team", "audit"]);
 
 export const ClawpatchCommandRequestSchema = Schema.Union([
   Schema.Struct({ command: Schema.Literal("status") }),
@@ -121,6 +122,11 @@ export const RepoSettingsSchema = Schema.Struct({
   terminalStartupScript: Schema.String,
   worktreeSetupScript: Schema.String,
   updatedAt: Schema.String,
+});
+
+export const ClawpatchConfigSchema = Schema.Struct({
+  schemaVersion: Schema.Literal(1),
+  stateTracking: ClawpatchStateTrackingSchema,
 });
 
 export const EvidenceRefSchema = Schema.Struct({

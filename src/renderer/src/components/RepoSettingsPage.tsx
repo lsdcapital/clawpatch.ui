@@ -1,6 +1,13 @@
 import { useEffect, useState } from "react";
 import { ArrowLeftIcon, FolderOpenIcon, InfoIcon, Settings2Icon } from "lucide-react";
-import type { AppSettings, CommandResult, RepoSettings, RepoSummary } from "../../../shared/types";
+import type {
+  AppSettings,
+  ClawpatchConfig,
+  ClawpatchStateTracking,
+  CommandResult,
+  RepoSettings,
+  RepoSummary,
+} from "../../../shared/types";
 import { appName, appVersion } from "../appInfo";
 
 export type SettingsSection =
@@ -17,6 +24,7 @@ export function RepoSettingsPage({
   isTerminalAppPickerOpen,
   appSettingsError,
   settings,
+  config,
   isLoading,
   isSaving,
   error,
@@ -39,6 +47,7 @@ export function RepoSettingsPage({
   isTerminalAppPickerOpen: boolean;
   appSettingsError: unknown;
   settings: RepoSettings | undefined;
+  config: ClawpatchConfig | undefined;
   isLoading: boolean;
   isSaving: boolean;
   error: unknown;
@@ -50,7 +59,7 @@ export function RepoSettingsPage({
   onSelectRepo: (repoId: string) => void;
   onPickTerminalApp: () => Promise<string | null>;
   onSaveAppSettings: (settings: AppSettings) => void;
-  onSave: (repoId: string, settings: RepoSettings) => void;
+  onSave: (repoId: string, settings: RepoSettings, config: ClawpatchConfig) => void;
 }) {
   const selectedSettingsRepo =
     selectedSection.kind === "repo"
@@ -121,10 +130,13 @@ export function RepoSettingsPage({
           <RepositorySettings
             repo={selectedSettingsRepo}
             settings={settings}
+            config={config}
             isLoading={isLoading}
             isSaving={isSaving}
             error={error}
-            onSave={(nextSettings) => onSave(selectedSettingsRepo.id, nextSettings)}
+            onSave={(nextSettings, nextConfig) =>
+              onSave(selectedSettingsRepo.id, nextSettings, nextConfig)
+            }
           />
         )}
       </section>
@@ -338,6 +350,7 @@ function MissingRepoSettings({ onSelectGeneral }: { onSelectGeneral: () => void 
 function RepositorySettings({
   repo,
   settings,
+  config,
   isLoading,
   isSaving,
   error,
@@ -345,13 +358,15 @@ function RepositorySettings({
 }: {
   repo: RepoSummary;
   settings: RepoSettings | undefined;
+  config: ClawpatchConfig | undefined;
   isLoading: boolean;
   isSaving: boolean;
   error: unknown;
-  onSave: (settings: RepoSettings) => void;
+  onSave: (settings: RepoSettings, config: ClawpatchConfig) => void;
 }) {
   const [terminalStartupScript, setTerminalStartupScript] = useState("");
   const [worktreeSetupScript, setWorktreeSetupScript] = useState("");
+  const [stateTracking, setStateTracking] = useState<ClawpatchStateTracking>("local");
 
   useEffect(() => {
     if (settings === undefined) {
@@ -360,6 +375,12 @@ function RepositorySettings({
     setTerminalStartupScript(settings.terminalStartupScript);
     setWorktreeSetupScript(settings.worktreeSetupScript);
   }, [repo.id, settings]);
+  useEffect(() => {
+    if (config === undefined) {
+      return;
+    }
+    setStateTracking(config.stateTracking);
+  }, [repo.id, config]);
 
   const resetForm = (): void => {
     if (settings === undefined) {
@@ -367,15 +388,22 @@ function RepositorySettings({
     }
     setTerminalStartupScript(settings.terminalStartupScript);
     setWorktreeSetupScript(settings.worktreeSetupScript);
+    setStateTracking(config?.stateTracking ?? "local");
   };
 
   const save = (): void => {
-    onSave({
-      schemaVersion: 1,
-      terminalStartupScript,
-      worktreeSetupScript,
-      updatedAt: settings?.updatedAt ?? new Date(0).toISOString(),
-    });
+    onSave(
+      {
+        schemaVersion: 1,
+        terminalStartupScript,
+        worktreeSetupScript,
+        updatedAt: settings?.updatedAt ?? new Date(0).toISOString(),
+      },
+      {
+        schemaVersion: 1,
+        stateTracking,
+      },
+    );
   };
 
   return (
@@ -399,6 +427,17 @@ function RepositorySettings({
             save();
           }}
         >
+          <label>
+            Clawpatch state tracking
+            <select
+              value={stateTracking}
+              onChange={(event) => setStateTracking(event.target.value as ClawpatchStateTracking)}
+            >
+              <option value="local">Local</option>
+              <option value="team">Team</option>
+              <option value="audit">Audit</option>
+            </select>
+          </label>
           <label>
             Terminal startup script
             <textarea

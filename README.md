@@ -60,6 +60,18 @@ clawpatch review --limit 10
 After that, open Clawpatch UI and add the target repo path. The UI reads the
 generated `.clawpatch` state and runs supported commands through the CLI.
 
+Set `.clawpatch/config.json` `stateTracking` to describe how much Clawpatch
+state the repo intends to version:
+
+- `local`: commit only shared config; keep generated state out of Git.
+- `team`: also commit durable review state such as features and findings.
+- `audit`: also commit reports and patch records for traceability.
+
+When repository settings are saved, Clawpatch UI updates a managed block in the
+repo `.gitignore` for the selected `stateTracking` policy. Git ignore rules do
+not untrack files that are already committed; use `git rm --cached` when
+changing an existing repo from a broader policy to a narrower one.
+
 ## Available Scripts
 
 ```bash
@@ -82,13 +94,14 @@ pnpm clean       # Remove generated build/cache output
 
 - Clawpatch state remains valid without this UI.
 - The UI reads `.clawpatch` state for display.
+- The UI can update `.clawpatch/config.json` `stateTracking` as shared repo
+  configuration.
 - The UI stores UI-only metadata in the app user data directory.
 - Legacy `.clawpatch/ui/state.json` files are read only for migration.
 - Clawpatch commands are run through `clawpatch --json --no-color --no-input`.
 - Diffs are read with `git diff --no-color`.
 - The UI does not directly edit `.clawpatch/findings`, `.clawpatch/features`,
-  `.clawpatch/patches`, `.clawpatch/runs`, `.clawpatch/locks`, or
-  `.clawpatch/config.json`.
+  `.clawpatch/patches`, `.clawpatch/runs`, or `.clawpatch/locks`.
 - Triage and fixes run through `clawpatch triage` and `clawpatch fix`.
 
 ## Troubleshooting
