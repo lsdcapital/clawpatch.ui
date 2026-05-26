@@ -140,14 +140,21 @@ describe("renderer layout styles", () => {
     expect(sortHeaderRule).toContain("width: 100%;");
 
     const sortHeaderIconRule = ruleFor("\\.sort-header-icon");
+    expect(sortHeaderIconRule).toContain(
+      "color: color-mix(in srgb, var(--subtle) 72%, transparent);",
+    );
     expect(sortHeaderIconRule).toContain("display: inline-flex;");
-    expect(sortHeaderIconRule).toContain("flex: 0 0 12px;");
-    expect(sortHeaderIconRule).toContain("height: 12px;");
-    expect(sortHeaderIconRule).toContain("width: 12px;");
+    expect(sortHeaderIconRule).toContain("flex: 0 0 14px;");
+    expect(sortHeaderIconRule).toContain("height: 14px;");
+    expect(sortHeaderIconRule).toContain("width: 14px;");
 
     const sortHeaderIconSvgRule = ruleFor("\\.sort-header-icon svg");
-    expect(sortHeaderIconSvgRule).toContain("height: 12px;");
-    expect(sortHeaderIconSvgRule).toContain("width: 12px;");
+    expect(sortHeaderIconSvgRule).toContain("height: 14px;");
+    expect(sortHeaderIconSvgRule).toContain("stroke-width: 2.5;");
+    expect(sortHeaderIconSvgRule).toContain("width: 14px;");
+
+    const activeSortHeaderIconRule = ruleFor("\\.sort-header\\.active \\.sort-header-icon");
+    expect(activeSortHeaderIconRule).toContain("color: var(--text);");
   });
 });
 

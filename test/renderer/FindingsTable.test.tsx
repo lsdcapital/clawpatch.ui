@@ -303,7 +303,7 @@ describe("FindingsTable filters", () => {
     );
   });
 
-  it("keeps active sort icons hidden from accessible button names", () => {
+  it("keeps sort icons visible and hidden from accessible button names", () => {
     render(
       <FilterHarness
         findings={findings}
@@ -314,15 +314,23 @@ describe("FindingsTable filters", () => {
     const severitySortButton = screen.getByRole("button", {
       name: "Sort by Severity ascending",
     });
-    const iconSlot = severitySortButton.querySelector(".sort-header-icon");
+    const severityIconSlot = severitySortButton.querySelector(".sort-header-icon");
+    const confidenceSortButton = screen.getByRole("button", {
+      name: "Sort by Confidence ascending",
+    });
+    const confidenceIconSlot = confidenceSortButton.querySelector(".sort-header-icon");
 
-    expect(iconSlot).toHaveAttribute("aria-hidden", "true");
-    expect(iconSlot?.querySelector("svg")).not.toBeNull();
+    expect(severityIconSlot).toHaveAttribute("aria-hidden", "true");
+    expect(severityIconSlot?.querySelector("svg")).not.toBeNull();
+    expect(confidenceIconSlot).toHaveAttribute("aria-hidden", "true");
+    expect(confidenceIconSlot?.querySelector("svg")).not.toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "Sort by Confidence ascending" }));
-    expect(
-      screen.getByRole("button", { name: "Sort by Confidence descending" }),
-    ).toBeInTheDocument();
+    const activeConfidenceSortButton = screen.getByRole("button", {
+      name: "Sort by Confidence descending",
+    });
+    expect(activeConfidenceSortButton).toBeInTheDocument();
+    expect(activeConfidenceSortButton.querySelector(".sort-header-icon svg")).not.toBeNull();
   });
 
   it("sorts visible rows by confidence", () => {

@@ -1,5 +1,6 @@
 import {
   AlertCircleIcon,
+  ArrowUpDownIcon,
   ChevronDownIcon,
   ChevronUpIcon,
   FilePenLineIcon,
@@ -261,7 +262,11 @@ function SortableHeader({
   const isActive = sort.field === field;
   const ariaSort = isActive ? (sort.direction === "asc" ? "ascending" : "descending") : "none";
   const nextDirection = isActive ? toggleDirection(sort.direction) : "asc";
-  const SortIcon = sort.direction === "asc" ? ChevronUpIcon : ChevronDownIcon;
+  const SortIcon = isActive
+    ? sort.direction === "asc"
+      ? ChevronUpIcon
+      : ChevronDownIcon
+    : ArrowUpDownIcon;
 
   return (
     <span aria-sort={ariaSort} role="columnheader">
@@ -273,7 +278,7 @@ function SortableHeader({
       >
         <span>{label}</span>
         <span className="sort-header-icon" aria-hidden="true">
-          {isActive ? <SortIcon /> : null}
+          <SortIcon />
         </span>
       </button>
     </span>
