@@ -6,7 +6,6 @@ coverage/
 .turbo/
 .DS_Store
 *.log
-
 # BEGIN Clawpatch state tracking
 .clawpatch/*
 !.clawpatch/
@@ -15,8 +14,4 @@ coverage/
 !.clawpatch/features/**
 !.clawpatch/findings/
 !.clawpatch/findings/**
-!.clawpatch/reports/
-!.clawpatch/reports/**
-!.clawpatch/patches/
-!.clawpatch/patches/**
 # END Clawpatch state tracking
