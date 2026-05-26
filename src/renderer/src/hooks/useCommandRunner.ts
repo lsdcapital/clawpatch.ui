@@ -16,9 +16,16 @@ import { clawpatchQueryKeys, invalidateCommandProgress, invalidateRepo } from ".
 import type { CommandLogEntry } from "../workspaceTypes";
 
 type FindingCommandRequest = Extract<ClawpatchCommandRequest, { command: "fix" | "revalidate" }>;
+type ReviewFeatureCommandRequest = Extract<ClawpatchCommandRequest, { command: "review" }> & {
+  readonly featureId: string;
+};
 type RunningRepoCommand = {
   request: ClawpatchCommandRequest;
   invocationId: string;
+};
+type QueuedReviewFeatureCommand = {
+  readonly repo: RepoSummary;
+  readonly request: ReviewFeatureCommandRequest;
 };
 export type RunningFindingCommand = {
   request: FindingCommandRequest;
@@ -42,6 +49,7 @@ export function useCommandRunner({
   const [runningFindingCommands, setRunningFindingCommands] = useState<
     Record<string, RunningFindingCommand>
   >({});
+  const [queuedReviewFeatureIds, setQueuedReviewFeatureIds] = useState<readonly string[]>([]);
   const [bulkRevalidationProgress, setBulkRevalidationProgress] =
     useState<BulkRevalidationProgress | null>(null);
   const [triageError, setTriageError] = useState<{
@@ -51,6 +59,11 @@ export function useCommandRunner({
   const commandInvocationSeqRef = useRef(0);
   const runningRepoCommandRef = useRef<RunningRepoCommand | null>(null);
   const runningFindingCommandsRef = useRef<Record<string, RunningFindingCommand>>({});
+  const reviewFeatureQueueRef = useRef<readonly QueuedReviewFeatureCommand[]>([]);
+  const drainReviewFeatureQueueRef = useRef<((afterInvocationId?: string) => Promise<void>) | null>(
+    null,
+  );
+  const isTriagePendingRef = useRef(false);
   const isBulkRevalidationRunningRef = useRef(false);
 
   useEffect(() => {
@@ -92,6 +105,7 @@ export function useCommandRunner({
       return { persisted, result };
     },
     onMutate: () => {
+      isTriagePendingRef.current = true;
       setTriageError(null);
     },
     onSuccess: ({ persisted, result }, variables) => {
@@ -146,6 +160,10 @@ export function useCommandRunner({
       );
       void invalidateRepo(queryClient, variables.repo.id);
     },
+    onSettled: () => {
+      isTriagePendingRef.current = false;
+      void drainReviewFeatureQueueRef.current?.();
+    },
   });
 
   const isBulkRevalidationRunning = bulkRevalidationProgress !== null;
@@ -154,7 +172,13 @@ export function useCommandRunner({
     Object.keys(runningFindingCommands).length > 0 ||
     triageMutation.isPending ||
     isBulkRevalidationRunning;
-  const isRepoCommandBusy = runningRepoCommand !== null || triageMutation.isPending;
+  const runningReviewFeatureId =
+    runningRepoCommand?.request.command === "review" &&
+    runningRepoCommand.request.featureId !== undefined
+      ? runningRepoCommand.request.featureId
+      : null;
+  const isRepoCommandBusy =
+    runningRepoCommand !== null || triageMutation.isPending || queuedReviewFeatureIds.length > 0;
 
   useEffect(() => {
     if (!isAnyCommandRunning) {
@@ -201,31 +225,92 @@ export function useCommandRunner({
     [onRevealFirstChangedFile, queryClient],
   );
 
-  const runRepoCommand = useCallback(
-    (repo: RepoSummary, request: ClawpatchCommandRequest): void => {
+  const updateReviewFeatureQueue = useCallback(
+    (queue: readonly QueuedReviewFeatureCommand[]): void => {
+      reviewFeatureQueueRef.current = queue;
+      setQueuedReviewFeatureIds(queue.map((item) => item.request.featureId));
+    },
+    [],
+  );
+
+  const runRepoCommandOnce = useCallback(
+    async (repo: RepoSummary, request: ClawpatchCommandRequest): Promise<boolean> => {
       if (runningRepoCommandRef.current !== null) {
-        return;
+        return false;
       }
       const runningCommand = { request, invocationId: nextCommandInvocationId() };
       runningRepoCommandRef.current = runningCommand;
       setRunningRepoCommand(runningCommand);
-      void window.clawpatch.commands
-        .run(repo.id, request)
-        .then((result) => {
-          appendCommandResults(repo.id, request, result);
-          void refreshAfterCommand(repo.id, request);
-        })
-        .catch((error: unknown) => {
-          appendCommandError(repo.id, request, error);
-        })
-        .finally(() => {
-          if (runningRepoCommandRef.current?.invocationId === runningCommand.invocationId) {
-            runningRepoCommandRef.current = null;
-            setRunningRepoCommand(null);
-          }
-        });
+      try {
+        const result = await window.clawpatch.commands.run(repo.id, request);
+        appendCommandResults(repo.id, request, result);
+        void refreshAfterCommand(repo.id, request);
+      } catch (error: unknown) {
+        appendCommandError(repo.id, request, error);
+      } finally {
+        if (runningRepoCommandRef.current?.invocationId === runningCommand.invocationId) {
+          runningRepoCommandRef.current = null;
+          setRunningRepoCommand(null);
+          void drainReviewFeatureQueueRef.current?.(runningCommand.invocationId);
+        }
+      }
+      return true;
     },
     [appendCommandError, appendCommandResults, refreshAfterCommand],
+  );
+
+  const runRepoCommand = useCallback(
+    (repo: RepoSummary, request: ClawpatchCommandRequest): void => {
+      void runRepoCommandOnce(repo, request);
+    },
+    [runRepoCommandOnce],
+  );
+
+  const drainReviewFeatureQueue = useCallback(
+    async (afterInvocationId?: string): Promise<void> => {
+      if (isTriagePendingRef.current) {
+        return;
+      }
+      if (
+        runningRepoCommandRef.current !== null &&
+        runningRepoCommandRef.current.invocationId !== afterInvocationId
+      ) {
+        return;
+      }
+
+      const [nextCommand, ...remainingCommands] = reviewFeatureQueueRef.current;
+      if (nextCommand === undefined) {
+        return;
+      }
+
+      updateReviewFeatureQueue(remainingCommands);
+      const started = await runRepoCommandOnce(nextCommand.repo, nextCommand.request);
+      if (!started) {
+        updateReviewFeatureQueue([nextCommand, ...remainingCommands]);
+      }
+    },
+    [runRepoCommandOnce, updateReviewFeatureQueue],
+  );
+  drainReviewFeatureQueueRef.current = drainReviewFeatureQueue;
+
+  const enqueueReviewFeatureCommand = useCallback(
+    (repo: RepoSummary, request: ReviewFeatureCommandRequest): void => {
+      if (
+        runningRepoCommandRef.current?.request.command === "review" &&
+        runningRepoCommandRef.current.request.featureId === request.featureId
+      ) {
+        return;
+      }
+      if (
+        reviewFeatureQueueRef.current.some((item) => item.request.featureId === request.featureId)
+      ) {
+        return;
+      }
+
+      updateReviewFeatureQueue([...reviewFeatureQueueRef.current, { repo, request }]);
+      void drainReviewFeatureQueue();
+    },
+    [drainReviewFeatureQueue, updateReviewFeatureQueue],
   );
 
   const runFindingCommandOnce = useCallback(
@@ -277,9 +362,16 @@ export function useCommandRunner({
         runFindingCommand(selectedRepo, request);
         return;
       }
+      if (request.command === "review" && request.featureId !== undefined) {
+        enqueueReviewFeatureCommand(selectedRepo, {
+          command: "review",
+          featureId: request.featureId,
+        });
+        return;
+      }
       runRepoCommand(selectedRepo, request);
     },
-    [runFindingCommand, runRepoCommand, selectedRepo],
+    [enqueueReviewFeatureCommand, runFindingCommand, runRepoCommand, selectedRepo],
   );
 
   const interruptCommand = useCallback(
@@ -361,10 +453,12 @@ export function useCommandRunner({
     isRepoCommandBusy,
     isTriagePending: triageMutation.isPending,
     triageError,
+    queuedReviewFeatureIds,
     revalidateFindings,
     runCommand,
     runFixWithSavedGuidance,
     runningRepoCommand,
+    runningReviewFeatureId,
     runningFindingCommands,
     triageFinding,
   };

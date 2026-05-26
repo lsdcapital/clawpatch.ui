@@ -22,6 +22,8 @@ interface Props {
   snapshot: FeatureMapSnapshot | null;
   isLoading: boolean;
   isBusy: boolean;
+  runningReviewFeatureId: string | null;
+  queuedReviewFeatureIds: readonly string[];
   onReviewFeature: (featureId: string) => void;
   onReviewPending: (limit: number) => void;
   onUpdateMap: () => void;
@@ -31,6 +33,8 @@ export function ReviewMapPanel({
   snapshot,
   isLoading,
   isBusy,
+  runningReviewFeatureId,
+  queuedReviewFeatureIds,
   onReviewFeature,
   onReviewPending,
   onUpdateMap,
@@ -47,6 +51,13 @@ export function ReviewMapPanel({
   const features = useMemo(() => snapshot?.features ?? [], [snapshot]);
   const filteredFeatures = useMemo(() => filterReviewQueue(features, filters), [features, filters]);
   const filterOptions = useMemo(() => getReviewQueueFilterOptions(features), [features]);
+  const activeReviewFeatureIds = useMemo(() => {
+    const featureIds = new Set(queuedReviewFeatureIds);
+    if (runningReviewFeatureId !== null) {
+      featureIds.add(runningReviewFeatureId);
+    }
+    return featureIds;
+  }, [queuedReviewFeatureIds, runningReviewFeatureId]);
   const filtersActive = isReviewQueueFiltersActive(filters);
   const pendingCount = snapshot?.coverage.pendingReviewCount ?? 0;
   const totalCount = snapshot?.coverage.totalFeatures ?? 0;
@@ -177,7 +188,7 @@ export function ReviewMapPanel({
           features={filteredFeatures}
           expandedFeatureIds={expandedFeatureIds}
           hasActiveFilters={filtersActive}
-          isBusy={isBusy}
+          activeReviewFeatureIds={activeReviewFeatureIds}
           onReviewFeature={onReviewFeature}
           onToggleExpanded={toggleExpanded}
         />
@@ -190,14 +201,14 @@ function ReviewMapTable({
   features,
   expandedFeatureIds,
   hasActiveFilters,
-  isBusy,
+  activeReviewFeatureIds,
   onReviewFeature,
   onToggleExpanded,
 }: {
   features: FeatureMapSnapshot["features"];
   expandedFeatureIds: ReadonlySet<string>;
   hasActiveFilters: boolean;
-  isBusy: boolean;
+  activeReviewFeatureIds: ReadonlySet<string>;
   onReviewFeature: (featureId: string) => void;
   onToggleExpanded: (featureId: string) => void;
 }) {
@@ -221,6 +232,7 @@ function ReviewMapTable({
       ) : (
         features.map((feature) => {
           const isExpanded = expandedFeatureIds.has(feature.featureId);
+          const isReviewActive = activeReviewFeatureIds.has(feature.featureId);
           return (
             <Fragment key={feature.featureId}>
               <div className="feature-map-row" role="row">
@@ -246,7 +258,7 @@ function ReviewMapTable({
                 <strong title={feature.featureId}>{feature.title}</strong>
                 <span>{formatUpdatedAt(feature.updatedAt)}</span>
                 <ActionIconButton
-                  disabled={isBusy}
+                  disabled={isReviewActive}
                   icon={<ClipboardCheckIcon aria-hidden="true" />}
                   label={`Review ${feature.title}`}
                   onClick={() => onReviewFeature(feature.featureId)}

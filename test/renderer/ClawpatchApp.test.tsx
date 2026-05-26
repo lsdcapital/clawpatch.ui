@@ -731,7 +731,7 @@ describe("ClawpatchApp header actions", () => {
     expect(screen.getByRole("heading", { name: "Review Queue" })).toBeInTheDocument();
     expect(screen.getByText("2 pending/error of 3 map items")).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Review all 2 pending and error map items" }),
+      screen.getByRole("button", { name: "Review all 2 mapped features pending review" }),
     ).toBeInTheDocument();
     expect(screen.queryByText(/Review \d+ remaining/)).not.toBeInTheDocument();
     expect(screen.getByRole("table", { name: "Review queue map" })).toBeInTheDocument();
@@ -827,6 +827,56 @@ describe("ClawpatchApp header actions", () => {
     await screen.findByText("1 pending/error of 3 map items");
     expect(screen.queryByText("Authentication")).not.toBeInTheDocument();
     expect(screen.getByText("Billing")).toBeInTheDocument();
+  });
+
+  it("queues individual review row clicks while another review is running", async () => {
+    const resolvers = new Map<string, (result: CommandResult) => void>();
+    const run = vi.fn<Api["commands"]["run"]>(
+      (_repoId, request) =>
+        new Promise<CommandResult>((resolve) => {
+          if (request.command === "review" && request.featureId !== undefined) {
+            resolvers.set(request.featureId, resolve);
+          } else {
+            resolve(makeCommandResult(request.command));
+          }
+        }),
+    );
+    window.clawpatch = makeApi(run);
+
+    renderApp();
+
+    await screen.findByRole("heading", { name: "auth" });
+    fireEvent.click(await screen.findByRole("tab", { name: /^Review Queue/ }));
+
+    fireEvent.click(screen.getByRole("button", { name: "Review Authentication" }));
+    await waitFor(() =>
+      expect(run).toHaveBeenCalledWith("repo-auth", {
+        command: "review",
+        featureId: "feat-auth",
+      }),
+    );
+    expect(screen.getByRole("button", { name: "Review Authentication" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Review Billing" })).not.toBeDisabled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Review Billing" }));
+    expect(screen.getByRole("button", { name: "Review Billing" })).toBeDisabled();
+    expect(run).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      resolvers.get("feat-auth")?.(makeCommandResult("review"));
+    });
+
+    await waitFor(() =>
+      expect(run).toHaveBeenCalledWith("repo-auth", {
+        command: "review",
+        featureId: "feat-billing",
+      }),
+    );
+    expect(run).toHaveBeenCalledTimes(2);
+
+    act(() => {
+      resolvers.get("feat-billing")?.(makeCommandResult("review"));
+    });
   });
 
   it("retains only the latest command stream entries", async () => {
