@@ -14,7 +14,6 @@ import type {
 } from "../../shared/types";
 import { clawpatchStatuses } from "../../shared/types";
 import { emitCommandStream } from "../commandStream";
-import { catchAll } from "../effectCompat";
 import { CommandAlreadyRunningError, CommandSpawnError, CommandValidationError } from "../errors";
 import { childLogger } from "../logger";
 
@@ -245,7 +244,7 @@ function interruptChild(child: ChildProcessSpawner.ChildProcessHandle): Effect.E
     hasInterrupted = true;
     yield* child.kill({ killSignal: "SIGINT", forceKillAfter: "2 seconds" });
     return true;
-  }).pipe(catchAll(() => Effect.succeed(false)));
+  }).pipe(Effect.catch(() => Effect.succeed(false)));
 }
 
 function collectOutput(

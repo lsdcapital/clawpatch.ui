@@ -27,7 +27,6 @@ import type {
   TerminalOpenResult,
 } from "../../shared/types";
 import { emitCommandStream } from "../commandStream";
-import { catchAll } from "../effectCompat";
 import {
   CommandAlreadyRunningError,
   CommandExecutionError,
@@ -170,7 +169,7 @@ export const RepoServiceLive = (appDataDir: string) =>
       const readRegistry = Effect.fn("repoService.readRegistry")(function* () {
         const raw = yield* fs
           .readFileString(registryPath)
-          .pipe(catchAll(() => Effect.succeed(null)));
+          .pipe(Effect.catch(() => Effect.succeed(null)));
         if (raw === null) {
           return { repos: [] } satisfies RegistryFile;
         }
@@ -183,7 +182,7 @@ export const RepoServiceLive = (appDataDir: string) =>
             } satisfies RegistryFile;
           },
           catch: (cause) => cause,
-        }).pipe(catchAll(() => Effect.succeed({ repos: [] } satisfies RegistryFile)));
+        }).pipe(Effect.catch(() => Effect.succeed({ repos: [] } satisfies RegistryFile)));
       });
 
       const writeRegistry = Effect.fn("repoService.writeRegistry")(function* (
@@ -277,7 +276,7 @@ export const RepoServiceLive = (appDataDir: string) =>
             isValid = true;
           } else {
             const status = yield* runner.run(repoPath, { command: "status" }).pipe(
-              catchAll((error: unknown) =>
+              Effect.catch((error: unknown) =>
                 Effect.succeed({
                   exitCode: 1,
                   stderr: error instanceof Error ? error.message : String(error),
@@ -314,7 +313,7 @@ export const RepoServiceLive = (appDataDir: string) =>
         const worktreesRoot = path.join(appDataDir, "worktrees", repoIdValue);
         const names = yield* fs
           .readDirectory(worktreesRoot)
-          .pipe(catchAll(() => Effect.succeed([])));
+          .pipe(Effect.catch(() => Effect.succeed([])));
         const entries = yield* Effect.all(
           names.toSorted().map((name) =>
             Effect.gen(function* () {
@@ -324,14 +323,16 @@ export const RepoServiceLive = (appDataDir: string) =>
               }
 
               const worktreePath = path.join(worktreesRoot, slug);
-              const stats = yield* fs.stat(worktreePath).pipe(catchAll(() => Effect.succeed(null)));
+              const stats = yield* fs
+                .stat(worktreePath)
+                .pipe(Effect.catch(() => Effect.succeed(null)));
               if (stats?.type !== "Directory") {
                 return null;
               }
 
               const findings = yield* state
                 .readFindingList(worktreePath)
-                .pipe(catchAll(() => Effect.succeed([])));
+                .pipe(Effect.catch(() => Effect.succeed([])));
               const finding = findings.find(
                 (item) => sanitizeWorktreeFragment(item.findingId) === slug,
               );
@@ -517,7 +518,7 @@ export const RepoServiceLive = (appDataDir: string) =>
         const { branchName } = managedWorktreeForFinding(repo, findingId);
         const status = yield* git
           .readStatus(worktreePath)
-          .pipe(catchAll(() => Effect.succeed(null)));
+          .pipe(Effect.catch(() => Effect.succeed(null)));
         if (
           status === null ||
           status.branch !== branchName ||
@@ -532,7 +533,7 @@ export const RepoServiceLive = (appDataDir: string) =>
             branchName,
             baseRef: TARGET_BASE_REF,
           })
-          .pipe(catchAll(() => Effect.succeed(false)));
+          .pipe(Effect.catch(() => Effect.succeed(false)));
       });
 
       const readFindingListWithActiveWorktrees = Effect.fn(
@@ -540,7 +541,7 @@ export const RepoServiceLive = (appDataDir: string) =>
       )(function* (repoIdValue: string, repoPath: string) {
         const baseFindings = yield* state
           .readFindingList(repoPath)
-          .pipe(catchAll(() => Effect.succeed([])));
+          .pipe(Effect.catch(() => Effect.succeed([])));
         const byId = new Map(baseFindings.map((finding) => [finding.findingId, finding]));
         const activeWorktrees = yield* activeWorktreesForRepo(repoIdValue, repoPath);
 
@@ -555,7 +556,7 @@ export const RepoServiceLive = (appDataDir: string) =>
                   }
                 }),
               ),
-              catchAll(() => Effect.succeed([])),
+              Effect.catch(() => Effect.succeed([])),
             ),
           ),
           { concurrency: REPO_SERVICE_COLLECTION_CONCURRENCY },
@@ -570,8 +571,8 @@ export const RepoServiceLive = (appDataDir: string) =>
         findingId: string,
       ) {
         const detail = yield* state.readFindingDetail(worktreePath, findingId).pipe(
-          catchAll(() => state.readFindingDetail(repoPath, findingId)),
-          catchAll(() => Effect.succeed(null)),
+          Effect.catch(() => state.readFindingDetail(repoPath, findingId)),
+          Effect.catch(() => Effect.succeed(null)),
         );
         return detail?.patchAttempts.find((patch) => patch.git.prUrl !== null)?.git.prUrl ?? null;
       });
@@ -1207,9 +1208,9 @@ function readFindingTitleForCommit(
   findingId: string,
 ): Effect.Effect<string, never> {
   return state.readFindingDetail(worktreePath, findingId).pipe(
-    catchAll(() => state.readFindingDetail(repoPath, findingId)),
+    Effect.catch(() => state.readFindingDetail(repoPath, findingId)),
     Effect.map((finding) => finding.title),
-    catchAll(() => Effect.succeed(findingId)),
+    Effect.catch(() => Effect.succeed(findingId)),
   );
 }
 

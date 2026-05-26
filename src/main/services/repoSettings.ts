@@ -6,7 +6,6 @@ import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import { RepoSettingsSchema } from "../../shared/schemas";
 import type { RepoSettings } from "../../shared/types";
-import { catchAll } from "../effectCompat";
 import { JsonDecodeError } from "../errors";
 
 type SettingsReadResult =
@@ -48,12 +47,12 @@ function makeLiveService(
     path.join(appDataDir, "repo-settings", `${repoId}.json`);
 
   const readSettingsFile = Effect.fn("repoSettings.readSettingsFile")(function* (filePath: string) {
-    const exists = yield* fs.exists(filePath).pipe(catchAll(() => Effect.succeed(false)));
+    const exists = yield* fs.exists(filePath).pipe(Effect.catch(() => Effect.succeed(false)));
     if (!exists) {
       return { status: "missing" } satisfies SettingsReadResult;
     }
 
-    const raw = yield* fs.readFileString(filePath).pipe(catchAll(() => Effect.succeed(null)));
+    const raw = yield* fs.readFileString(filePath).pipe(Effect.catch(() => Effect.succeed(null)));
     if (raw === null) {
       return { status: "invalid" } satisfies SettingsReadResult;
     }
@@ -61,7 +60,7 @@ function makeLiveService(
     const parsed = yield* Effect.try({
       try: () => JSON.parse(raw) as unknown,
       catch: (cause) => cause,
-    }).pipe(catchAll(() => Effect.succeed(undefined)));
+    }).pipe(Effect.catch(() => Effect.succeed(undefined)));
     if (parsed === undefined) {
       return { status: "invalid" } satisfies SettingsReadResult;
     }
@@ -73,7 +72,7 @@ function makeLiveService(
           settings: normalizeSettings(settings),
         }),
       ),
-      catchAll(() => Effect.succeed({ status: "invalid" } satisfies SettingsReadResult)),
+      Effect.catch(() => Effect.succeed({ status: "invalid" } satisfies SettingsReadResult)),
     );
   });
 

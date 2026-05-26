@@ -6,7 +6,6 @@ import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import { AppSettingsSchema } from "../../shared/schemas";
 import type { AppSettings } from "../../shared/types";
-import { catchAll } from "../effectCompat";
 import { JsonDecodeError } from "../errors";
 
 type SettingsReadResult =
@@ -44,12 +43,14 @@ function makeLiveService(
   const settingsPath = path.join(appDataDir, "app-settings.json");
 
   const readSettingsFile = Effect.fn("appSettings.readSettingsFile")(function* () {
-    const exists = yield* fs.exists(settingsPath).pipe(catchAll(() => Effect.succeed(false)));
+    const exists = yield* fs.exists(settingsPath).pipe(Effect.catch(() => Effect.succeed(false)));
     if (!exists) {
       return { status: "missing" } satisfies SettingsReadResult;
     }
 
-    const raw = yield* fs.readFileString(settingsPath).pipe(catchAll(() => Effect.succeed(null)));
+    const raw = yield* fs
+      .readFileString(settingsPath)
+      .pipe(Effect.catch(() => Effect.succeed(null)));
     if (raw === null) {
       return { status: "invalid" } satisfies SettingsReadResult;
     }
@@ -57,7 +58,7 @@ function makeLiveService(
     const parsed = yield* Effect.try({
       try: () => JSON.parse(raw) as unknown,
       catch: (cause) => cause,
-    }).pipe(catchAll(() => Effect.succeed(undefined)));
+    }).pipe(Effect.catch(() => Effect.succeed(undefined)));
     if (parsed === undefined) {
       return { status: "invalid" } satisfies SettingsReadResult;
     }
@@ -69,7 +70,7 @@ function makeLiveService(
           settings: normalizeSettings(settings),
         }),
       ),
-      catchAll(() => Effect.succeed({ status: "invalid" } satisfies SettingsReadResult)),
+      Effect.catch(() => Effect.succeed({ status: "invalid" } satisfies SettingsReadResult)),
     );
   });
 

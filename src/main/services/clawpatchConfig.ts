@@ -4,7 +4,6 @@ import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Path from "effect/Path";
 import type { ClawpatchConfig, ClawpatchStateTracking } from "../../shared/types";
-import { catchAll } from "../effectCompat";
 import { JsonDecodeError } from "../errors";
 
 const GITIGNORE_BLOCK_START = "# BEGIN Clawpatch state tracking";
@@ -41,7 +40,7 @@ function makeLiveService(fs: FileSystem.FileSystem, path: Path.Path): ClawpatchC
   const readConfigObject = Effect.fn("clawpatchConfig.readConfigObject")(function* (
     filePath: string,
   ) {
-    const exists = yield* fs.exists(filePath).pipe(catchAll(() => Effect.succeed(false)));
+    const exists = yield* fs.exists(filePath).pipe(Effect.catch(() => Effect.succeed(false)));
     if (!exists) {
       return {};
     }
@@ -59,13 +58,13 @@ function makeLiveService(fs: FileSystem.FileSystem, path: Path.Path): ClawpatchC
   return {
     read: Effect.fn("clawpatchConfig.read")(function* (repoPath) {
       const raw = yield* readConfigObject(configPath(repoPath)).pipe(
-        catchAll(() => Effect.succeed({})),
+        Effect.catch(() => Effect.succeed({})),
       );
       return toSharedConfig(raw);
     }),
     write: Effect.fn("clawpatchConfig.write")(function* (repoPath, config) {
       const filePath = configPath(repoPath);
-      const raw = yield* readConfigObject(filePath).pipe(catchAll(() => Effect.succeed({})));
+      const raw = yield* readConfigObject(filePath).pipe(Effect.catch(() => Effect.succeed({})));
       const nextRaw = {
         ...raw,
         schemaVersion: 1,
@@ -87,7 +86,7 @@ function makeLiveService(fs: FileSystem.FileSystem, path: Path.Path): ClawpatchC
 
   function writeGitignorePolicy(filePath: string, stateTracking: ClawpatchStateTracking) {
     return Effect.gen(function* () {
-      const raw = yield* fs.readFileString(filePath).pipe(catchAll(() => Effect.succeed("")));
+      const raw = yield* fs.readFileString(filePath).pipe(Effect.catch(() => Effect.succeed("")));
       const next = replaceManagedBlock(raw, gitignoreBlock(stateTracking));
       yield* fs
         .writeFileString(filePath, next)
