@@ -303,6 +303,28 @@ describe("FindingsTable filters", () => {
     );
   });
 
+  it("keeps active sort icons hidden from accessible button names", () => {
+    render(
+      <FilterHarness
+        findings={findings}
+        initialFilters={{ ...defaultFindingFilters, status: null }}
+      />,
+    );
+
+    const severitySortButton = screen.getByRole("button", {
+      name: "Sort by Severity ascending",
+    });
+    const iconSlot = severitySortButton.querySelector(".sort-header-icon");
+
+    expect(iconSlot).toHaveAttribute("aria-hidden", "true");
+    expect(iconSlot?.querySelector("svg")).not.toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Sort by Confidence ascending" }));
+    expect(
+      screen.getByRole("button", { name: "Sort by Confidence descending" }),
+    ).toBeInTheDocument();
+  });
+
   it("sorts visible rows by confidence", () => {
     const { container } = render(
       <FilterHarness

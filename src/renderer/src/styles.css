@@ -1785,17 +1785,30 @@ button.table-row:hover:not(:disabled) {
   border: 0;
   border-radius: 0;
   color: inherit;
-  display: inline-grid;
+  display: inline-flex;
   font: inherit;
   font-weight: inherit;
-  gap: 4px;
-  grid-template-columns: minmax(0, max-content) 10px;
+  gap: 6px;
   justify-content: start;
   min-height: 20px;
   padding: 0;
   text-align: left;
   text-transform: inherit;
   width: 100%;
+}
+
+.sort-header-icon {
+  align-items: center;
+  display: inline-flex;
+  flex: 0 0 12px;
+  height: 12px;
+  justify-content: center;
+  width: 12px;
+}
+
+.sort-header-icon svg {
+  height: 12px;
+  width: 12px;
 }
 
 .sort-header:hover:not(:disabled),
