@@ -104,14 +104,50 @@ describe("clawpatch state reader", () => {
               {
                 featureId: "feat-pending",
                 title: "Pending checkout flow",
+                summary: "Reviews checkout submission and confirmation UI.",
                 kind: "ui-flow",
                 source: "agent",
                 status: "pending",
+                entrypoints: [
+                  {
+                    path: "src/checkout.tsx",
+                    symbol: "CheckoutPage",
+                    route: "/checkout",
+                    command: null,
+                  },
+                ],
                 ownedFiles: [{ path: "src/checkout.tsx" }],
                 contextFiles: [{ path: "src/api.ts" }],
                 tests: [{ path: "src/checkout.test.tsx" }],
                 findingIds: [],
                 updatedAt: "2026-01-02T00:00:00.000Z",
+              },
+              null,
+              2,
+            ),
+            "utf8",
+          ),
+        );
+        yield* Effect.promise(() =>
+          writeFile(
+            join(tempRepo, ".clawpatch", "findings", "fnd-2.json"),
+            JSON.stringify(
+              {
+                findingId: "fnd-2",
+                featureId: "feat-error",
+                title: "Billing worker drops retry errors",
+                category: "bug",
+                severity: "medium",
+                confidence: "high",
+                evidence: [],
+                reasoning: "Retry errors can be dropped.",
+                reproduction: null,
+                recommendation: "Preserve the retry error.",
+                status: "open",
+                history: [],
+                linkedPatchAttemptIds: [],
+                createdAt: "2026-01-03T00:00:00.000Z",
+                updatedAt: "2026-01-03T00:00:00.000Z",
               },
               null,
               2,
@@ -129,6 +165,7 @@ describe("clawpatch state reader", () => {
                 kind: "job",
                 source: "heuristic",
                 status: "error",
+                entrypoints: [],
                 ownedFiles: [],
                 contextFiles: [],
                 tests: [],
@@ -168,6 +205,36 @@ describe("clawpatch state reader", () => {
         const snapshot = yield* state.readFeatureMap(tempRepo);
 
         expect(snapshot.coverage.pendingReviewFeatureIds).toEqual(["feat-error", "feat-pending"]);
+        expect(
+          snapshot.features.find((feature) => feature.featureId === "feat-pending"),
+        ).toMatchObject({
+          summary: "Reviews checkout submission and confirmation UI.",
+          entrypoints: [
+            {
+              path: "src/checkout.tsx",
+              symbol: "CheckoutPage",
+              route: "/checkout",
+              command: null,
+            },
+          ],
+          ownedFiles: [{ path: "src/checkout.tsx", reason: null }],
+          contextFiles: [{ path: "src/api.ts", reason: null }],
+          tests: [{ path: "src/checkout.test.tsx", reason: null }],
+        });
+        expect(
+          snapshot.features.find((feature) => feature.featureId === "feat-error"),
+        ).toMatchObject({
+          findingIds: ["fnd-2"],
+          linkedFindings: [
+            {
+              findingId: "fnd-2",
+              title: "Billing worker drops retry errors",
+              status: "open",
+              severity: "medium",
+              confidence: "high",
+            },
+          ],
+        });
         expect(snapshot.coverage.latestLimitedReviewRun).toMatchObject({
           runId: "run-limited",
           limit: 3,

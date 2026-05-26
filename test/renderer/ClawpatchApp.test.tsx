@@ -7,6 +7,7 @@ import type {
   Api,
   CommandResult,
   CommandStreamEvent,
+  FeatureMapItem,
   FeatureMapSnapshot,
   FindingDetail,
   FindingListItem,
@@ -2054,7 +2055,7 @@ function makeRepo(overrides: Partial<RepoSummary> = {}): RepoSummary {
 function makeFeatureMapSnapshot(): FeatureMapSnapshot {
   return {
     features: [
-      {
+      makeFeatureMapItem({
         featureId: "feat-auth",
         title: "Authentication",
         status: "pending",
@@ -2065,8 +2066,8 @@ function makeFeatureMapSnapshot(): FeatureMapSnapshot {
         testCount: 1,
         findingCount: 0,
         updatedAt: "2026-05-19T00:00:00.000Z",
-      },
-      {
+      }),
+      makeFeatureMapItem({
         featureId: "feat-profile",
         title: "Profile settings",
         status: "reviewed",
@@ -2077,8 +2078,8 @@ function makeFeatureMapSnapshot(): FeatureMapSnapshot {
         testCount: 1,
         findingCount: 1,
         updatedAt: "2026-05-18T00:00:00.000Z",
-      },
-      {
+      }),
+      makeFeatureMapItem({
         featureId: "feat-billing",
         title: "Billing",
         status: "error",
@@ -2089,7 +2090,7 @@ function makeFeatureMapSnapshot(): FeatureMapSnapshot {
         testCount: 0,
         findingCount: 0,
         updatedAt: "2026-05-17T00:00:00.000Z",
-      },
+      }),
     ],
     coverage: {
       totalFeatures: 3,
@@ -2105,7 +2106,7 @@ function makeFeatureMapSnapshot(): FeatureMapSnapshot {
 function makeFeatureMapSnapshotAfterOneReview(): FeatureMapSnapshot {
   return {
     features: [
-      {
+      makeFeatureMapItem({
         featureId: "feat-auth",
         title: "Authentication",
         status: "reviewed",
@@ -2116,8 +2117,8 @@ function makeFeatureMapSnapshotAfterOneReview(): FeatureMapSnapshot {
         testCount: 1,
         findingCount: 1,
         updatedAt: "2026-05-19T00:01:00.000Z",
-      },
-      {
+      }),
+      makeFeatureMapItem({
         featureId: "feat-profile",
         title: "Profile settings",
         status: "reviewed",
@@ -2128,8 +2129,8 @@ function makeFeatureMapSnapshotAfterOneReview(): FeatureMapSnapshot {
         testCount: 1,
         findingCount: 1,
         updatedAt: "2026-05-18T00:00:00.000Z",
-      },
-      {
+      }),
+      makeFeatureMapItem({
         featureId: "feat-billing",
         title: "Billing",
         status: "error",
@@ -2140,7 +2141,7 @@ function makeFeatureMapSnapshotAfterOneReview(): FeatureMapSnapshot {
         testCount: 0,
         findingCount: 0,
         updatedAt: "2026-05-17T00:00:00.000Z",
-      },
+      }),
     ],
     coverage: {
       totalFeatures: 3,
@@ -2162,6 +2163,29 @@ function makeReviewedFeatureMapSnapshot(): FeatureMapSnapshot {
       pendingReviewCount: 0,
       pendingReviewFeatureIds: [],
     },
+  };
+}
+
+function makeFeatureMapItem(
+  overrides: Partial<FeatureMapItem> & Pick<FeatureMapItem, "featureId" | "title">,
+): FeatureMapItem {
+  return {
+    summary: null,
+    status: "pending",
+    kind: "feature",
+    source: "map",
+    entrypoints: [],
+    ownedFiles: [],
+    contextFiles: [],
+    tests: [],
+    findingIds: [],
+    linkedFindings: [],
+    ownedFileCount: 0,
+    contextFileCount: 0,
+    testCount: 0,
+    findingCount: 0,
+    updatedAt: "2026-05-19T00:00:00.000Z",
+    ...overrides,
   };
 }
 

@@ -199,12 +199,39 @@ export const FindingDetailSchema = Schema.Struct({
   history: Schema.Array(FindingHistoryEntrySchema),
 });
 
+export const FeatureMapFileRefSchema = Schema.Struct({
+  path: Schema.String,
+  reason: Schema.NullOr(Schema.String),
+});
+
+export const FeatureMapEntrypointSchema = Schema.Struct({
+  path: Schema.String,
+  symbol: Schema.NullOr(Schema.String),
+  route: Schema.NullOr(Schema.String),
+  command: Schema.NullOr(Schema.String),
+});
+
+export const FeatureMapFindingSummarySchema = Schema.Struct({
+  findingId: Schema.String,
+  title: Schema.String,
+  status: ClawpatchStatusSchema,
+  severity: Schema.String,
+  confidence: Schema.String,
+});
+
 export const FeatureMapItemSchema = Schema.Struct({
   featureId: Schema.String,
   title: Schema.String,
+  summary: Schema.NullOr(Schema.String),
   status: Schema.String,
   kind: Schema.String,
   source: Schema.String,
+  entrypoints: Schema.Array(FeatureMapEntrypointSchema),
+  ownedFiles: Schema.Array(FeatureMapFileRefSchema),
+  contextFiles: Schema.Array(FeatureMapFileRefSchema),
+  tests: Schema.Array(FeatureMapFileRefSchema),
+  findingIds: Schema.Array(Schema.String),
+  linkedFindings: Schema.Array(FeatureMapFindingSummarySchema),
   ownedFileCount: Schema.Number,
   contextFileCount: Schema.Number,
   testCount: Schema.Number,

@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { ReviewMapPanel } from "../../src/renderer/src/components/ReviewMapPanel";
-import type { FeatureMapSnapshot } from "../../src/shared/types";
+import type { FeatureMapItem, FeatureMapSnapshot } from "../../src/shared/types";
 
 describe("ReviewMapPanel", () => {
   it("shows the review queue header and runs bulk review by pending count", () => {
@@ -44,6 +44,28 @@ describe("ReviewMapPanel", () => {
       within(billingRow as HTMLElement).getByRole("button", { name: "Review Billing" }),
     );
     expect(onReviewFeature).toHaveBeenCalledWith("feat-billing");
+  });
+
+  it("expands map rows with feature details and linked findings", () => {
+    renderPanel();
+
+    expect(screen.queryByText("Auth request handling")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Expand Authentication" }));
+
+    expect(screen.getByRole("button", { name: "Collapse Authentication" })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
+    expect(screen.getByText("Auth request handling")).toBeInTheDocument();
+    expect(screen.getAllByText("src/auth.ts")).toHaveLength(2);
+    expect(screen.getByText("src/session.ts")).toBeInTheDocument();
+    expect(screen.getByText("src/auth.test.ts")).toBeInTheDocument();
+    expect(screen.getByText("Login can bypass lockout")).toBeInTheDocument();
+    expect(screen.getByText(/open\s+\/\s+high\s+\/\s+medium/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Collapse Authentication" }));
+    expect(screen.queryByText("Auth request handling")).not.toBeInTheDocument();
   });
 
   it("updates the map from the toolbar action", () => {
@@ -135,19 +157,41 @@ function getFilterMenu(): HTMLDetailsElement {
 function makeSnapshot(): FeatureMapSnapshot {
   return {
     features: [
-      {
+      makeFeature({
         featureId: "feat-auth",
         title: "Authentication",
+        summary: "Auth request handling",
         status: "pending",
         kind: "feature",
         source: "map",
+        entrypoints: [
+          {
+            path: "src/auth.ts",
+            symbol: "authenticate",
+            route: "/login",
+            command: null,
+          },
+        ],
+        ownedFiles: [{ path: "src/auth.ts", reason: "auth module" }],
+        contextFiles: [{ path: "src/session.ts", reason: "session context" }],
+        tests: [{ path: "src/auth.test.ts", reason: "auth tests" }],
+        findingIds: ["fnd-auth"],
+        linkedFindings: [
+          {
+            findingId: "fnd-auth",
+            title: "Login can bypass lockout",
+            status: "open",
+            severity: "high",
+            confidence: "medium",
+          },
+        ],
         ownedFileCount: 1,
         contextFileCount: 1,
         testCount: 1,
-        findingCount: 0,
+        findingCount: 1,
         updatedAt: "2026-05-19T00:00:00.000Z",
-      },
-      {
+      }),
+      makeFeature({
         featureId: "feat-profile",
         title: "Profile settings",
         status: "reviewed",
@@ -158,8 +202,8 @@ function makeSnapshot(): FeatureMapSnapshot {
         testCount: 1,
         findingCount: 1,
         updatedAt: "2026-05-18T00:00:00.000Z",
-      },
-      {
+      }),
+      makeFeature({
         featureId: "feat-billing",
         title: "Billing",
         status: "error",
@@ -170,7 +214,7 @@ function makeSnapshot(): FeatureMapSnapshot {
         testCount: 0,
         findingCount: 0,
         updatedAt: "2026-05-17T00:00:00.000Z",
-      },
+      }),
     ],
     coverage: {
       totalFeatures: 3,
@@ -180,5 +224,28 @@ function makeSnapshot(): FeatureMapSnapshot {
       latestLimitedReviewRun: null,
       hasLimitedReviewRemainder: false,
     },
+  };
+}
+
+function makeFeature(
+  overrides: Partial<FeatureMapItem> & Pick<FeatureMapItem, "featureId" | "title">,
+): FeatureMapItem {
+  return {
+    summary: null,
+    status: "pending",
+    kind: "feature",
+    source: "map",
+    entrypoints: [],
+    ownedFiles: [],
+    contextFiles: [],
+    tests: [],
+    findingIds: [],
+    linkedFindings: [],
+    ownedFileCount: 0,
+    contextFileCount: 0,
+    testCount: 0,
+    findingCount: 0,
+    updatedAt: "2026-05-19T00:00:00.000Z",
+    ...overrides,
   };
 }
