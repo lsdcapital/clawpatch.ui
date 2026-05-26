@@ -35,6 +35,20 @@ export interface BulkRevalidationProgress {
   readonly current: number;
   readonly total: number;
 }
+export type ReviewCompletionSummary =
+  | {
+      readonly kind: "feature";
+      readonly repoId: string;
+      readonly featureId: string;
+      readonly findingCount: number | null;
+      readonly reviewedFeatureCount: number | null;
+    }
+  | {
+      readonly kind: "batch";
+      readonly repoId: string;
+      readonly findingCount: number | null;
+      readonly reviewedFeatureCount: number | null;
+    };
 
 export function useCommandRunner({
   selectedRepo,
@@ -52,6 +66,9 @@ export function useCommandRunner({
   const [queuedReviewFeatureIds, setQueuedReviewFeatureIds] = useState<readonly string[]>([]);
   const [bulkRevalidationProgress, setBulkRevalidationProgress] =
     useState<BulkRevalidationProgress | null>(null);
+  const [lastReviewCompletion, setLastReviewCompletion] = useState<ReviewCompletionSummary | null>(
+    null,
+  );
   const [triageError, setTriageError] = useState<{
     readonly findingId: string;
     readonly message: string;
@@ -241,9 +258,13 @@ export function useCommandRunner({
       const runningCommand = { request, invocationId: nextCommandInvocationId() };
       runningRepoCommandRef.current = runningCommand;
       setRunningRepoCommand(runningCommand);
+      setLastReviewCompletion(null);
       try {
         const result = await window.clawpatch.commands.run(repo.id, request);
         appendCommandResults(repo.id, request, result);
+        if (request.command === "review" && result.exitCode === 0) {
+          setLastReviewCompletion(reviewCompletionSummary(repo.id, request, result));
+        }
         void refreshAfterCommand(repo.id, request);
       } catch (error: unknown) {
         appendCommandError(repo.id, request, error);
@@ -452,6 +473,7 @@ export function useCommandRunner({
     isBulkRevalidationRunning,
     isRepoCommandBusy,
     isTriagePending: triageMutation.isPending,
+    lastReviewCompletion,
     triageError,
     queuedReviewFeatureIds,
     revalidateFindings,
@@ -462,4 +484,47 @@ export function useCommandRunner({
     runningFindingCommands,
     triageFinding,
   };
+}
+
+function reviewCompletionSummary(
+  repoId: string,
+  request: ClawpatchCommandRequest,
+  result: CommandResult,
+): ReviewCompletionSummary {
+  const findingCount = countFromParsedJson(result.parsedJson, "findingCount", "findingIds");
+  const reviewedFeatureCount = countFromParsedJson(
+    result.parsedJson,
+    "reviewedFeatureCount",
+    "claimedFeatureIds",
+  );
+
+  if (request.command === "review" && request.featureId !== undefined) {
+    return {
+      kind: "feature",
+      repoId,
+      featureId: request.featureId,
+      findingCount,
+      reviewedFeatureCount,
+    };
+  }
+
+  return {
+    kind: "batch",
+    repoId,
+    findingCount,
+    reviewedFeatureCount,
+  };
+}
+
+function countFromParsedJson(value: unknown, countKey: string, idsKey: string): number | null {
+  if (typeof value !== "object" || value === null) {
+    return null;
+  }
+  const record = value as Record<string, unknown>;
+  const count = record[countKey];
+  if (typeof count === "number" && Number.isFinite(count) && count >= 0) {
+    return Math.floor(count);
+  }
+  const ids = record[idsKey];
+  return Array.isArray(ids) ? ids.length : null;
 }

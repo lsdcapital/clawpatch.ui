@@ -1362,6 +1362,20 @@ button:disabled {
   min-width: 0;
 }
 
+.review-completion-note {
+  background: var(--success-soft);
+  border: 1px solid color-mix(in srgb, var(--success) 36%, var(--border));
+  border-radius: 5px;
+  color: var(--success);
+  font-weight: 700;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  padding: 4px 7px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .feature-map-table {
   align-content: start;
   display: grid;

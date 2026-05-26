@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
+import type { ComponentProps } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { ReviewMapPanel } from "../../src/renderer/src/components/ReviewMapPanel";
 import type { FeatureMapItem, FeatureMapSnapshot } from "../../src/shared/types";
@@ -86,6 +87,20 @@ describe("ReviewMapPanel", () => {
     expect(screen.queryByText("Auth request handling")).not.toBeInTheDocument();
   });
 
+  it("shows the last completed review finding count", () => {
+    renderPanel({
+      lastReviewCompletion: {
+        kind: "feature",
+        repoId: "repo-auth",
+        featureId: "feat-billing",
+        findingCount: 0,
+        reviewedFeatureCount: 1,
+      },
+    });
+
+    expect(screen.getByText("Reviewed Billing: 0 findings")).toHaveClass("review-completion-note");
+  });
+
   it("updates the map from the toolbar action", () => {
     const onUpdateMap = vi.fn();
 
@@ -152,6 +167,7 @@ function renderPanel({
   isBusy = false,
   runningReviewFeatureId = null,
   queuedReviewFeatureIds = [],
+  lastReviewCompletion = null,
 }: {
   onReviewFeature?: (featureId: string) => void;
   onReviewPending?: (limit: number) => void;
@@ -159,6 +175,7 @@ function renderPanel({
   isBusy?: boolean;
   runningReviewFeatureId?: string | null;
   queuedReviewFeatureIds?: readonly string[];
+  lastReviewCompletion?: ComponentProps<typeof ReviewMapPanel>["lastReviewCompletion"];
 } = {}) {
   return render(
     <ReviewMapPanel
@@ -167,6 +184,7 @@ function renderPanel({
       isBusy={isBusy}
       runningReviewFeatureId={runningReviewFeatureId}
       queuedReviewFeatureIds={queuedReviewFeatureIds}
+      lastReviewCompletion={lastReviewCompletion}
       onReviewFeature={onReviewFeature}
       onReviewPending={onReviewPending}
       onUpdateMap={onUpdateMap}

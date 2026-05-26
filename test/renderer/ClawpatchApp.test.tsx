@@ -829,6 +829,37 @@ describe("ClawpatchApp header actions", () => {
     expect(screen.getByText("Billing")).toBeInTheDocument();
   });
 
+  it("keeps zero-finding review feedback visible after the reviewed row leaves the queue", async () => {
+    const featureMap = vi
+      .fn<Api["features"]["map"]>()
+      .mockResolvedValueOnce(makeFeatureMapSnapshot())
+      .mockResolvedValue(makeFeatureMapSnapshotAfterZeroFindingReview());
+    const run = vi.fn<Api["commands"]["run"]>(async () => ({
+      ...makeCommandResult("review"),
+      parsedJson: { claimedFeatureIds: ["feat-auth"], findingIds: [] },
+    }));
+    window.clawpatch = makeApi(run, { featureMap });
+
+    renderApp();
+
+    await screen.findByRole("heading", { name: "auth" });
+    fireEvent.click(await screen.findByRole("tab", { name: /^Review Queue/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Review Authentication" }));
+
+    await waitFor(() =>
+      expect(run).toHaveBeenCalledWith("repo-auth", {
+        command: "review",
+        featureId: "feat-auth",
+      }),
+    );
+    await screen.findByText("Reviewed Authentication: 0 findings");
+    await waitFor(() => expect(screen.queryByText("Authentication")).not.toBeInTheDocument());
+    expect(screen.getByRole("tab", { name: /^Review Queue/ })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+  });
+
   it("queues individual review row clicks while another review is running", async () => {
     const resolvers = new Map<string, (result: CommandResult) => void>();
     const run = vi.fn<Api["commands"]["run"]>(
@@ -2249,6 +2280,57 @@ function makeFeatureMapSnapshotAfterOneReview(): FeatureMapSnapshot {
         contextFileCount: 1,
         testCount: 1,
         findingCount: 1,
+        updatedAt: "2026-05-19T00:01:00.000Z",
+      }),
+      makeFeatureMapItem({
+        featureId: "feat-profile",
+        title: "Profile settings",
+        status: "reviewed",
+        kind: "feature",
+        source: "map",
+        ownedFileCount: 2,
+        contextFileCount: 0,
+        testCount: 1,
+        findingCount: 1,
+        updatedAt: "2026-05-18T00:00:00.000Z",
+      }),
+      makeFeatureMapItem({
+        featureId: "feat-billing",
+        title: "Billing",
+        status: "error",
+        kind: "integration",
+        source: "manual",
+        ownedFileCount: 1,
+        contextFileCount: 1,
+        testCount: 0,
+        findingCount: 0,
+        updatedAt: "2026-05-17T00:00:00.000Z",
+      }),
+    ],
+    coverage: {
+      totalFeatures: 3,
+      pendingReviewCount: 1,
+      pendingReviewFeatureIds: ["feat-billing"],
+      latestReviewRun: null,
+      latestLimitedReviewRun: null,
+      hasLimitedReviewRemainder: false,
+    },
+  };
+}
+
+function makeFeatureMapSnapshotAfterZeroFindingReview(): FeatureMapSnapshot {
+  return {
+    features: [
+      makeFeatureMapItem({
+        featureId: "feat-auth",
+        title: "Authentication",
+        status: "reviewed",
+        kind: "feature",
+        source: "map",
+        ownedFileCount: 1,
+        contextFileCount: 1,
+        testCount: 1,
+        findingCount: 0,
         updatedAt: "2026-05-19T00:01:00.000Z",
       }),
       makeFeatureMapItem({
