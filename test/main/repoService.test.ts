@@ -1120,10 +1120,7 @@ describe("RepoService", () => {
               staged: 0,
               modified: 0,
               untracked: 0,
-              branch:
-                repoPath === worktreePath
-                  ? "clawpatch/fix/fnd-1"
-                  : "main",
+              branch: repoPath === worktreePath ? "clawpatch/fix/fnd-1" : "main",
             }),
           isBranchAppliedToBase: () => Effect.succeed(true),
         }),
@@ -1206,10 +1203,7 @@ describe("RepoService", () => {
               staged: 0,
               modified: 0,
               untracked: 0,
-              branch:
-                repoPath === worktreePath
-                  ? "clawpatch/fix/fnd-1"
-                  : "main",
+              branch: repoPath === worktreePath ? "clawpatch/fix/fnd-1" : "main",
             }),
           isBranchAppliedToBase: () => Effect.succeed(false),
         }),
@@ -1272,10 +1266,7 @@ describe("RepoService", () => {
               staged: 0,
               modified: 0,
               untracked: 0,
-              branch:
-                repoPath === worktreePath
-                  ? "clawpatch/fix/fnd-1"
-                  : "main",
+              branch: repoPath === worktreePath ? "clawpatch/fix/fnd-1" : "main",
             }),
           isBranchAppliedToBase: ({ repoPath }) =>
             Effect.fail(new CommandSpawnError({ repoPath, cause: new Error("cherry failed") })),

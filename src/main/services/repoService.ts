@@ -377,8 +377,11 @@ export const RepoServiceLive = (appDataDir: string) =>
 
         const retiredFindingIds = yield* Effect.all(
           [...repoWorktrees.entries()].map(([findingId, worktreePath]) =>
-            isManagedWorktreeRetired({ id: repoIdValue, path: repoPath }, findingId, worktreePath)
-              .pipe(Effect.map((isRetired) => (isRetired ? findingId : null))),
+            isManagedWorktreeRetired(
+              { id: repoIdValue, path: repoPath },
+              findingId,
+              worktreePath,
+            ).pipe(Effect.map((isRetired) => (isRetired ? findingId : null))),
           ),
           { concurrency: REPO_SERVICE_COLLECTION_CONCURRENCY },
         );
@@ -493,33 +496,35 @@ export const RepoServiceLive = (appDataDir: string) =>
         };
       };
 
-      const isManagedWorktreeRetired = Effect.fn("repoService.isManagedWorktreeRetired")(
-        function* (repo: Pick<RepoSummary, "id" | "path">, findingId: string, worktreePath: string) {
-          if (yield* isFindingCommandRunning(repo.id, findingId)) {
-            return false;
-          }
+      const isManagedWorktreeRetired = Effect.fn("repoService.isManagedWorktreeRetired")(function* (
+        repo: Pick<RepoSummary, "id" | "path">,
+        findingId: string,
+        worktreePath: string,
+      ) {
+        if (yield* isFindingCommandRunning(repo.id, findingId)) {
+          return false;
+        }
 
-          const { branchName } = managedWorktreeForFinding(repo, findingId);
-          const status = yield* git
-            .readStatus(worktreePath)
-            .pipe(catchAll(() => Effect.succeed(null)));
-          if (
-            status === null ||
-            status.branch !== branchName ||
-            status.staged + status.modified + status.untracked > 0
-          ) {
-            return false;
-          }
+        const { branchName } = managedWorktreeForFinding(repo, findingId);
+        const status = yield* git
+          .readStatus(worktreePath)
+          .pipe(catchAll(() => Effect.succeed(null)));
+        if (
+          status === null ||
+          status.branch !== branchName ||
+          status.staged + status.modified + status.untracked > 0
+        ) {
+          return false;
+        }
 
-          return yield* git
-            .isBranchAppliedToBase({
-              repoPath: repo.path,
-              branchName,
-              baseRef: TARGET_BASE_REF,
-            })
-            .pipe(catchAll(() => Effect.succeed(false)));
-        },
-      );
+        return yield* git
+          .isBranchAppliedToBase({
+            repoPath: repo.path,
+            branchName,
+            baseRef: TARGET_BASE_REF,
+          })
+          .pipe(catchAll(() => Effect.succeed(false)));
+      });
 
       const readFindingListWithActiveWorktrees = Effect.fn(
         "repoService.readFindingListWithActiveWorktrees",
