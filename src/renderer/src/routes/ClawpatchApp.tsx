@@ -409,6 +409,8 @@ export function ClawpatchApp() {
               snapshot={featureMapQuery.data ?? null}
               isLoading={featureMapQuery.isLoading}
               isBusy={commandRunner.isRepoCommandBusy}
+              runningReviewFeatureId={commandRunner.runningReviewFeatureId}
+              queuedReviewFeatureIds={commandRunner.queuedReviewFeatureIds}
               onReviewFeature={(featureId) => runCommand({ command: "review", featureId })}
               onReviewPending={(limit) => runCommand({ command: "review", limit })}
               onUpdateMap={() => runCommand({ command: "map" })}

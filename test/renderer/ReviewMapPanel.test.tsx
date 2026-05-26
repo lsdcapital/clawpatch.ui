@@ -42,6 +42,26 @@ describe("ReviewMapPanel", () => {
     expect(onReviewFeature).toHaveBeenCalledWith("feat-billing");
   });
 
+  it("disables row review buttons only for active features", () => {
+    renderPanel({ runningReviewFeatureId: "feat-auth", queuedReviewFeatureIds: ["feat-billing"] });
+
+    expect(screen.getByRole("button", { name: "Review Authentication" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Review Billing" })).toBeDisabled();
+  });
+
+  it("does not disable row review buttons for unrelated busy toolbar actions", () => {
+    renderPanel({ isBusy: true });
+
+    expect(screen.getByRole("button", { name: "Update map" })).toBeDisabled();
+    expect(
+      screen.getByRole("button", {
+        name: "Review all 2 mapped features pending review",
+      }),
+    ).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Review Authentication" })).not.toBeDisabled();
+    expect(screen.getByRole("button", { name: "Review Billing" })).not.toBeDisabled();
+  });
+
   it("expands map rows with feature details and linked findings", () => {
     renderPanel();
 
@@ -127,16 +147,24 @@ function renderPanel({
   onReviewFeature = vi.fn(),
   onReviewPending = vi.fn(),
   onUpdateMap = vi.fn(),
+  isBusy = false,
+  runningReviewFeatureId = null,
+  queuedReviewFeatureIds = [],
 }: {
   onReviewFeature?: (featureId: string) => void;
   onReviewPending?: (limit: number) => void;
   onUpdateMap?: () => void;
+  isBusy?: boolean;
+  runningReviewFeatureId?: string | null;
+  queuedReviewFeatureIds?: readonly string[];
 } = {}) {
   return render(
     <ReviewMapPanel
       snapshot={makeSnapshot()}
       isLoading={false}
-      isBusy={false}
+      isBusy={isBusy}
+      runningReviewFeatureId={runningReviewFeatureId}
+      queuedReviewFeatureIds={queuedReviewFeatureIds}
       onReviewFeature={onReviewFeature}
       onReviewPending={onReviewPending}
       onUpdateMap={onUpdateMap}
