@@ -422,6 +422,11 @@ export function ClawpatchApp() {
               isBusy={commandRunner.isRepoCommandBusy}
               runningReviewFeatureId={commandRunner.runningReviewFeatureId}
               queuedReviewFeatureIds={commandRunner.queuedReviewFeatureIds}
+              lastReviewCompletion={
+                commandRunner.lastReviewCompletion?.repoId === selectedRepo?.id
+                  ? commandRunner.lastReviewCompletion
+                  : null
+              }
               onReviewFeature={(featureId) => runCommand({ command: "review", featureId })}
               onReviewPending={(limit) => runCommand({ command: "review", limit })}
               onUpdateMap={() => runCommand({ command: "map" })}
