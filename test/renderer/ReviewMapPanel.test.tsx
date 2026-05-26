@@ -11,24 +11,20 @@ describe("ReviewMapPanel", () => {
 
     expect(screen.getByRole("heading", { name: "Review Queue" })).toBeInTheDocument();
     expect(screen.getByText("2 pending/error of 3 map items")).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "Review all 2 pending and error map items" }),
-    ).toBeInTheDocument();
+    const updateMapButton = screen.getByRole("button", { name: "Update map" });
+    const reviewMappedFeaturesButton = screen.getByRole("button", {
+      name: "Review all 2 mapped features pending review",
+    });
+    expect(reviewMappedFeaturesButton).toBeInTheDocument();
+    expect(updateMapButton.compareDocumentPosition(reviewMappedFeaturesButton)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
     expect(screen.queryByText(/Review \d+ remaining/)).not.toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "Review all 2 pending and error map items" }),
-    ).not.toHaveAttribute("title");
-    fireEvent.mouseEnter(
-      screen.getByRole("button", { name: "Review all 2 pending and error map items" })
-        .parentElement as HTMLElement,
-    );
-    expect(screen.getByText("Review pending")).toHaveClass("icon-tooltip");
+    expect(reviewMappedFeaturesButton).not.toHaveAttribute("title");
+    fireEvent.mouseEnter(reviewMappedFeaturesButton.parentElement as HTMLElement);
+    expect(screen.getByText("Review mapped features")).toHaveClass("icon-tooltip");
 
-    fireEvent.click(
-      screen.getByRole("button", {
-        name: "Review all 2 pending and error map items",
-      }),
-    );
+    fireEvent.click(reviewMappedFeaturesButton);
     expect(onReviewPending).toHaveBeenCalledWith(2);
   });
 
@@ -95,7 +91,7 @@ describe("ReviewMapPanel", () => {
 
     fireEvent.click(
       screen.getByRole("button", {
-        name: "Review all 2 pending and error map items",
+        name: "Review all 2 mapped features pending review",
       }),
     );
     expect(onReviewPending).toHaveBeenCalledWith(2);

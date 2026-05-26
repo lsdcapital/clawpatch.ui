@@ -83,17 +83,17 @@ export function ReviewMapPanel({
       <div className="review-queue-toolbar">
         <div className="action-toolbar review-queue-actions" aria-label="Review queue actions">
           <ActionIconButton
-            disabled={isBusy || pendingCount === 0}
-            icon={<ListChecksIcon aria-hidden="true" />}
-            label={`Review all ${pendingCount} pending and error map items`}
-            onClick={() => onReviewPending(pendingCount)}
-            title="Review pending"
-          />
-          <ActionIconButton
             disabled={isBusy}
             icon={<MapIcon aria-hidden="true" />}
             label="Update map"
             onClick={onUpdateMap}
+          />
+          <ActionIconButton
+            disabled={isBusy || pendingCount === 0}
+            icon={<ListChecksIcon aria-hidden="true" />}
+            label={`Review all ${pendingCount} mapped features pending review`}
+            onClick={() => onReviewPending(pendingCount)}
+            title="Review mapped features"
           />
         </div>
         <div className="findings-filter-row">
