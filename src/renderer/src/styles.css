@@ -1872,16 +1872,18 @@ button.table-row:hover:not(:disabled) {
 
 .sort-header-icon {
   align-items: center;
+  color: color-mix(in srgb, var(--subtle) 72%, transparent);
   display: inline-flex;
-  flex: 0 0 12px;
-  height: 12px;
+  flex: 0 0 14px;
+  height: 14px;
   justify-content: center;
-  width: 12px;
+  width: 14px;
 }
 
 .sort-header-icon svg {
-  height: 12px;
-  width: 12px;
+  height: 14px;
+  stroke-width: 2.5;
+  width: 14px;
 }
 
 .sort-header:hover:not(:disabled),
@@ -1892,6 +1894,10 @@ button.table-row:hover:not(:disabled) {
 }
 
 .sort-header.active {
+  color: var(--text);
+}
+
+.sort-header.active .sort-header-icon {
   color: var(--text);
 }
 
