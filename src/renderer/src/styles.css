@@ -1341,6 +1341,7 @@ button:disabled {
   font-size: 12px;
   gap: 8px;
   grid-template-columns:
+    minmax(32px, 0.25fr)
     minmax(76px, 0.7fr)
     minmax(76px, 0.7fr)
     minmax(86px, 0.8fr)
@@ -1359,6 +1360,10 @@ button:disabled {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.feature-map-expand-button {
+  justify-self: start;
 }
 
 .feature-map-row strong {
@@ -1399,6 +1404,74 @@ button:disabled {
   color: var(--muted);
   font-size: 12px;
   padding: 12px 10px;
+}
+
+.feature-map-detail {
+  background: var(--surface);
+  border-bottom: 1px solid var(--row-border);
+  padding: 10px 12px 12px 50px;
+}
+
+.feature-map-detail-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.feature-map-detail-section {
+  min-width: 0;
+}
+
+.feature-map-detail-summary {
+  grid-column: 1 / -1;
+}
+
+.feature-map-detail-section h3 {
+  color: var(--subtle);
+  font-size: 11px;
+  margin: 0 0 5px;
+  text-transform: uppercase;
+}
+
+.feature-map-detail-section p,
+.feature-map-detail-empty,
+.feature-map-detail-overflow {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.feature-map-detail-section ul {
+  display: grid;
+  gap: 5px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.feature-map-detail-section li {
+  color: var(--text);
+  display: grid;
+  font-size: 12px;
+  gap: 2px;
+  min-width: 0;
+}
+
+.feature-map-detail-section li span,
+.feature-map-detail-section li small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.feature-map-detail-section li small {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.feature-map-detail-overflow {
+  margin-top: 5px;
 }
 
 .workspace-inspector {

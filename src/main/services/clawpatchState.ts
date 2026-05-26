@@ -121,12 +121,14 @@ export const ClawpatchStateServiceLive = Layer.effect(
         return rawFindings.map(toFindingListItem);
       }),
       readFeatureMap: Effect.fn("clawpatchState.readFeatureMap")(function* (repoPath) {
-        const [featureRecords, runRecords] = yield* Effect.all([
+        const [featureRecords, runRecords, rawFindings] = yield* Effect.all([
           readRecords(repoPath, "features"),
           readRecords(repoPath, "runs"),
+          readRawFindings(repoPath),
         ]);
+        const findingsById = new Map(rawFindings.map((finding) => [finding.findingId, finding]));
         const features = featureRecords
-          .map(toFeatureMapItem)
+          .map((feature) => toFeatureMapItem(feature, findingsById))
           .filter((feature): feature is FeatureMapItem => feature !== null)
           .toSorted(rankFeatureMapItem);
         const pendingReviewFeatureIds = features
@@ -243,15 +245,36 @@ function toFindingHistoryEntry(value: unknown): FindingHistoryEntry {
   };
 }
 
-function toFeatureMapItem(value: unknown): FeatureMapItem | null {
+function toFeatureMapItem(
+  value: unknown,
+  findingsById: ReadonlyMap<string, RawFinding>,
+): FeatureMapItem | null {
   const featureId = valueOrEmpty(value, "featureId");
   if (featureId === "") {
     return null;
   }
-  const ownedFileCount = arrayValue(value, "ownedFiles").length;
-  const contextFileCount = arrayValue(value, "contextFiles").length;
-  const testCount = arrayValue(value, "tests").length;
-  const findingCount = arrayValue(value, "findingIds").length;
+  const entrypoints = arrayValue(value, "entrypoints")
+    .map(toFeatureMapEntrypoint)
+    .filter(
+      (entrypoint): entrypoint is NonNullable<ReturnType<typeof toFeatureMapEntrypoint>> =>
+        entrypoint !== null,
+    );
+  const ownedFiles = arrayValue(value, "ownedFiles")
+    .map(toFeatureMapFileRef)
+    .filter((file): file is NonNullable<ReturnType<typeof toFeatureMapFileRef>> => file !== null);
+  const contextFiles = arrayValue(value, "contextFiles")
+    .map(toFeatureMapFileRef)
+    .filter((file): file is NonNullable<ReturnType<typeof toFeatureMapFileRef>> => file !== null);
+  const tests = arrayValue(value, "tests")
+    .map(toFeatureMapFileRef)
+    .filter((file): file is NonNullable<ReturnType<typeof toFeatureMapFileRef>> => file !== null);
+  const findingIds = arrayValue(value, "findingIds").filter(
+    (findingId): findingId is string => typeof findingId === "string" && findingId.trim() !== "",
+  );
+  const linkedFindings = findingIds
+    .map((findingId) => findingsById.get(findingId))
+    .filter((finding): finding is RawFinding => finding !== undefined)
+    .map(toFeatureMapFindingSummary);
   return {
     featureId,
     title: firstNonEmptyString(
@@ -260,6 +283,7 @@ function toFeatureMapItem(value: unknown): FeatureMapItem | null {
       stringValue(value, "path"),
       featureId,
     ),
+    summary: nullableNonEmptyString(value, "summary"),
     status: firstNonEmptyString(stringValue(value, "status"), "unknown"),
     kind: firstNonEmptyString(stringValue(value, "kind"), "unknown"),
     source: firstNonEmptyString(
@@ -267,15 +291,55 @@ function toFeatureMapItem(value: unknown): FeatureMapItem | null {
       stringValue(value, "project"),
       "unknown",
     ),
-    ownedFileCount,
-    contextFileCount,
-    testCount,
-    findingCount,
+    entrypoints,
+    ownedFiles,
+    contextFiles,
+    tests,
+    findingIds,
+    linkedFindings,
+    ownedFileCount: ownedFiles.length,
+    contextFileCount: contextFiles.length,
+    testCount: tests.length,
+    findingCount: findingIds.length,
     updatedAt: firstNonEmptyString(
       stringValue(value, "updatedAt"),
       stringValue(value, "createdAt"),
       "",
     ),
+  };
+}
+
+function toFeatureMapFileRef(value: unknown): FeatureMapItem["ownedFiles"][number] | null {
+  if (typeof value === "string") {
+    return value.trim() === "" ? null : { path: value, reason: null };
+  }
+  const path = valueOrEmpty(value, "path");
+  if (path.trim() === "") {
+    return null;
+  }
+  return { path, reason: nullableNonEmptyString(value, "reason") };
+}
+
+function toFeatureMapEntrypoint(value: unknown): FeatureMapItem["entrypoints"][number] | null {
+  const path = valueOrEmpty(value, "path");
+  if (path.trim() === "") {
+    return null;
+  }
+  return {
+    path,
+    symbol: nullableNonEmptyString(value, "symbol"),
+    route: nullableNonEmptyString(value, "route"),
+    command: nullableNonEmptyString(value, "command"),
+  };
+}
+
+function toFeatureMapFindingSummary(finding: RawFinding): FeatureMapItem["linkedFindings"][number] {
+  return {
+    findingId: finding.findingId,
+    title: finding.title,
+    status: finding.status,
+    severity: finding.severity,
+    confidence: finding.confidence,
   };
 }
 
@@ -404,6 +468,11 @@ function nullableString(value: unknown, key: string): string | null {
   }
   const raw = (value as Record<string, unknown>)[key];
   return typeof raw === "string" ? raw : null;
+}
+
+function nullableNonEmptyString(value: unknown, key: string): string | null {
+  const raw = nullableString(value, key);
+  return raw !== null && raw.trim() !== "" ? raw : null;
 }
 
 function nullableNumber(value: unknown, key: string): number | null {
