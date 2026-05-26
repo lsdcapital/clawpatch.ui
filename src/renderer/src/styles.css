@@ -798,6 +798,41 @@ button:disabled {
   padding: 3px 5px;
 }
 
+.task-strip {
+  align-items: center;
+  background: var(--surface);
+  border-block: 1px solid var(--border);
+  color: var(--text);
+  display: flex;
+  font-size: 12px;
+  gap: 8px;
+  min-height: 32px;
+  min-width: 0;
+  padding: 6px 14px;
+}
+
+.task-strip svg {
+  animation: detail-command-spin 0.9s linear infinite;
+  color: var(--accent);
+  flex: none;
+  height: 14px;
+  width: 14px;
+}
+
+.task-strip span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.task-strip strong {
+  color: var(--muted);
+  flex: none;
+  font-size: 11px;
+  font-weight: 700;
+}
+
 .icon-button {
   background: transparent;
   border-color: transparent;
@@ -1365,6 +1400,28 @@ button:disabled {
 
 .feature-map-expand-button {
   justify-self: start;
+}
+
+.review-action-cell {
+  align-items: center;
+  display: flex;
+  gap: 6px;
+  justify-content: flex-start;
+  min-width: 0;
+}
+
+.review-action-state {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.review-action-state-running {
+  color: var(--accent);
 }
 
 .feature-map-row strong {

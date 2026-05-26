@@ -7,6 +7,7 @@ import { GitStatusStrip } from "../components/GitStatusStrip";
 import { RepoSettingsPage, type SettingsSection } from "../components/RepoSettingsPage";
 import { RepoSidebar, RepoSidebarRail } from "../components/RepoSidebar";
 import { ReviewMapPanel } from "../components/ReviewMapPanel";
+import { TaskStrip } from "../components/TaskStrip";
 import { WorkspaceHeader } from "../components/WorkspaceHeader";
 import { WorkspaceInspector } from "../components/WorkspaceInspector";
 import { useCommandRunner } from "../hooks/useCommandRunner";
@@ -14,6 +15,7 @@ import { useDiffInspector } from "../hooks/useDiffInspector";
 import { useFindingsWorkspace } from "../hooks/useFindingsWorkspace";
 import { useRepoSidebarState } from "../hooks/useRepoSidebarState";
 import { useSelectedRepo } from "../hooks/useSelectedRepo";
+import { reviewTaskState } from "../reviewTaskState";
 import type {
   AppSettings,
   ClawpatchConfig,
@@ -74,6 +76,12 @@ export function ClawpatchApp() {
     enabled: selectedRepo !== null,
   });
   const reviewQueueUnreviewedCount = featureMapQuery.data?.coverage.pendingReviewCount ?? 0;
+  const activeReviewTask = reviewTaskState({
+    queuedReviewFeatureIds: commandRunner.queuedReviewFeatureIds,
+    runningRepoCommand: commandRunner.runningRepoCommand,
+    runningReviewFeatureId: commandRunner.runningReviewFeatureId,
+    snapshot: featureMapQuery.data ?? null,
+  });
 
   const publishFixMutation = useMutation({
     mutationFn: ({ repoId, findingId }: { repoId: string; findingId: string }) =>
@@ -303,6 +311,9 @@ export function ClawpatchApp() {
           <div className="repo-error">{selectedRepo.lastError}</div>
         ) : null}
         {terminalError !== null ? <div className="repo-error">{terminalError}</div> : null}
+        {activeReviewTask !== null ? (
+          <TaskStrip label={activeReviewTask.label} queuedCount={activeReviewTask.queuedCount} />
+        ) : null}
 
         {selectedRepo !== null && findingsWorkspace.gitStatusQuery.data !== undefined ? (
           <GitStatusStrip status={findingsWorkspace.gitStatusQuery.data} onViewDiff={openDiff} />

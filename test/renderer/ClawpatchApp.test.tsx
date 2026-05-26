@@ -855,11 +855,20 @@ describe("ClawpatchApp header actions", () => {
         featureId: "feat-auth",
       }),
     );
-    expect(screen.getByRole("button", { name: "Review Authentication" })).toBeDisabled();
+    expect(screen.getByRole("status", { name: "Active task" })).toHaveTextContent(
+      "Reviewing Authentication",
+    );
+    expect(screen.getByRole("button", { name: "Running" })).toBeDisabled();
+    expect(screen.getByText("Running")).toHaveClass("review-action-state-running");
     expect(screen.getByRole("button", { name: "Review Billing" })).not.toBeDisabled();
 
     fireEvent.click(screen.getByRole("button", { name: "Review Billing" }));
-    expect(screen.getByRole("button", { name: "Review Billing" })).toBeDisabled();
+    expect(screen.getByRole("status", { name: "Active task" })).toHaveTextContent(
+      "Reviewing Authentication",
+    );
+    expect(screen.getByRole("status", { name: "Active task" })).toHaveTextContent("1 queued");
+    expect(screen.getByRole("button", { name: "Queued" })).toBeDisabled();
+    expect(screen.getByText("Queued")).toHaveClass("review-action-state-queued");
     expect(run).toHaveBeenCalledTimes(1);
 
     act(() => {
@@ -873,9 +882,49 @@ describe("ClawpatchApp header actions", () => {
       }),
     );
     expect(run).toHaveBeenCalledTimes(2);
+    expect(screen.getByRole("status", { name: "Active task" })).toHaveTextContent(
+      "Reviewing Billing",
+    );
 
     act(() => {
       resolvers.get("feat-billing")?.(makeCommandResult("review"));
+    });
+  });
+
+  it("shows bulk review task feedback without changing durable feature status", async () => {
+    let resolveReview: ((result: CommandResult) => void) | null = null;
+    const run = vi.fn<Api["commands"]["run"]>(
+      (_repoId, request) =>
+        new Promise<CommandResult>((resolve) => {
+          if (request.command === "review") {
+            resolveReview = resolve;
+          } else {
+            resolve(makeCommandResult(request.command));
+          }
+        }),
+    );
+    window.clawpatch = makeApi(run);
+
+    renderApp();
+
+    await screen.findByRole("heading", { name: "auth" });
+    fireEvent.click(await screen.findByRole("tab", { name: /^Review Queue/ }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Review all 2 mapped features pending review" }),
+    );
+
+    await waitFor(() =>
+      expect(run).toHaveBeenCalledWith("repo-auth", { command: "review", limit: 2 }),
+    );
+    expect(screen.getByRole("status", { name: "Active task" })).toHaveTextContent(
+      "Reviewing pending features",
+    );
+    expect(screen.getByText("pending")).toHaveClass("feature-status", "pending");
+    expect(screen.getByText("error")).toHaveClass("feature-status", "error");
+    expect(screen.queryByRole("complementary", { name: "Command output" })).not.toBeInTheDocument();
+
+    act(() => {
+      resolveReview?.(makeCommandResult("review"));
     });
   });
 

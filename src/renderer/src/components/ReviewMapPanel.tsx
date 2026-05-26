@@ -2,6 +2,7 @@ import {
   ChevronDownIcon,
   ChevronRightIcon,
   ClipboardCheckIcon,
+  LoaderCircleIcon,
   ListChecksIcon,
   MapIcon,
 } from "lucide-react";
@@ -51,13 +52,10 @@ export function ReviewMapPanel({
   const features = useMemo(() => snapshot?.features ?? [], [snapshot]);
   const filteredFeatures = useMemo(() => filterReviewQueue(features, filters), [features, filters]);
   const filterOptions = useMemo(() => getReviewQueueFilterOptions(features), [features]);
-  const activeReviewFeatureIds = useMemo(() => {
-    const featureIds = new Set(queuedReviewFeatureIds);
-    if (runningReviewFeatureId !== null) {
-      featureIds.add(runningReviewFeatureId);
-    }
-    return featureIds;
-  }, [queuedReviewFeatureIds, runningReviewFeatureId]);
+  const queuedReviewFeatureIdSet = useMemo(
+    () => new Set(queuedReviewFeatureIds),
+    [queuedReviewFeatureIds],
+  );
   const filtersActive = isReviewQueueFiltersActive(filters);
   const pendingCount = snapshot?.coverage.pendingReviewCount ?? 0;
   const totalCount = snapshot?.coverage.totalFeatures ?? 0;
@@ -188,7 +186,8 @@ export function ReviewMapPanel({
           features={filteredFeatures}
           expandedFeatureIds={expandedFeatureIds}
           hasActiveFilters={filtersActive}
-          activeReviewFeatureIds={activeReviewFeatureIds}
+          queuedReviewFeatureIds={queuedReviewFeatureIdSet}
+          runningReviewFeatureId={runningReviewFeatureId}
           onReviewFeature={onReviewFeature}
           onToggleExpanded={toggleExpanded}
         />
@@ -201,14 +200,16 @@ function ReviewMapTable({
   features,
   expandedFeatureIds,
   hasActiveFilters,
-  activeReviewFeatureIds,
+  queuedReviewFeatureIds,
+  runningReviewFeatureId,
   onReviewFeature,
   onToggleExpanded,
 }: {
   features: FeatureMapSnapshot["features"];
   expandedFeatureIds: ReadonlySet<string>;
   hasActiveFilters: boolean;
-  activeReviewFeatureIds: ReadonlySet<string>;
+  queuedReviewFeatureIds: ReadonlySet<string>;
+  runningReviewFeatureId: string | null;
   onReviewFeature: (featureId: string) => void;
   onToggleExpanded: (featureId: string) => void;
 }) {
@@ -232,7 +233,12 @@ function ReviewMapTable({
       ) : (
         features.map((feature) => {
           const isExpanded = expandedFeatureIds.has(feature.featureId);
-          const isReviewActive = activeReviewFeatureIds.has(feature.featureId);
+          const reviewState =
+            runningReviewFeatureId === feature.featureId
+              ? "running"
+              : queuedReviewFeatureIds.has(feature.featureId)
+                ? "queued"
+                : "idle";
           return (
             <Fragment key={feature.featureId}>
               <div className="feature-map-row" role="row">
@@ -257,12 +263,10 @@ function ReviewMapTable({
                 <span>{feature.findingCount}</span>
                 <strong title={feature.featureId}>{feature.title}</strong>
                 <span>{formatUpdatedAt(feature.updatedAt)}</span>
-                <ActionIconButton
-                  disabled={isReviewActive}
-                  icon={<ClipboardCheckIcon aria-hidden="true" />}
-                  label={`Review ${feature.title}`}
-                  onClick={() => onReviewFeature(feature.featureId)}
-                  title={`Review ${feature.title} (${feature.featureId})`}
+                <ReviewRowAction
+                  feature={feature}
+                  reviewState={reviewState}
+                  onReviewFeature={onReviewFeature}
                 />
               </div>
               {isExpanded ? <FeatureMapDetail feature={feature} /> : null}
@@ -270,6 +274,42 @@ function ReviewMapTable({
           );
         })
       )}
+    </div>
+  );
+}
+
+function ReviewRowAction({
+  feature,
+  reviewState,
+  onReviewFeature,
+}: {
+  feature: FeatureMapItem;
+  reviewState: "idle" | "queued" | "running";
+  onReviewFeature: (featureId: string) => void;
+}) {
+  if (reviewState === "idle") {
+    return (
+      <div className="review-action-cell">
+        <ActionIconButton
+          icon={<ClipboardCheckIcon aria-hidden="true" />}
+          label={`Review ${feature.title}`}
+          onClick={() => onReviewFeature(feature.featureId)}
+          title={`Review ${feature.title} (${feature.featureId})`}
+        />
+      </div>
+    );
+  }
+
+  const label = reviewState === "running" ? "Running" : "Queued";
+  return (
+    <div className="review-action-cell">
+      <ActionIconButton
+        disabled
+        icon={<LoaderCircleIcon aria-hidden="true" />}
+        label={label}
+        title={label}
+      />
+      <span className={`review-action-state review-action-state-${reviewState}`}>{label}</span>
     </div>
   );
 }
