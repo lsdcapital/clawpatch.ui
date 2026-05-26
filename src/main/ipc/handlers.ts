@@ -4,6 +4,7 @@ import * as Schema from "effect/Schema";
 import {
   AppSettingsSchema,
   ClawpatchCommandRequestSchema,
+  ClawpatchConfigSchema,
   ClawpatchStatusSchema,
   CommandInterruptResultSchema,
   CommandResultSchema,
@@ -37,10 +38,12 @@ import {
   GIT_STATUS_CHANNEL,
   REPO_ADD_CHANNEL,
   REPO_DOCTOR_CHANNEL,
+  REPO_GET_CONFIG_CHANNEL,
   REPO_GET_SETTINGS_CHANNEL,
   REPO_LIST_CHANNEL,
   REPO_PICK_FOLDER_CHANNEL,
   REPO_REFRESH_CHANNEL,
+  REPO_UPDATE_CONFIG_CHANNEL,
   REPO_UPDATE_SETTINGS_CHANNEL,
   TERMINAL_OPEN_CHANNEL,
   TRIAGE_SET_CHANNEL,
@@ -54,6 +57,10 @@ const RepoFindingPayload = Schema.Struct({
   findingId: Schema.optionalKey(Schema.String),
 });
 const RepoAddPayload = Schema.Struct({ repoPath: Schema.String });
+const ClawpatchConfigPayload = Schema.Struct({
+  repoId: Schema.String,
+  config: ClawpatchConfigSchema,
+});
 const RepoSettingsPayload = Schema.Struct({ repoId: Schema.String, settings: RepoSettingsSchema });
 const FindingPayload = Schema.Struct({ repoId: Schema.String, findingId: Schema.String });
 const TriageSetPayload = Schema.Struct({
@@ -134,6 +141,22 @@ export const installIpcHandlers = (publishCommandStream: (event: CommandStreamEv
         payload: RepoIdPayload,
         result: CommandResultSchema,
         handler: ({ repoId }) => repos.doctor(repoId),
+      }),
+    );
+    yield* ipc.handle(
+      makeIpcMethod({
+        channel: REPO_GET_CONFIG_CHANNEL,
+        payload: RepoIdPayload,
+        result: ClawpatchConfigSchema,
+        handler: ({ repoId }) => repos.getConfig(repoId),
+      }),
+    );
+    yield* ipc.handle(
+      makeIpcMethod({
+        channel: REPO_UPDATE_CONFIG_CHANNEL,
+        payload: ClawpatchConfigPayload,
+        result: ClawpatchConfigSchema,
+        handler: ({ repoId, config }) => repos.updateConfig(repoId, config),
       }),
     );
     yield* ipc.handle(

@@ -525,6 +525,11 @@ describe("ClawpatchApp header actions", () => {
   });
 
   it("opens and saves repository settings from a full settings page", async () => {
+    const getConfig = vi.fn<Api["repo"]["getConfig"]>(async () => ({
+      schemaVersion: 1,
+      stateTracking: "local",
+    }));
+    const updateConfig = vi.fn<Api["repo"]["updateConfig"]>(async (_repoId, config) => config);
     const getSettings = vi.fn<Api["repo"]["getSettings"]>(async () => ({
       schemaVersion: 1,
       terminalStartupScript: "",
@@ -537,7 +542,12 @@ describe("ClawpatchApp header actions", () => {
     }));
     window.clawpatch = makeApi(
       vi.fn<Api["commands"]["run"]>(async () => makeCommandResult("map")),
-      { repoGetSettings: getSettings, repoUpdateSettings: updateSettings },
+      {
+        repoGetConfig: getConfig,
+        repoGetSettings: getSettings,
+        repoUpdateConfig: updateConfig,
+        repoUpdateSettings: updateSettings,
+      },
     );
 
     renderApp();
@@ -548,9 +558,13 @@ describe("ClawpatchApp header actions", () => {
     expect(await screen.findByRole("heading", { name: "auth" })).toBeInTheDocument();
     expect(screen.queryByRole("dialog", { name: "Repository Settings" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Back to app" })).toBeInTheDocument();
+    expect(getConfig).toHaveBeenCalledWith("repo-auth");
     expect(getSettings).toHaveBeenCalledWith("repo-auth");
     expect(screen.queryByLabelText("Terminal app")).not.toBeInTheDocument();
 
+    fireEvent.change(await screen.findByLabelText("Clawpatch state tracking"), {
+      target: { value: "team" },
+    });
     fireEvent.change(await screen.findByLabelText("Terminal startup script"), {
       target: { value: "pnpm dev" },
     });
@@ -567,6 +581,12 @@ describe("ClawpatchApp header actions", () => {
           worktreeSetupScript: "pnpm install",
         }),
       ),
+    );
+    await waitFor(() =>
+      expect(updateConfig).toHaveBeenCalledWith("repo-auth", {
+        schemaVersion: 1,
+        stateTracking: "team",
+      }),
     );
     expect(screen.getByRole("heading", { name: "auth" })).toBeInTheDocument();
 
@@ -1899,8 +1919,10 @@ function makeApi(
     onStream?: Api["commands"]["onStream"];
     pickFolder?: Api["repo"]["pickFolder"];
     repoDoctor?: Api["repo"]["doctor"];
+    repoGetConfig?: Api["repo"]["getConfig"];
     repoGetSettings?: Api["repo"]["getSettings"];
     repoList?: Api["repo"]["list"];
+    repoUpdateConfig?: Api["repo"]["updateConfig"];
     repoUpdateSettings?: Api["repo"]["updateSettings"];
     terminalOpen?: Api["terminal"]["open"];
     triageSet?: Api["triage"]["set"];
@@ -1941,6 +1963,18 @@ function makeApi(
         },
       }),
       doctor: options.repoDoctor ?? (async () => makeCommandResult("doctor")),
+      getConfig:
+        options.repoGetConfig ??
+        (async () => ({
+          schemaVersion: 1,
+          stateTracking: "local",
+        })),
+      updateConfig:
+        options.repoUpdateConfig ??
+        (async (_repoId, config) => ({
+          ...config,
+          schemaVersion: 1,
+        })),
       getSettings:
         options.repoGetSettings ??
         (async () => ({

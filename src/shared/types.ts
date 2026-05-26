@@ -1,8 +1,10 @@
 import type {
   AppSettingsSchema,
   ClawpatchCommandRequestSchema,
+  ClawpatchConfigSchema,
   CommandInterruptResultSchema,
   ClawpatchStatusSchema,
+  ClawpatchStateTrackingSchema,
   CommandResultSchema,
   CommandStreamEventSchema,
   EvidenceRefSchema,
@@ -30,7 +32,9 @@ export { clawpatchStatuses } from "./constants";
 
 export type AppSettings = typeof AppSettingsSchema.Type;
 export type ClawpatchStatus = typeof ClawpatchStatusSchema.Type;
+export type ClawpatchStateTracking = typeof ClawpatchStateTrackingSchema.Type;
 export type ClawpatchCommandRequest = typeof ClawpatchCommandRequestSchema.Type;
+export type ClawpatchConfig = typeof ClawpatchConfigSchema.Type;
 export type CommandInterruptResult = typeof CommandInterruptResultSchema.Type;
 export type CommandResult = typeof CommandResultSchema.Type;
 export type CommandStreamEvent = typeof CommandStreamEventSchema.Type;
@@ -67,6 +71,8 @@ export interface Api {
     pickFolder: () => Promise<string | null>;
     refresh: (repoId: string) => Promise<RepoSnapshot>;
     doctor: (repoId: string) => Promise<CommandResult>;
+    getConfig: (repoId: string) => Promise<ClawpatchConfig>;
+    updateConfig: (repoId: string, config: ClawpatchConfig) => Promise<ClawpatchConfig>;
     getSettings: (repoId: string) => Promise<RepoSettings>;
     updateSettings: (repoId: string, settings: RepoSettings) => Promise<RepoSettings>;
   };

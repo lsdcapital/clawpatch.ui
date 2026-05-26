@@ -4,6 +4,7 @@ export const clawpatchQueryKeys = {
   appSettings: () => ["appSettings"] as const,
   repos: () => ["repos"] as const,
   repoDoctor: (repoId?: string | null) => ["repoDoctor", repoId] as const,
+  repoConfig: (repoId?: string | null) => ["repoConfig", repoId] as const,
   repoSettings: (repoId?: string | null) => ["repoSettings", repoId] as const,
   features: (repoId?: string | null) => ["features", repoId] as const,
   allFeatures: () => ["features"] as const,

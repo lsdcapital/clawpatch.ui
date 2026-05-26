@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { it } from "@effect/vitest";
@@ -18,6 +18,7 @@ import {
   ClawpatchRunner,
   type ClawpatchRunnerShape,
 } from "../../src/main/services/clawpatchRunner";
+import { ClawpatchConfigServiceLive } from "../../src/main/services/clawpatchConfig";
 import { ClawpatchStateServiceLive } from "../../src/main/services/clawpatchState";
 import {
   GitService,
@@ -380,6 +381,114 @@ describe("RepoService", () => {
         worktreeSetupScript: "pnpm install",
         updatedAt: "2026-05-19T00:00:00.000Z",
       });
+    } finally {
+      await runtime.dispose();
+    }
+  });
+
+  it("updates shared Clawpatch config and gitignore policy without dropping existing fields", async () => {
+    const calls: RunnerCall[] = [];
+    const appData = await makeTempDir();
+    const repoDir = await makeTempDir();
+    const configPath = join(repoDir, ".clawpatch", "config.json");
+    const gitignorePath = join(repoDir, ".gitignore");
+    await mkdir(join(repoDir, ".clawpatch"), { recursive: true });
+    await writeFile(
+      configPath,
+      JSON.stringify({
+        schemaVersion: 1,
+        include: ["src/**"],
+        stateTracking: "team",
+        git: { commit: false },
+      }),
+      "utf8",
+    );
+    await writeFile(gitignorePath, "node_modules/\n\n.DS_Store\n", "utf8");
+    await writeRepoRegistry(appData, "repo-config", repoDir);
+    const runtime = ManagedRuntime.make(makeRepoServiceTestLayer(fixtureRepo, calls, appData));
+
+    try {
+      const updated = await runtime.runPromise(
+        Effect.gen(function* () {
+          const service = yield* RepoService;
+          const initial = yield* service.getConfig("repo-config");
+          expect(initial).toEqual({ schemaVersion: 1, stateTracking: "team" });
+          return yield* service.updateConfig("repo-config", {
+            schemaVersion: 1,
+            stateTracking: "audit",
+          });
+        }),
+      );
+
+      const persisted = JSON.parse(await readFile(configPath, "utf8")) as Record<string, unknown>;
+      const gitignore = await readFile(gitignorePath, "utf8");
+      expect(updated).toEqual({ schemaVersion: 1, stateTracking: "audit" });
+      expect(persisted).toMatchObject({
+        schemaVersion: 1,
+        include: ["src/**"],
+        stateTracking: "audit",
+        git: { commit: false },
+      });
+      expect(gitignore).toContain("node_modules/");
+      expect(gitignore).toContain(".DS_Store");
+      expect(gitignore).toContain("# BEGIN Clawpatch state tracking");
+      expect(gitignore).toContain(".clawpatch/*");
+      expect(gitignore).toContain("!.clawpatch/config.json");
+      expect(gitignore).toContain("!.clawpatch/features/**");
+      expect(gitignore).toContain("!.clawpatch/findings/**");
+      expect(gitignore).toContain("!.clawpatch/reports/**");
+      expect(gitignore).toContain("!.clawpatch/patches/**");
+    } finally {
+      await runtime.dispose();
+    }
+  });
+
+  it("replaces previous Clawpatch gitignore policy when state tracking changes", async () => {
+    const calls: RunnerCall[] = [];
+    const appData = await makeTempDir();
+    const repoDir = await makeTempDir();
+    const gitignorePath = join(repoDir, ".gitignore");
+    await writeFile(
+      gitignorePath,
+      [
+        "dist/",
+        "",
+        "# BEGIN Clawpatch state tracking",
+        ".clawpatch/*",
+        "!.clawpatch/",
+        "!.clawpatch/config.json",
+        "!.clawpatch/features/",
+        "!.clawpatch/features/**",
+        "!.clawpatch/findings/",
+        "!.clawpatch/findings/**",
+        "# END Clawpatch state tracking",
+        "",
+        "coverage/",
+        "",
+      ].join("\n"),
+      "utf8",
+    );
+    await writeRepoRegistry(appData, "repo-config", repoDir);
+    const runtime = ManagedRuntime.make(makeRepoServiceTestLayer(fixtureRepo, calls, appData));
+
+    try {
+      await runtime.runPromise(
+        Effect.gen(function* () {
+          const service = yield* RepoService;
+          yield* service.updateConfig("repo-config", {
+            schemaVersion: 1,
+            stateTracking: "local",
+          });
+        }),
+      );
+
+      const gitignore = await readFile(gitignorePath, "utf8");
+      expect(gitignore).toContain("dist/");
+      expect(gitignore).toContain("coverage/");
+      expect(gitignore.match(/BEGIN Clawpatch state tracking/g)).toHaveLength(1);
+      expect(gitignore).toContain("!.clawpatch/config.json");
+      expect(gitignore).not.toContain("!.clawpatch/features/**");
+      expect(gitignore).not.toContain("!.clawpatch/findings/**");
     } finally {
       await runtime.dispose();
     }
@@ -1918,6 +2027,7 @@ function makeRepoServiceTestLayer(
         Layer.provideMerge(
           Layer.mergeAll(
             runnerLayer,
+            ClawpatchConfigServiceLive,
             ClawpatchStateServiceLive,
             UiMetadataServiceLive(appData),
             AppSettingsServiceLive(appData),

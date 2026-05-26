@@ -12,8 +12,10 @@ import {
   FINDINGS_WORK_STATUSES_CHANNEL,
   GIT_PUBLISH_FIX_CHANNEL,
   REPO_DOCTOR_CHANNEL,
+  REPO_GET_CONFIG_CHANNEL,
   REPO_GET_SETTINGS_CHANNEL,
   REPO_PICK_FOLDER_CHANNEL,
+  REPO_UPDATE_CONFIG_CHANNEL,
   REPO_UPDATE_SETTINGS_CHANNEL,
   TERMINAL_OPEN_CHANNEL,
 } from "../../src/shared/ipcChannels";
@@ -335,6 +337,43 @@ describe("IPC handlers", () => {
     }
   });
 
+  it("reads and updates shared Clawpatch config through IPC", async () => {
+    const getConfig = vi.fn<RepoServiceShape["getConfig"]>(() =>
+      Effect.succeed({
+        schemaVersion: 1,
+        stateTracking: "team",
+      }),
+    );
+    const updateConfig = vi.fn<RepoServiceShape["updateConfig"]>((_repoId, config) =>
+      Effect.succeed(config),
+    );
+    const { registered, runtime } = await installHandlersForTest({ getConfig, updateConfig });
+    const getListener = registered.get(REPO_GET_CONFIG_CHANNEL);
+    const updateListener = registered.get(REPO_UPDATE_CONFIG_CHANNEL);
+    if (getListener === undefined || updateListener === undefined) {
+      throw new Error("repo config IPC handlers were not registered");
+    }
+
+    const config = {
+      schemaVersion: 1 as const,
+      stateTracking: "audit" as const,
+    };
+
+    try {
+      await expect(getListener({} as IpcMainInvokeEvent, { repoId: "repo-1" })).resolves.toEqual({
+        schemaVersion: 1,
+        stateTracking: "team",
+      });
+      await expect(
+        updateListener({} as IpcMainInvokeEvent, { repoId: "repo-1", config }),
+      ).resolves.toEqual(config);
+      expect(getConfig).toHaveBeenCalledWith("repo-1");
+      expect(updateConfig).toHaveBeenCalledWith("repo-1", config);
+    } finally {
+      await runtime.dispose();
+    }
+  });
+
   it("reads and updates app settings through IPC", async () => {
     const getAppSettings = vi.fn<RepoServiceShape["getAppSettings"]>(() =>
       Effect.succeed({
@@ -393,8 +432,10 @@ async function installHandlersForTest(options: {
   readonly openTerminal?: RepoServiceShape["openTerminal"];
   readonly publish?: (event: CommandStreamEvent) => void;
   readonly publishFix?: RepoServiceShape["publishFix"];
+  readonly getConfig?: RepoServiceShape["getConfig"];
   readonly getSettings?: RepoServiceShape["getSettings"];
   readonly listFindingWorkStatuses?: RepoServiceShape["listFindingWorkStatuses"];
+  readonly updateConfig?: RepoServiceShape["updateConfig"];
   readonly updateSettings?: RepoServiceShape["updateSettings"];
   readonly updateAppSettings?: RepoServiceShape["updateAppSettings"];
   readonly runCommand?: RepoServiceShape["runCommand"];
@@ -411,8 +452,10 @@ async function installHandlersForTest(
     readonly openTerminal?: RepoServiceShape["openTerminal"];
     readonly publish?: (event: CommandStreamEvent) => void;
     readonly publishFix?: RepoServiceShape["publishFix"];
+    readonly getConfig?: RepoServiceShape["getConfig"];
     readonly getSettings?: RepoServiceShape["getSettings"];
     readonly listFindingWorkStatuses?: RepoServiceShape["listFindingWorkStatuses"];
+    readonly updateConfig?: RepoServiceShape["updateConfig"];
     readonly updateSettings?: RepoServiceShape["updateSettings"];
     readonly updateAppSettings?: RepoServiceShape["updateAppSettings"];
     readonly runCommand?: RepoServiceShape["runCommand"];
@@ -452,8 +495,10 @@ function makeRepoServiceLayer(
     readonly interruptCommand?: RepoServiceShape["interruptCommand"];
     readonly openTerminal?: RepoServiceShape["openTerminal"];
     readonly publishFix?: RepoServiceShape["publishFix"];
+    readonly getConfig?: RepoServiceShape["getConfig"];
     readonly getSettings?: RepoServiceShape["getSettings"];
     readonly listFindingWorkStatuses?: RepoServiceShape["listFindingWorkStatuses"];
+    readonly updateConfig?: RepoServiceShape["updateConfig"];
     readonly updateSettings?: RepoServiceShape["updateSettings"];
     readonly updateAppSettings?: RepoServiceShape["updateAppSettings"];
     readonly runCommand?: RepoServiceShape["runCommand"];
@@ -505,6 +550,20 @@ function makeRepoServiceLayer(
             terminalStartupScript: "",
             worktreeSetupScript: "",
             updatedAt: "2026-05-19T00:00:00.000Z",
+          })),
+      getConfig:
+        options.getConfig ??
+        (() =>
+          Effect.succeed({
+            schemaVersion: 1,
+            stateTracking: "local",
+          })),
+      updateConfig:
+        options.updateConfig ??
+        ((_repoId, config) =>
+          Effect.succeed({
+            ...config,
+            schemaVersion: 1 as const,
           })),
       updateSettings:
         options.updateSettings ??

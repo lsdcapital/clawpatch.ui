@@ -11,6 +11,7 @@ import { EffectIpcLive } from "./ipc/effectIpc";
 import { installIpcHandlers } from "./ipc/handlers";
 import { childLogger, logger } from "./logger";
 import { ClawpatchRunnerLive } from "./services/clawpatchRunner";
+import { ClawpatchConfigServiceLive } from "./services/clawpatchConfig";
 import { ClawpatchStateServiceLive } from "./services/clawpatchState";
 import { GitServiceLive } from "./services/gitService";
 import { AppSettingsServiceLive } from "./services/appSettings";
@@ -336,6 +337,7 @@ function makeAppLayer(
 ) {
   const coreLayer = Layer.mergeAll(
     ClawpatchRunnerLive,
+    ClawpatchConfigServiceLive,
     ClawpatchStateServiceLive,
     UiMetadataServiceLive(userDataPath),
     AppSettingsServiceLive(userDataPath),

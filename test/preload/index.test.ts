@@ -8,7 +8,9 @@ import {
   FINDINGS_WORK_STATUSES_CHANNEL,
   GIT_PUBLISH_FIX_CHANNEL,
   REPO_DOCTOR_CHANNEL,
+  REPO_GET_CONFIG_CHANNEL,
   REPO_GET_SETTINGS_CHANNEL,
+  REPO_UPDATE_CONFIG_CHANNEL,
   REPO_UPDATE_SETTINGS_CHANNEL,
   TERMINAL_OPEN_CHANNEL,
 } from "../../src/shared/ipcChannels";
@@ -151,6 +153,36 @@ describe("preload api", () => {
     expect(invokeMock).toHaveBeenCalledWith(REPO_UPDATE_SETTINGS_CHANNEL, {
       repoId: "repo-1",
       settings,
+    });
+  });
+
+  it("exposes shared Clawpatch config over IPC", async () => {
+    invokeMock.mockResolvedValue({
+      schemaVersion: 1,
+      stateTracking: "team",
+    });
+
+    await import("../../src/preload/index");
+
+    const api = exposeInMainWorldMock.mock.calls[0]?.[1] as Api | undefined;
+    if (api === undefined) {
+      throw new Error("preload api was not exposed");
+    }
+    const config = {
+      schemaVersion: 1 as const,
+      stateTracking: "audit" as const,
+    };
+
+    await expect(api.repo.getConfig("repo-1")).resolves.toMatchObject({
+      stateTracking: "team",
+    });
+    await expect(api.repo.updateConfig("repo-1", config)).resolves.toMatchObject({
+      stateTracking: "team",
+    });
+    expect(invokeMock).toHaveBeenCalledWith(REPO_GET_CONFIG_CHANNEL, { repoId: "repo-1" });
+    expect(invokeMock).toHaveBeenCalledWith(REPO_UPDATE_CONFIG_CHANNEL, {
+      repoId: "repo-1",
+      config,
     });
   });
 
