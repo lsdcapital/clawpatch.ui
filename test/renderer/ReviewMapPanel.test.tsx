@@ -45,8 +45,10 @@ describe("ReviewMapPanel", () => {
   it("disables row review buttons only for active features", () => {
     renderPanel({ runningReviewFeatureId: "feat-auth", queuedReviewFeatureIds: ["feat-billing"] });
 
-    expect(screen.getByRole("button", { name: "Review Authentication" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Review Billing" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Running" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Queued" })).toBeDisabled();
+    expect(screen.getByText("Running")).toHaveClass("review-action-state-running");
+    expect(screen.getByText("Queued")).toHaveClass("review-action-state-queued");
   });
 
   it("does not disable row review buttons for unrelated busy toolbar actions", () => {
