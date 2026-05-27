@@ -761,7 +761,7 @@ describe("ClawpatchApp header actions", () => {
       "true",
     );
     expect(screen.getByRole("heading", { name: "Review Queue" })).toBeInTheDocument();
-    expect(screen.getByText("2 pending/error of 3 map items")).toBeInTheDocument();
+    expect(screen.getByText("2 actionable of 3 map items")).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Review all 2 mapped features pending review" }),
     ).toBeInTheDocument();
@@ -833,7 +833,7 @@ describe("ClawpatchApp header actions", () => {
 
     await screen.findByRole("heading", { name: "auth" });
     fireEvent.click(await screen.findByRole("tab", { name: /^Review Queue/ }));
-    expect(screen.getByText("2 pending/error of 3 map items")).toBeInTheDocument();
+    expect(screen.getByText("2 actionable of 3 map items")).toBeInTheDocument();
     await waitFor(() => expect(repoList).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(findingsList).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(featureMap).toHaveBeenCalledTimes(1));
@@ -856,7 +856,7 @@ describe("ClawpatchApp header actions", () => {
     await waitFor(() => expect(findingsList).toHaveBeenCalledTimes(2));
     await waitFor(() => expect(featureMap).toHaveBeenCalledTimes(2));
     await waitFor(() => expect(gitDiff).toHaveBeenCalledTimes(2));
-    await screen.findByText("1 pending/error of 3 map items");
+    await screen.findByText("1 actionable of 3 map items");
     expect(screen.queryByText("Authentication")).not.toBeInTheDocument();
     expect(screen.getByText("Billing")).toBeInTheDocument();
   });
@@ -890,6 +890,9 @@ describe("ClawpatchApp header actions", () => {
       "aria-selected",
       "true",
     );
+
+    fireEvent.click(screen.getByRole("button", { name: "No action 1" }));
+    expect(await screen.findByText("Authentication")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("tab", { name: "Findings" }));
     expect(

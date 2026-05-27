@@ -1433,6 +1433,34 @@ button:disabled {
   white-space: nowrap;
 }
 
+.review-queue-mode-tabs {
+  align-items: center;
+  display: flex;
+  gap: 4px;
+  min-width: 0;
+}
+
+.review-queue-mode-tabs button {
+  align-items: center;
+  display: inline-flex;
+  gap: 5px;
+  min-height: 28px;
+  padding: 4px 8px;
+  white-space: nowrap;
+}
+
+.review-queue-mode-tabs button.active {
+  background: var(--accent-soft);
+  border-color: var(--accent-border);
+  color: var(--accent-text);
+}
+
+.review-queue-mode-tabs span {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+}
+
 .workflow-setup-panel {
   align-content: start;
   display: grid;
@@ -1844,6 +1872,10 @@ button:disabled {
 
 .findings-filter-row-with-action {
   grid-template-columns: minmax(0, 1fr) auto auto auto;
+}
+
+.review-queue-filter-row {
+  grid-template-columns: auto minmax(180px, 1fr) auto auto;
 }
 
 .findings-toolbar-actions {
