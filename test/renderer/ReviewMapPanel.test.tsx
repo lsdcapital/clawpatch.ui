@@ -5,10 +5,10 @@ import { ReviewMapPanel } from "../../src/renderer/src/components/ReviewMapPanel
 import type { FeatureMapItem, FeatureMapSnapshot } from "../../src/shared/types";
 
 describe("ReviewMapPanel", () => {
-  it("shows the review queue header and runs bulk review by pending count", () => {
-    const onReviewPending = vi.fn();
+  it("shows the review queue header and queues bulk review by pending feature ids", () => {
+    const onReviewFeature = vi.fn();
 
-    renderPanel({ onReviewPending });
+    renderPanel({ onReviewFeature });
 
     expect(screen.getByRole("heading", { name: "Review Queue" })).toBeInTheDocument();
     expect(screen.getByText("2 actionable of 3 map items")).toBeInTheDocument();
@@ -28,7 +28,8 @@ describe("ReviewMapPanel", () => {
     expect(screen.getByText("Review mapped features")).toHaveClass("icon-tooltip");
 
     fireEvent.click(reviewMappedFeaturesButton);
-    expect(onReviewPending).toHaveBeenCalledWith({ limit: 2 });
+    expect(onReviewFeature).toHaveBeenNthCalledWith(1, "feat-auth", {});
+    expect(onReviewFeature).toHaveBeenNthCalledWith(2, "feat-billing", {});
   });
 
   it("reviews individual map items by feature id", () => {
@@ -98,7 +99,7 @@ describe("ReviewMapPanel", () => {
     expect(screen.queryByText("Auth request handling")).not.toBeInTheDocument();
   });
 
-  it("shows the last completed review finding count", () => {
+  it("shows the last completed review finding count on the reviewed row", () => {
     renderPanel({
       lastReviewCompletion: {
         kind: "feature",
@@ -109,7 +110,13 @@ describe("ReviewMapPanel", () => {
       },
     });
 
-    expect(screen.getByText("Reviewed Billing: 0 findings")).toHaveClass("review-completion-note");
+    expect(screen.queryByText("Reviewed Billing: 0 findings")).not.toBeInTheDocument();
+    const billingRow = screen.getByText("Billing").closest('[role="row"]');
+    expect(billingRow).not.toBeNull();
+    expect(billingRow).toHaveClass("review-row-reviewed");
+    expect(within(billingRow as HTMLElement).getByText("0 findings")).toHaveClass(
+      "review-action-state-reviewed",
+    );
   });
 
   it("updates the map from the toolbar action", () => {
@@ -123,9 +130,8 @@ describe("ReviewMapPanel", () => {
 
   it("passes focused review scope options for bulk and feature reviews", () => {
     const onReviewFeature = vi.fn();
-    const onReviewPending = vi.fn();
 
-    renderPanel({ onReviewFeature, onReviewPending });
+    renderPanel({ onReviewFeature });
 
     fireEvent.change(screen.getByLabelText("Review limit"), { target: { value: "1" } });
     fireEvent.change(screen.getByLabelText("Review since ref"), {
@@ -141,25 +147,24 @@ describe("ReviewMapPanel", () => {
         name: "Review all 2 mapped features pending review",
       }),
     );
-    expect(onReviewPending).toHaveBeenCalledWith({
-      limit: 1,
+    expect(onReviewFeature).toHaveBeenNthCalledWith(1, "feat-auth", {
       since: "origin/main",
       includeDirty: true,
       promptText: "Focus on parser boundaries.",
     });
 
     fireEvent.click(screen.getByRole("button", { name: "Review Billing" }));
-    expect(onReviewFeature).toHaveBeenCalledWith("feat-billing", {
+    expect(onReviewFeature).toHaveBeenNthCalledWith(2, "feat-billing", {
       since: "origin/main",
       includeDirty: true,
       promptText: "Focus on parser boundaries.",
     });
   });
 
-  it("filters visible map rows without changing the bulk review request", () => {
-    const onReviewPending = vi.fn();
+  it("filters visible map rows without changing the bulk review targets", () => {
+    const onReviewFeature = vi.fn();
 
-    renderPanel({ onReviewPending });
+    renderPanel({ onReviewFeature });
 
     expect(screen.getByText("Authentication")).toBeInTheDocument();
     expect(screen.getByText("Billing")).toBeInTheDocument();
@@ -177,7 +182,8 @@ describe("ReviewMapPanel", () => {
         name: "Review all 2 mapped features pending review",
       }),
     );
-    expect(onReviewPending).toHaveBeenCalledWith({ limit: 2 });
+    expect(onReviewFeature).toHaveBeenNthCalledWith(1, "feat-auth", {});
+    expect(onReviewFeature).toHaveBeenNthCalledWith(2, "feat-billing", {});
   });
 
   it("allows viewing all statuses through the status filter", () => {
@@ -260,7 +266,6 @@ describe("ReviewMapPanel", () => {
 
 function renderPanel({
   onReviewFeature = vi.fn(),
-  onReviewPending = vi.fn(),
   onUpdateMap = vi.fn(),
   isBusy = false,
   runningReviewFeatureId = null,
@@ -268,7 +273,6 @@ function renderPanel({
   lastReviewCompletion = null,
 }: {
   onReviewFeature?: ComponentProps<typeof ReviewMapPanel>["onReviewFeature"];
-  onReviewPending?: ComponentProps<typeof ReviewMapPanel>["onReviewPending"];
   onUpdateMap?: () => void;
   isBusy?: boolean;
   runningReviewFeatureId?: string | null;
@@ -284,7 +288,6 @@ function renderPanel({
       queuedReviewFeatureIds={queuedReviewFeatureIds}
       lastReviewCompletion={lastReviewCompletion}
       onReviewFeature={onReviewFeature}
-      onReviewPending={onReviewPending}
       onUpdateMap={onUpdateMap}
     />,
   );

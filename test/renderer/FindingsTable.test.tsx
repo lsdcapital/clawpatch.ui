@@ -181,20 +181,6 @@ describe("FindingsTable filters", () => {
     expect(screen.getByText("No findings match these filters")).toBeInTheDocument();
   });
 
-  it("shows zero-finding review context in the empty state", () => {
-    render(
-      <FilterHarness
-        findings={[]}
-        reviewCompletionMessage="Portal config was reviewed and produced 0 findings."
-      />,
-    );
-
-    expect(screen.getByText("No findings found")).toBeInTheDocument();
-    expect(
-      screen.getByText("Portal config was reviewed and produced 0 findings."),
-    ).toBeInTheDocument();
-  });
-
   it("disables revalidate shown when no visible finding can be revalidated", () => {
     render(
       <FilterHarness
@@ -216,7 +202,6 @@ describe("FindingsTable filters", () => {
       <FindingsTable
         findings={findings}
         totalFindingCount={findings.length}
-        reviewCompletionMessage={null}
         selectedFindingId={null}
         isLoading={false}
         filters={defaultFindingFilters}
@@ -262,7 +247,6 @@ describe("FindingsTable filters", () => {
       <FindingsTable
         findings={findings}
         totalFindingCount={findings.length}
-        reviewCompletionMessage={null}
         selectedFindingId={null}
         isLoading={false}
         filters={{ ...defaultFindingFilters, status: null }}
@@ -380,11 +364,9 @@ describe("FindingsTable filters", () => {
 function FilterHarness({
   findings,
   initialFilters = defaultFindingFilters,
-  reviewCompletionMessage = null,
 }: {
   findings: readonly FindingListItem[];
   initialFilters?: FindingFilters;
-  reviewCompletionMessage?: string | null;
 }) {
   const [filters, setFilters] = useState(initialFilters);
   const [sort, setSort] = useState<FindingSort>(defaultFindingSort);
@@ -398,7 +380,6 @@ function FilterHarness({
     <FindingsTable
       findings={sortedFindings}
       totalFindingCount={findings.length}
-      reviewCompletionMessage={reviewCompletionMessage}
       selectedFindingId={sortedFindings[0]?.findingId ?? null}
       isLoading={false}
       filters={filters}

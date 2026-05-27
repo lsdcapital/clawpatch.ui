@@ -7,7 +7,6 @@ import { GitStatusStrip } from "../components/GitStatusStrip";
 import { RepoSettingsPage, type SettingsSection } from "../components/RepoSettingsPage";
 import { RepoSidebar, RepoSidebarRail } from "../components/RepoSidebar";
 import { ReviewMapPanel } from "../components/ReviewMapPanel";
-import { TaskStrip } from "../components/TaskStrip";
 import { WorkspaceHeader } from "../components/WorkspaceHeader";
 import { WorkspaceInspector } from "../components/WorkspaceInspector";
 import { WorkflowSetupPanel } from "../components/WorkflowSetupPanel";
@@ -16,18 +15,15 @@ import { useDiffInspector } from "../hooks/useDiffInspector";
 import { useFindingsWorkspace } from "../hooks/useFindingsWorkspace";
 import { useRepoSidebarState } from "../hooks/useRepoSidebarState";
 import { useSelectedRepo } from "../hooks/useSelectedRepo";
-import { reviewTaskState } from "../reviewTaskState";
 import type {
   AppSettings,
   ClawpatchConfig,
-  FeatureMapItem,
   FindingWorkStatus,
   PatchOpenPrResult,
   RepoSettings,
 } from "../../../shared/types";
 import type { ActiveInspector, ActiveWorkspace } from "../workspaceTypes";
 import type { ReviewRunOptions } from "../components/ReviewMapPanel";
-import type { ReviewCompletionSummary } from "../hooks/useCommandRunner";
 
 const REPO_SIDEBAR_ID = "repo-sidebar";
 
@@ -81,12 +77,6 @@ export function ClawpatchApp() {
     enabled: stateRepo !== null,
   });
   const reviewQueueUnreviewedCount = featureMapQuery.data?.coverage.pendingReviewCount ?? 0;
-  const activeReviewTask = reviewTaskState({
-    queuedReviewFeatureIds: commandRunner.queuedReviewFeatureIds,
-    runningRepoCommand: commandRunner.runningRepoCommand,
-    runningReviewFeatureId: commandRunner.runningReviewFeatureId,
-    snapshot: featureMapQuery.data ?? null,
-  });
 
   const openPrMutation = useMutation({
     mutationFn: ({ repoId, findingId }: { repoId: string; findingId: string }) =>
@@ -237,10 +227,6 @@ export function ClawpatchApp() {
     commandRunner.lastReviewCompletion?.repoId === selectedRepo?.id
       ? commandRunner.lastReviewCompletion
       : null;
-  const reviewCompletionMessage = reviewCompletionEmptyStateMessage(
-    selectedRepoReviewCompletion,
-    featureMapQuery.data?.features ?? [],
-  );
   const selectedFindingHasActiveWorktree =
     selectedRepo !== null &&
     selectedFindingId !== undefined &&
@@ -344,9 +330,6 @@ export function ClawpatchApp() {
           <div className="repo-error">{selectedRepo.lastError}</div>
         ) : null}
         {terminalError !== null ? <div className="repo-error">{terminalError}</div> : null}
-        {activeReviewTask !== null ? (
-          <TaskStrip label={activeReviewTask.label} queuedCount={activeReviewTask.queuedCount} />
-        ) : null}
 
         {stateRepo !== null && findingsWorkspace.gitStatusQuery.data !== undefined ? (
           <GitStatusStrip status={findingsWorkspace.gitStatusQuery.data} onViewDiff={openDiff} />
@@ -384,7 +367,6 @@ export function ClawpatchApp() {
             <FindingsSplitPanel
               findings={findingsWorkspace.sortedFindings}
               totalFindingCount={findingsWorkspace.allFindings.length}
-              reviewCompletionMessage={reviewCompletionMessage}
               selectedFindingId={selectedFinding?.findingId ?? null}
               isFindingsLoading={findingsWorkspace.findingsQuery.isLoading}
               filters={findingsWorkspace.findingFilters}
@@ -472,7 +454,6 @@ export function ClawpatchApp() {
               queuedReviewFeatureIds={commandRunner.queuedReviewFeatureIds}
               lastReviewCompletion={selectedRepoReviewCompletion}
               onReviewFeature={(featureId, options) => runReviewCommand(options, featureId)}
-              onReviewPending={(options) => runReviewCommand(options)}
               onUpdateMap={() => runCommand({ command: "map" })}
             />
           )}
@@ -480,22 +461,4 @@ export function ClawpatchApp() {
       </section>
     </main>
   );
-}
-
-function reviewCompletionEmptyStateMessage(
-  completion: ReviewCompletionSummary | null,
-  features: readonly FeatureMapItem[],
-): string | null {
-  if (completion === null || completion.findingCount !== 0) {
-    return null;
-  }
-  if (completion.kind === "feature") {
-    const feature = features.find((item) => item.featureId === completion.featureId);
-    const label = feature?.title ?? completion.featureId;
-    return `${label} was reviewed and produced 0 findings. Clawpatch marks that map item reviewed and records the run in .clawpatch/runs.`;
-  }
-  if (completion.reviewedFeatureCount !== null) {
-    return `${completion.reviewedFeatureCount} map item${completion.reviewedFeatureCount === 1 ? "" : "s"} reviewed and produced 0 findings. Clawpatch records the run in .clawpatch/runs.`;
-  }
-  return "The latest review completed and produced 0 findings. Clawpatch records the run in .clawpatch/runs.";
 }

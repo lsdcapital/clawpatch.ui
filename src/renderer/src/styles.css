@@ -798,41 +798,6 @@ button:disabled {
   padding: 3px 5px;
 }
 
-.task-strip {
-  align-items: center;
-  background: var(--surface);
-  border-block: 1px solid var(--border);
-  color: var(--text);
-  display: flex;
-  font-size: 12px;
-  gap: 8px;
-  min-height: 32px;
-  min-width: 0;
-  padding: 6px 14px;
-}
-
-.task-strip svg {
-  animation: detail-command-spin 0.9s linear infinite;
-  color: var(--accent);
-  flex: none;
-  height: 14px;
-  width: 14px;
-}
-
-.task-strip span {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.task-strip strong {
-  color: var(--muted);
-  flex: none;
-  font-size: 11px;
-  font-weight: 700;
-}
-
 .icon-button {
   background: transparent;
   border-color: transparent;
@@ -1417,20 +1382,6 @@ button:disabled {
   gap: 7px;
   justify-content: space-between;
   min-width: 0;
-}
-
-.review-completion-note {
-  background: var(--success-soft);
-  border: 1px solid color-mix(in srgb, var(--success) 36%, var(--border));
-  border-radius: 5px;
-  color: var(--success);
-  font-weight: 700;
-  max-width: 100%;
-  min-width: 0;
-  overflow: hidden;
-  padding: 4px 7px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .review-queue-mode-tabs {
