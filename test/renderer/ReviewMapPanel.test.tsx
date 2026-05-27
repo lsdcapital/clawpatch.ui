@@ -26,7 +26,7 @@ describe("ReviewMapPanel", () => {
     expect(screen.getByText("Review mapped features")).toHaveClass("icon-tooltip");
 
     fireEvent.click(reviewMappedFeaturesButton);
-    expect(onReviewPending).toHaveBeenCalledWith(2);
+    expect(onReviewPending).toHaveBeenCalledWith({ limit: 2 });
   });
 
   it("reviews individual map items by feature id", () => {
@@ -40,7 +40,7 @@ describe("ReviewMapPanel", () => {
     fireEvent.click(
       within(billingRow as HTMLElement).getByRole("button", { name: "Review Billing" }),
     );
-    expect(onReviewFeature).toHaveBeenCalledWith("feat-billing");
+    expect(onReviewFeature).toHaveBeenCalledWith("feat-billing", {});
   });
 
   it("disables row review buttons only for active features", () => {
@@ -110,6 +110,41 @@ describe("ReviewMapPanel", () => {
     expect(onUpdateMap).toHaveBeenCalledOnce();
   });
 
+  it("passes focused review scope options for bulk and feature reviews", () => {
+    const onReviewFeature = vi.fn();
+    const onReviewPending = vi.fn();
+
+    renderPanel({ onReviewFeature, onReviewPending });
+
+    fireEvent.change(screen.getByLabelText("Review limit"), { target: { value: "1" } });
+    fireEvent.change(screen.getByLabelText("Review since ref"), {
+      target: { value: "origin/main" },
+    });
+    fireEvent.click(screen.getByLabelText("Include dirty changes"));
+    fireEvent.change(screen.getByLabelText("Review guidance"), {
+      target: { value: "Focus on parser boundaries." },
+    });
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Review all 2 mapped features pending review",
+      }),
+    );
+    expect(onReviewPending).toHaveBeenCalledWith({
+      limit: 1,
+      since: "origin/main",
+      includeDirty: true,
+      promptText: "Focus on parser boundaries.",
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Review Billing" }));
+    expect(onReviewFeature).toHaveBeenCalledWith("feat-billing", {
+      since: "origin/main",
+      includeDirty: true,
+      promptText: "Focus on parser boundaries.",
+    });
+  });
+
   it("filters visible map rows without changing the bulk review request", () => {
     const onReviewPending = vi.fn();
 
@@ -131,7 +166,7 @@ describe("ReviewMapPanel", () => {
         name: "Review all 2 mapped features pending review",
       }),
     );
-    expect(onReviewPending).toHaveBeenCalledWith(2);
+    expect(onReviewPending).toHaveBeenCalledWith({ limit: 2 });
   });
 
   it("allows viewing all statuses through the status filter", () => {
@@ -169,8 +204,8 @@ function renderPanel({
   queuedReviewFeatureIds = [],
   lastReviewCompletion = null,
 }: {
-  onReviewFeature?: (featureId: string) => void;
-  onReviewPending?: (limit: number) => void;
+  onReviewFeature?: ComponentProps<typeof ReviewMapPanel>["onReviewFeature"];
+  onReviewPending?: ComponentProps<typeof ReviewMapPanel>["onReviewPending"];
   onUpdateMap?: () => void;
   isBusy?: boolean;
   runningReviewFeatureId?: string | null;

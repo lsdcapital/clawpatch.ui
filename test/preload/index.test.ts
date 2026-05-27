@@ -6,7 +6,7 @@ import {
   COMMANDS_INTERRUPT_CHANNEL,
   COMMANDS_STREAM_CHANNEL,
   FINDINGS_WORK_STATUSES_CHANNEL,
-  GIT_PUBLISH_FIX_CHANNEL,
+  PATCHES_OPEN_PR_CHANNEL,
   REPO_DOCTOR_CHANNEL,
   REPO_GET_CONFIG_CHANNEL,
   REPO_GET_SETTINGS_CHANNEL,
@@ -57,14 +57,22 @@ describe("preload api", () => {
     expect(invokeMock).toHaveBeenCalledWith(COMMANDS_INTERRUPT_CHANNEL, { repoId: "repo-1" });
   });
 
-  it("exposes fix publishing over IPC", async () => {
+  it("exposes patch PR opening over IPC", async () => {
     invokeMock.mockResolvedValue({
       worktreePath: "/tmp/worktree",
-      branchName: "clawpatch/fix/fnd-1",
-      baseBranch: "main",
-      commitSha: "abc123",
-      remoteName: "origin",
-      prUrl: "https://github.com/acme/repo/compare/main...clawpatch/fix/fnd-1?expand=1",
+      patchAttemptId: "pat-1",
+      commandResult: {
+        runId: "run-1",
+        command: "clawpatch",
+        args: ["open-pr"],
+        cwd: "/tmp/worktree",
+        exitCode: 0,
+        durationMs: 1,
+        stdout: "{}",
+        stderr: "",
+        parsedJson: {},
+      },
+      prUrl: "https://github.com/acme/repo/pull/42",
     });
 
     await import("../../src/preload/index");
@@ -74,10 +82,10 @@ describe("preload api", () => {
       throw new Error("preload api was not exposed");
     }
 
-    await expect(api.git.publishFix("repo-1", "fnd-1")).resolves.toMatchObject({
-      branchName: "clawpatch/fix/fnd-1",
+    await expect(api.patches.openPr("repo-1", "fnd-1")).resolves.toMatchObject({
+      patchAttemptId: "pat-1",
     });
-    expect(invokeMock).toHaveBeenCalledWith(GIT_PUBLISH_FIX_CHANNEL, {
+    expect(invokeMock).toHaveBeenCalledWith(PATCHES_OPEN_PR_CHANNEL, {
       repoId: "repo-1",
       findingId: "fnd-1",
     });

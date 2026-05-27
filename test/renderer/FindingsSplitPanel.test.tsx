@@ -2,9 +2,10 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type {
   ClawpatchStatus,
+  CommandResult,
   FindingDetail,
   FindingListItem,
-  PublishFixResult,
+  PatchOpenPrResult,
 } from "../../src/shared/types";
 import { clawpatchStatuses } from "../../src/shared/constants";
 import { FindingsSplitPanel } from "../../src/renderer/src/components/FindingsSplitPanel";
@@ -62,46 +63,45 @@ describe("FindingsSplitPanel", () => {
 
   it("runs selected finding actions from the detail toolbar", () => {
     const onFix = vi.fn();
-    const onPublishFix = vi.fn();
+    const onOpenPr = vi.fn();
     const onInterrupt = vi.fn();
 
     const { unmount } = renderSplitPanel({
-      canPublishFix: true,
+      canOpenPr: true,
       isBusy: true,
       onFix,
       onInterrupt,
-      onPublishFix,
+      onOpenPr,
     });
 
     expect(screen.getByText("fix running")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Run fix" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Revalidate" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Publish PR" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Open PR" })).toBeDisabled();
 
     fireEvent.click(screen.getByRole("button", { name: "Interrupt finding command" }));
     expect(onInterrupt).toHaveBeenCalledOnce();
 
     unmount();
-    renderSplitPanel({ canPublishFix: true, onFix, onPublishFix });
+    renderSplitPanel({ canOpenPr: true, onFix, onOpenPr });
 
     fireEvent.click(screen.getByRole("button", { name: "Run fix" }));
     expect(onFix).toHaveBeenCalledWith("open", "");
 
-    fireEvent.click(screen.getByRole("button", { name: "Publish PR" }));
-    expect(onPublishFix).toHaveBeenCalledOnce();
+    fireEvent.click(screen.getByRole("button", { name: "Open PR" }));
+    expect(onOpenPr).toHaveBeenCalledOnce();
   });
 
-  it("shows disabled reasons and publish results near the detail actions", () => {
+  it("shows disabled reasons and open PR results near the detail actions", () => {
     renderSplitPanel({
       fixDisabledReason: "Working tree has unrelated changes.",
-      publishFixError: new Error("Unable to publish PR."),
-      publishFixResult: {
-        branchName: "clawpatch/fix/fnd-security",
-        baseBranch: "main",
-        commitSha: "abcdef1234567890",
-        remoteName: "origin",
+      openPrDisabledReason: "Run fix to create a Clawpatch patch before opening a PR",
+      openPrError: new Error("Unable to open PR."),
+      openPrResult: {
+        patchAttemptId: "pat-1",
         prUrl: "https://github.com/acme/repo/pull/1",
         worktreePath: "/tmp/worktree",
+        commandResult: makeCommandResult(),
       },
     });
 
@@ -109,10 +109,11 @@ describe("FindingsSplitPanel", () => {
     expect(screen.getByRole("button", { name: "Run fix" })).toHaveAccessibleDescription(
       "Working tree has unrelated changes.",
     );
-    expect(screen.getByText("Unable to publish PR.")).toBeInTheDocument();
     expect(
-      screen.getByText(/PR draft opened for clawpatch\/fix\/fnd-security/),
+      screen.getByText("Run fix to create a Clawpatch patch before opening a PR"),
     ).toBeInTheDocument();
+    expect(screen.getByText("Unable to open PR.")).toBeInTheDocument();
+    expect(screen.getByText(/Open PR completed for pat-1/)).toBeInTheDocument();
   });
 
   it("keeps status in the metadata card and auto-saves it with the current note", () => {
@@ -308,33 +309,35 @@ function installLocalStorage(): void {
 
 function renderSplitPanel({
   finding = makeFindingDetail(),
-  canPublishFix = false,
+  canOpenPr = false,
+  openPrDisabledReason = null,
   commandStateLabel = "fix",
   fixDisabledReason = null,
   isBusy = false,
   onFix = vi.fn(),
   onInterrupt,
-  onPublishFix = vi.fn(),
+  onOpenPr = vi.fn(),
   onTriage = vi.fn(),
   onRevalidate = vi.fn(),
   onOpenDiffFile,
-  publishFixError = null,
-  publishFixResult = null,
+  openPrError = null,
+  openPrResult = null,
   triageError = null,
 }: {
   finding?: FindingDetail;
-  canPublishFix?: boolean;
+  canOpenPr?: boolean;
+  openPrDisabledReason?: string | null;
   commandStateLabel?: string;
   fixDisabledReason?: string | null;
   isBusy?: boolean;
   onFix?: (status: ClawpatchStatus, note: string) => void;
   onInterrupt?: () => void;
-  onPublishFix?: () => void;
+  onOpenPr?: () => void;
   onTriage?: (status: ClawpatchStatus, note: string) => void;
   onRevalidate?: () => void;
   onOpenDiffFile?: (filePath: string) => void;
-  publishFixError?: Error | null;
-  publishFixResult?: PublishFixResult | null;
+  openPrError?: Error | null;
+  openPrResult?: PatchOpenPrResult | null;
   triageError?: string | null;
 } = {}) {
   return render(
@@ -353,9 +356,10 @@ function renderSplitPanel({
       isBusy={isBusy}
       commandStateLabel={commandStateLabel}
       fixDisabledReason={fixDisabledReason}
-      canPublishFix={canPublishFix}
-      publishFixResult={publishFixResult}
-      publishFixError={publishFixError}
+      canOpenPr={canOpenPr}
+      openPrDisabledReason={openPrDisabledReason}
+      openPrResult={openPrResult}
+      openPrError={openPrError}
       triageError={triageError}
       onFiltersChange={vi.fn()}
       onSortChange={vi.fn()}
@@ -364,7 +368,7 @@ function renderSplitPanel({
       onTriage={onTriage}
       onFix={onFix}
       onRevalidate={onRevalidate}
-      onPublishFix={onPublishFix}
+      onOpenPr={onOpenPr}
       onInterrupt={onInterrupt}
       onOpenDiffFile={onOpenDiffFile}
     />,
@@ -386,6 +390,20 @@ function makeFindingListItem(overrides: Partial<FindingListItem>): FindingListIt
     createdAt: "2026-01-01T00:00:00.000Z",
     updatedAt: "2026-01-01T00:00:00.000Z",
     ...overrides,
+  };
+}
+
+function makeCommandResult(): CommandResult {
+  return {
+    runId: "run-open-pr",
+    command: "clawpatch",
+    args: ["open-pr", "--patch", "pat-1"],
+    cwd: "/tmp/worktree",
+    exitCode: 0,
+    durationMs: 1,
+    stdout: "{}",
+    stderr: "",
+    parsedJson: {},
   };
 }
 

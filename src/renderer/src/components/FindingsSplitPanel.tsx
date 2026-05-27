@@ -4,7 +4,7 @@ import type {
   FindingDetail,
   FindingListItem,
   FindingWorkStatus,
-  PublishFixResult,
+  PatchOpenPrResult,
 } from "../../../shared/types";
 import type { FindingFilterOptions, FindingFilters, FindingSort } from "../findingsFilters";
 import type { BulkRevalidationProgress } from "../hooks/useCommandRunner";
@@ -32,9 +32,10 @@ interface Props {
   isBusy: boolean;
   commandStateLabel?: string;
   fixDisabledReason: string | null;
-  canPublishFix: boolean;
-  publishFixResult: PublishFixResult | null;
-  publishFixError: Error | null;
+  canOpenPr: boolean;
+  openPrDisabledReason: string | null;
+  openPrResult: PatchOpenPrResult | null;
+  openPrError: Error | null;
   triageError: string | null;
   onFiltersChange: (filters: FindingFilters) => void;
   onSortChange: (sort: FindingSort) => void;
@@ -43,7 +44,7 @@ interface Props {
   onTriage: (status: ClawpatchStatus, note: string) => void;
   onFix: (status: ClawpatchStatus, note: string) => void;
   onRevalidate: () => void;
-  onPublishFix: () => void;
+  onOpenPr: () => void;
   onInterrupt?: () => void;
   onOpenDiffFile?: (filePath: string) => void;
   filesInDiff?: ReadonlySet<string>;
@@ -64,9 +65,10 @@ export function FindingsSplitPanel({
   isBusy,
   commandStateLabel,
   fixDisabledReason,
-  canPublishFix,
-  publishFixResult,
-  publishFixError,
+  canOpenPr,
+  openPrDisabledReason,
+  openPrResult,
+  openPrError,
   triageError,
   onFiltersChange,
   onSortChange,
@@ -75,7 +77,7 @@ export function FindingsSplitPanel({
   onTriage,
   onFix,
   onRevalidate,
-  onPublishFix,
+  onOpenPr,
   onInterrupt,
   onOpenDiffFile,
   filesInDiff,
@@ -184,14 +186,15 @@ export function FindingsSplitPanel({
         isBusy={isBusy}
         commandStateLabel={commandStateLabel}
         fixDisabledReason={fixDisabledReason}
-        canPublishFix={canPublishFix}
-        publishFixResult={publishFixResult}
-        publishFixError={publishFixError}
+        canOpenPr={canOpenPr}
+        openPrDisabledReason={openPrDisabledReason}
+        openPrResult={openPrResult}
+        openPrError={openPrError}
         triageError={triageError}
         onTriage={onTriage}
         onFix={onFix}
         onRevalidate={onRevalidate}
-        onPublishFix={onPublishFix}
+        onOpenPr={onOpenPr}
         onInterrupt={onInterrupt}
         onOpenDiffFile={onOpenDiffFile}
         filesInDiff={filesInDiff}

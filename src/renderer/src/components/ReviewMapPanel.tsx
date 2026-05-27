@@ -27,9 +27,16 @@ interface Props {
   runningReviewFeatureId: string | null;
   queuedReviewFeatureIds: readonly string[];
   lastReviewCompletion: ReviewCompletionSummary | null;
-  onReviewFeature: (featureId: string) => void;
-  onReviewPending: (limit: number) => void;
+  onReviewFeature: (featureId: string, options: ReviewRunOptions) => void;
+  onReviewPending: (options: ReviewRunOptions) => void;
   onUpdateMap: () => void;
+}
+
+export interface ReviewRunOptions {
+  readonly limit?: number;
+  readonly since?: string;
+  readonly includeDirty?: boolean;
+  readonly promptText?: string;
 }
 
 export function ReviewMapPanel({
@@ -48,6 +55,10 @@ export function ReviewMapPanel({
   );
   const [filters, setFilters] = useState(defaultReviewQueueFilters);
   const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
+  const [reviewLimit, setReviewLimit] = useState("");
+  const [reviewSince, setReviewSince] = useState("");
+  const [includeDirty, setIncludeDirty] = useState(false);
+  const [reviewGuidance, setReviewGuidance] = useState("");
   const filterMenuRef = useDismissiblePopover<HTMLDetailsElement>({
     isOpen: isFilterMenuOpen,
     onDismiss: () => setIsFilterMenuOpen(false),
@@ -62,6 +73,9 @@ export function ReviewMapPanel({
   const filtersActive = isReviewQueueFiltersActive(filters);
   const pendingCount = snapshot?.coverage.pendingReviewCount ?? 0;
   const totalCount = snapshot?.coverage.totalFeatures ?? 0;
+  const parsedReviewLimit = parsePositiveInteger(reviewLimit);
+  const hasInvalidReviewLimit = reviewLimit.trim() !== "" && parsedReviewLimit === null;
+  const effectiveReviewLimit = parsedReviewLimit ?? pendingCount;
   const statusLabel = isLoading
     ? "Loading"
     : `${pendingCount} pending/error of ${totalCount} map items`;
@@ -85,6 +99,12 @@ export function ReviewMapPanel({
       return next;
     });
   };
+  const reviewOptions = (fallbackLimit?: number): ReviewRunOptions => ({
+    ...(fallbackLimit !== undefined && fallbackLimit > 0 ? { limit: fallbackLimit } : {}),
+    ...(reviewSince.trim() !== "" ? { since: reviewSince.trim() } : {}),
+    ...(includeDirty ? { includeDirty: true } : {}),
+    ...(reviewGuidance.trim() !== "" ? { promptText: reviewGuidance.trim() } : {}),
+  });
 
   return (
     <section className="panel review-queue-panel">
@@ -101,12 +121,54 @@ export function ReviewMapPanel({
             onClick={onUpdateMap}
           />
           <ActionIconButton
-            disabled={isBusy || pendingCount === 0}
+            disabled={isBusy || pendingCount === 0 || hasInvalidReviewLimit}
             icon={<ListChecksIcon aria-hidden="true" />}
             label={`Review all ${pendingCount} mapped features pending review`}
-            onClick={() => onReviewPending(pendingCount)}
+            onClick={() => onReviewPending(reviewOptions(effectiveReviewLimit))}
             title="Review mapped features"
           />
+        </div>
+        <div className="review-scope-panel" aria-label="Review scope">
+          <label>
+            Limit
+            <input
+              aria-invalid={hasInvalidReviewLimit}
+              aria-label="Review limit"
+              inputMode="numeric"
+              min={1}
+              placeholder={String(pendingCount)}
+              type="number"
+              value={reviewLimit}
+              onChange={(event) => setReviewLimit(event.currentTarget.value)}
+            />
+          </label>
+          <label>
+            Since
+            <input
+              aria-label="Review since ref"
+              placeholder="origin/main"
+              value={reviewSince}
+              onChange={(event) => setReviewSince(event.currentTarget.value)}
+            />
+          </label>
+          <label className="review-scope-checkbox">
+            <input
+              checked={includeDirty}
+              type="checkbox"
+              onChange={(event) => setIncludeDirty(event.currentTarget.checked)}
+            />
+            Include dirty changes
+          </label>
+          <label className="review-guidance-field">
+            Guidance
+            <textarea
+              aria-label="Review guidance"
+              placeholder="Extra reviewer guidance..."
+              rows={2}
+              value={reviewGuidance}
+              onChange={(event) => setReviewGuidance(event.currentTarget.value)}
+            />
+          </label>
         </div>
         <div className="findings-filter-row">
           <input
@@ -192,6 +254,7 @@ export function ReviewMapPanel({
           hasActiveFilters={filtersActive}
           queuedReviewFeatureIds={queuedReviewFeatureIdSet}
           runningReviewFeatureId={runningReviewFeatureId}
+          reviewOptions={reviewOptions()}
           onReviewFeature={onReviewFeature}
           onToggleExpanded={toggleExpanded}
         />
@@ -265,13 +328,15 @@ function ReviewMapTable({
   runningReviewFeatureId,
   onReviewFeature,
   onToggleExpanded,
+  reviewOptions,
 }: {
   features: FeatureMapSnapshot["features"];
   expandedFeatureIds: ReadonlySet<string>;
   hasActiveFilters: boolean;
   queuedReviewFeatureIds: ReadonlySet<string>;
   runningReviewFeatureId: string | null;
-  onReviewFeature: (featureId: string) => void;
+  reviewOptions: ReviewRunOptions;
+  onReviewFeature: (featureId: string, options: ReviewRunOptions) => void;
   onToggleExpanded: (featureId: string) => void;
 }) {
   return (
@@ -327,6 +392,7 @@ function ReviewMapTable({
                 <ReviewRowAction
                   feature={feature}
                   reviewState={reviewState}
+                  reviewOptions={reviewOptions}
                   onReviewFeature={onReviewFeature}
                 />
               </div>
@@ -342,11 +408,13 @@ function ReviewMapTable({
 function ReviewRowAction({
   feature,
   reviewState,
+  reviewOptions,
   onReviewFeature,
 }: {
   feature: FeatureMapItem;
   reviewState: "idle" | "queued" | "running";
-  onReviewFeature: (featureId: string) => void;
+  reviewOptions: ReviewRunOptions;
+  onReviewFeature: (featureId: string, options: ReviewRunOptions) => void;
 }) {
   if (reviewState === "idle") {
     return (
@@ -354,7 +422,7 @@ function ReviewRowAction({
         <ActionIconButton
           icon={<ClipboardCheckIcon aria-hidden="true" />}
           label={`Review ${feature.title}`}
-          onClick={() => onReviewFeature(feature.featureId)}
+          onClick={() => onReviewFeature(feature.featureId, reviewOptions)}
           title={`Review ${feature.title} (${feature.featureId})`}
         />
       </div>
@@ -593,4 +661,12 @@ function formatUpdatedAt(value: string): string {
     return "-";
   }
   return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+function parsePositiveInteger(value: string): number | null {
+  if (value.trim() === "") {
+    return null;
+  }
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
 }

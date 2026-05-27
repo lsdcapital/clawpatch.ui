@@ -5,12 +5,16 @@ export const ClawpatchStatusSchema = Schema.Literals(clawpatchStatuses);
 export const ClawpatchStateTrackingSchema = Schema.Literals(["local", "team", "audit"]);
 
 export const ClawpatchCommandRequestSchema = Schema.Union([
+  Schema.Struct({ command: Schema.Literal("init") }),
   Schema.Struct({ command: Schema.Literal("status") }),
   Schema.Struct({ command: Schema.Literal("map") }),
   Schema.Struct({
     command: Schema.Literal("review"),
     featureId: Schema.optionalKey(Schema.String),
     limit: Schema.optionalKey(Schema.Number),
+    since: Schema.optionalKey(Schema.String),
+    includeDirty: Schema.optionalKey(Schema.Boolean),
+    promptText: Schema.optionalKey(Schema.String),
   }),
   Schema.Struct({
     command: Schema.Literal("triage"),
@@ -25,6 +29,11 @@ export const ClawpatchCommandRequestSchema = Schema.Union([
     note: Schema.optionalKey(Schema.String),
   }),
   Schema.Struct({ command: Schema.Literal("revalidate"), findingId: Schema.String }),
+  Schema.Struct({
+    command: Schema.Literal("open-pr"),
+    patchAttemptId: Schema.String,
+    draft: Schema.optionalKey(Schema.Boolean),
+  }),
   Schema.Struct({ command: Schema.Literal("doctor") }),
 ]);
 
@@ -51,13 +60,11 @@ export const CommandInterruptResultSchema = Schema.Struct({
   interrupted: Schema.Boolean,
 });
 
-export const PublishFixResultSchema = Schema.Struct({
+export const PatchOpenPrResultSchema = Schema.Struct({
   worktreePath: Schema.String,
-  branchName: Schema.String,
-  baseBranch: Schema.String,
-  commitSha: Schema.String,
-  remoteName: Schema.String,
-  prUrl: Schema.String,
+  patchAttemptId: Schema.String,
+  commandResult: CommandResultSchema,
+  prUrl: Schema.NullOr(Schema.String),
 });
 
 export const GitStatusSummarySchema = Schema.Struct({

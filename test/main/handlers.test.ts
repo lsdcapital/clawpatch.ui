@@ -10,7 +10,7 @@ import {
   COMMANDS_INTERRUPT_CHANNEL,
   COMMANDS_RUN_CHANNEL,
   FINDINGS_WORK_STATUSES_CHANNEL,
-  GIT_PUBLISH_FIX_CHANNEL,
+  PATCHES_OPEN_PR_CHANNEL,
   REPO_DOCTOR_CHANNEL,
   REPO_GET_CONFIG_CHANNEL,
   REPO_GET_SETTINGS_CHANNEL,
@@ -248,32 +248,28 @@ describe("IPC handlers", () => {
     }
   });
 
-  it("opens the GitHub PR page after publishing a fix", async () => {
+  it("opens the CLI PR page after opening a patch PR", async () => {
     openExternalMock.mockResolvedValue(undefined);
-    const publishFix = vi.fn<RepoServiceShape["publishFix"]>(() =>
+    const openPrForFinding = vi.fn<RepoServiceShape["openPrForFinding"]>(() =>
       Effect.succeed({
         worktreePath: "/tmp/worktree",
-        branchName: "clawpatch/fix/fnd-1",
-        baseBranch: "main",
-        commitSha: "abc123",
-        remoteName: "origin",
-        prUrl: "https://github.com/acme/repo/compare/main...clawpatch/fix/fnd-1?expand=1",
+        patchAttemptId: "pat-1",
+        commandResult: makeCommandResult(),
+        prUrl: "https://github.com/acme/repo/pull/42",
       }),
     );
-    const { registered, runtime } = await installHandlersForTest({ publishFix });
-    const listener = registered.get(GIT_PUBLISH_FIX_CHANNEL);
+    const { registered, runtime } = await installHandlersForTest({ openPrForFinding });
+    const listener = registered.get(PATCHES_OPEN_PR_CHANNEL);
     if (listener === undefined) {
-      throw new Error("publish fix IPC handler was not registered");
+      throw new Error("patch open PR IPC handler was not registered");
     }
 
     try {
       await expect(
         listener({} as IpcMainInvokeEvent, { repoId: "repo-1", findingId: "fnd-1" }),
-      ).resolves.toMatchObject({ branchName: "clawpatch/fix/fnd-1" });
-      expect(publishFix).toHaveBeenCalledWith("repo-1", "fnd-1");
-      expect(openExternalMock).toHaveBeenCalledWith(
-        "https://github.com/acme/repo/compare/main...clawpatch/fix/fnd-1?expand=1",
-      );
+      ).resolves.toMatchObject({ patchAttemptId: "pat-1" });
+      expect(openPrForFinding).toHaveBeenCalledWith("repo-1", "fnd-1", expect.any(Function));
+      expect(openExternalMock).toHaveBeenCalledWith("https://github.com/acme/repo/pull/42");
     } finally {
       await runtime.dispose();
     }
@@ -431,7 +427,7 @@ async function installHandlersForTest(options: {
   readonly interruptCommand?: RepoServiceShape["interruptCommand"];
   readonly openTerminal?: RepoServiceShape["openTerminal"];
   readonly publish?: (event: CommandStreamEvent) => void;
-  readonly publishFix?: RepoServiceShape["publishFix"];
+  readonly openPrForFinding?: RepoServiceShape["openPrForFinding"];
   readonly getConfig?: RepoServiceShape["getConfig"];
   readonly getSettings?: RepoServiceShape["getSettings"];
   readonly listFindingWorkStatuses?: RepoServiceShape["listFindingWorkStatuses"];
@@ -451,7 +447,7 @@ async function installHandlersForTest(
     readonly interruptCommand?: RepoServiceShape["interruptCommand"];
     readonly openTerminal?: RepoServiceShape["openTerminal"];
     readonly publish?: (event: CommandStreamEvent) => void;
-    readonly publishFix?: RepoServiceShape["publishFix"];
+    readonly openPrForFinding?: RepoServiceShape["openPrForFinding"];
     readonly getConfig?: RepoServiceShape["getConfig"];
     readonly getSettings?: RepoServiceShape["getSettings"];
     readonly listFindingWorkStatuses?: RepoServiceShape["listFindingWorkStatuses"];
@@ -494,7 +490,7 @@ function makeRepoServiceLayer(
     readonly getAppSettings?: RepoServiceShape["getAppSettings"];
     readonly interruptCommand?: RepoServiceShape["interruptCommand"];
     readonly openTerminal?: RepoServiceShape["openTerminal"];
-    readonly publishFix?: RepoServiceShape["publishFix"];
+    readonly openPrForFinding?: RepoServiceShape["openPrForFinding"];
     readonly getConfig?: RepoServiceShape["getConfig"];
     readonly getSettings?: RepoServiceShape["getSettings"];
     readonly listFindingWorkStatuses?: RepoServiceShape["listFindingWorkStatuses"];
@@ -583,16 +579,14 @@ function makeRepoServiceLayer(
       setTriage: () => Effect.succeed(makeCommandResult()),
       readDiff: () => Effect.succeed(""),
       readGitStatus: () => Effect.succeed({ staged: 0, modified: 0, untracked: 0, branch: null }),
-      publishFix:
-        options.publishFix ??
+      openPrForFinding:
+        options.openPrForFinding ??
         (() =>
           Effect.succeed({
             worktreePath: "/tmp/worktree",
-            branchName: "clawpatch/fix/fnd-1",
-            baseBranch: "main",
-            commitSha: "abc123",
-            remoteName: "origin",
-            prUrl: "https://github.com/acme/repo/compare/main...clawpatch/fix/fnd-1?expand=1",
+            patchAttemptId: "pat-1",
+            commandResult: makeCommandResult(),
+            prUrl: "https://github.com/acme/repo/pull/42",
           })),
       openTerminal: options.openTerminal ?? (() => Effect.succeed({ cwd: "/tmp/repo" })),
     }),

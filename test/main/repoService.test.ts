@@ -1048,16 +1048,14 @@ describe("RepoService", () => {
     );
   });
 
-  it.effect("publishes a managed fix worktree for PR creation", () => {
+  it.effect("opens a patch PR from a managed fix worktree through clawpatch", () => {
     const calls: RunnerCall[] = [];
     const gitCalls: Array<{
       kind: string;
       repoPath: string;
       worktreePath?: string;
       branchName?: string;
-      baseBranch?: string | null;
       baseRef?: string;
-      commitMessage?: string;
     }> = [];
     return Effect.gen(function* () {
       const service = yield* RepoService;
@@ -1067,23 +1065,17 @@ describe("RepoService", () => {
         command: "fix",
         findingId: "fnd-1",
       });
-      const publishResult = yield* service.publishFix(summary.id, "fnd-1");
+      const openPrResult = yield* service.openPrForFinding(summary.id, "fnd-1");
 
-      expect(publishResult).toMatchObject({
+      expect(openPrResult).toMatchObject({
         worktreePath: fixResult.cwd,
-        branchName: "clawpatch/fix/fnd-1",
-        baseBranch: "main",
-        commitSha: "abc123",
-        remoteName: "origin",
+        patchAttemptId: "pat-1",
       });
-      expect(gitCalls).toContainEqual({
-        kind: "publish",
-        repoPath: fixtureRepo,
-        worktreePath: fixResult.cwd,
-        branchName: "clawpatch/fix/fnd-1",
-        baseBranch: "main",
-        commitMessage: "Fix Null branch can throw",
+      expect(calls.at(-1)).toEqual({
+        repoPath: fixResult.cwd,
+        request: { command: "open-pr", patchAttemptId: "pat-1", draft: true },
       });
+      expect(gitCalls.some((call) => call.kind === "publish")).toBe(false);
     }).pipe(
       Effect.provide(
         makeRepoServiceTestLayer(fixtureRepo, calls, undefined, false, makeGitMock(gitCalls)),
@@ -1091,20 +1083,20 @@ describe("RepoService", () => {
     );
   });
 
-  it.effect("rejects publishing before a fix worktree exists", () => {
+  it.effect("rejects opening a PR before a fix worktree exists", () => {
     const calls: RunnerCall[] = [];
     return Effect.gen(function* () {
       const service = yield* RepoService;
 
       const summary = yield* service.addRepo(fixtureRepo);
-      const error = yield* service.publishFix(summary.id, "fnd-1").pipe(
+      const error = yield* service.openPrForFinding(summary.id, "fnd-1").pipe(
         Effect.match({
           onFailure: (error) => error,
           onSuccess: () => null,
         }),
       );
 
-      expect(error).toMatchObject({ message: "Run fix before publishing a PR for this finding." });
+      expect(error).toMatchObject({ message: "Run fix before opening a PR for this finding." });
     }).pipe(Effect.provide(makeRepoServiceTestLayer(fixtureRepo, calls)));
   });
 
@@ -2105,9 +2097,7 @@ function makeGitMock(
     repoPath: string;
     worktreePath?: string;
     branchName?: string;
-    baseBranch?: string | null;
     baseRef?: string;
-    commitMessage?: string;
   }>,
   options: {
     readonly readStatus?: (repoPath: string) => Effect.Effect<GitStatusSummary, CommandSpawnError>;
@@ -2154,25 +2144,6 @@ function makeGitMock(
           argv: ["git", "worktree", "add", "-b", branchName, worktreePath, baseRef],
         });
         return { worktreePath, created: true };
-      }),
-    publishFix: ({ repoPath, worktreePath, branchName, baseBranch, commitMessage }) =>
-      Effect.sync(() => {
-        calls.push({
-          kind: "publish",
-          repoPath,
-          worktreePath,
-          branchName,
-          baseBranch,
-          commitMessage,
-        });
-        return {
-          worktreePath,
-          branchName,
-          baseBranch: baseBranch ?? "main",
-          commitSha: "abc123",
-          remoteName: "origin",
-          prUrl: `https://github.com/acme/repo/compare/${baseBranch ?? "main"}...${branchName}?expand=1`,
-        };
       }),
   };
 }

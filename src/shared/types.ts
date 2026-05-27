@@ -19,7 +19,7 @@ import type {
   PatchAttemptSchema,
   PatchCommandRunSchema,
   PatchGitInfoSchema,
-  PublishFixResultSchema,
+  PatchOpenPrResultSchema,
   RepoSettingsSchema,
   UiMetadataSchema,
   RepoSnapshotSchema,
@@ -38,7 +38,7 @@ export type ClawpatchConfig = typeof ClawpatchConfigSchema.Type;
 export type CommandInterruptResult = typeof CommandInterruptResultSchema.Type;
 export type CommandResult = typeof CommandResultSchema.Type;
 export type CommandStreamEvent = typeof CommandStreamEventSchema.Type;
-export type PublishFixResult = typeof PublishFixResultSchema.Type;
+export type PatchOpenPrResult = typeof PatchOpenPrResultSchema.Type;
 export type RepoSettings = typeof RepoSettingsSchema.Type;
 export type ActiveWorktree = typeof ActiveWorktreeSchema.Type;
 export type RepoSummary = typeof RepoSummarySchema.Type;
@@ -100,7 +100,9 @@ export interface Api {
   git: {
     diff: (repoId: string, findingId?: string) => Promise<string>;
     status: (repoId: string, findingId?: string) => Promise<GitStatusSummary>;
-    publishFix: (repoId: string, findingId: string) => Promise<PublishFixResult>;
+  };
+  patches: {
+    openPr: (repoId: string, findingId: string) => Promise<PatchOpenPrResult>;
   };
   terminal: {
     open: (repoId: string, findingId?: string) => Promise<TerminalOpenResult>;
