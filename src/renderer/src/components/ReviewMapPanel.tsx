@@ -66,7 +66,14 @@ export function ReviewMapPanel({
     onDismiss: () => setIsFilterMenuOpen(false),
   });
   const features = useMemo(() => snapshot?.features ?? [], [snapshot]);
-  const filteredFeatures = useMemo(() => filterReviewQueue(features, filters), [features, filters]);
+  const reviewActivityFeatureIds = useMemo(
+    () => reviewActivityIds(runningReviewFeatureId, queuedReviewFeatureIds, lastReviewCompletion),
+    [lastReviewCompletion, queuedReviewFeatureIds, runningReviewFeatureId],
+  );
+  const filteredFeatures = useMemo(
+    () => reviewQueueVisibleFeatures(features, filters, reviewActivityFeatureIds),
+    [features, filters, reviewActivityFeatureIds],
+  );
   const filterOptions = useMemo(() => getReviewQueueFilterOptions(features), [features]);
   const queuedReviewFeatureIdSet = useMemo(
     () => new Set(queuedReviewFeatureIds),
@@ -265,6 +272,7 @@ export function ReviewMapPanel({
           hasActiveFilters={filtersActive}
           queuedReviewFeatureIds={queuedReviewFeatureIdSet}
           runningReviewFeatureId={runningReviewFeatureId}
+          lastReviewCompletion={lastReviewCompletion}
           reviewOptions={reviewOptions()}
           onReviewFeature={onReviewFeature}
           onToggleExpanded={toggleExpanded}
@@ -337,6 +345,7 @@ function ReviewMapTable({
   hasActiveFilters,
   queuedReviewFeatureIds,
   runningReviewFeatureId,
+  lastReviewCompletion,
   onReviewFeature,
   onToggleExpanded,
   reviewOptions,
@@ -346,10 +355,13 @@ function ReviewMapTable({
   hasActiveFilters: boolean;
   queuedReviewFeatureIds: ReadonlySet<string>;
   runningReviewFeatureId: string | null;
+  lastReviewCompletion: ReviewCompletionSummary | null;
   reviewOptions: ReviewRunOptions;
   onReviewFeature: (featureId: string, options: ReviewRunOptions) => void;
   onToggleExpanded: (featureId: string) => void;
 }) {
+  const reviewedFeatureId =
+    lastReviewCompletion?.kind === "feature" ? lastReviewCompletion.featureId : null;
   return (
     <div className="feature-map-table" role="table" aria-label="Review queue map">
       <div className="feature-map-row feature-map-head" role="row">
@@ -373,10 +385,16 @@ function ReviewMapTable({
               ? "running"
               : queuedReviewFeatureIds.has(feature.featureId)
                 ? "queued"
-                : "idle";
+                : reviewedFeatureId === feature.featureId
+                  ? "reviewed"
+                  : "idle";
+          const reviewedFindingCount =
+            reviewState === "reviewed" && lastReviewCompletion?.kind === "feature"
+              ? (lastReviewCompletion.findingCount ?? feature.findingCount)
+              : null;
           return (
             <Fragment key={feature.featureId}>
-              <div className="feature-map-row" role="row">
+              <div className={`feature-map-row review-row-${reviewState}`} role="row">
                 <ActionIconButton
                   aria-expanded={isExpanded}
                   className="feature-map-expand-button"
@@ -391,7 +409,7 @@ function ReviewMapTable({
                   onClick={() => onToggleExpanded(feature.featureId)}
                   title={`${isExpanded ? "Collapse" : "Expand"} details`}
                 />
-                <span className={`feature-status ${feature.status}`}>{feature.status}</span>
+                <ReviewStatusCell feature={feature} reviewState={reviewState} />
                 <span>{feature.kind}</span>
                 <span>{feature.source}</span>
                 <span>{feature.ownedFileCount + feature.contextFileCount + feature.testCount}</span>
@@ -400,6 +418,7 @@ function ReviewMapTable({
                 <span>{formatUpdatedAt(feature.updatedAt)}</span>
                 <ReviewRowAction
                   feature={feature}
+                  reviewedFindingCount={reviewedFindingCount}
                   reviewState={reviewState}
                   reviewOptions={reviewOptions}
                   onReviewFeature={onReviewFeature}
@@ -416,6 +435,45 @@ function ReviewMapTable({
 
 function reviewQueueEmptyLabel(hasActiveFilters: boolean): string {
   return hasActiveFilters ? "No map items match these filters." : "No actionable map items.";
+}
+
+function reviewActivityIds(
+  runningReviewFeatureId: string | null,
+  queuedReviewFeatureIds: readonly string[],
+  lastReviewCompletion: ReviewCompletionSummary | null,
+): ReadonlySet<string> {
+  const ids = new Set(queuedReviewFeatureIds);
+  if (runningReviewFeatureId !== null) {
+    ids.add(runningReviewFeatureId);
+  }
+  if (lastReviewCompletion?.kind === "feature") {
+    ids.add(lastReviewCompletion.featureId);
+  }
+  return ids;
+}
+
+function reviewQueueVisibleFeatures(
+  features: readonly FeatureMapItem[],
+  filters: ReviewQueueFilters,
+  reviewActivityFeatureIds: ReadonlySet<string>,
+): FeatureMapItem[] {
+  const filteredFeatures = filterReviewQueue(features, filters);
+  if (filters.status !== "actionable" || reviewActivityFeatureIds.size === 0) {
+    return filteredFeatures;
+  }
+
+  const visibleFeatureIds = new Set(filteredFeatures.map((feature) => feature.featureId));
+  const passiveFilters = { ...filters, status: null };
+  for (const feature of features) {
+    if (
+      reviewActivityFeatureIds.has(feature.featureId) &&
+      filterReviewQueue([feature], passiveFilters).length > 0
+    ) {
+      visibleFeatureIds.add(feature.featureId);
+    }
+  }
+
+  return features.filter((feature) => visibleFeatureIds.has(feature.featureId));
 }
 
 function ReviewQueueModeTabs({
@@ -458,14 +516,37 @@ function ReviewQueueModeTabs({
   );
 }
 
+type ReviewRowState = "idle" | "queued" | "running" | "reviewed";
+
+function ReviewStatusCell({
+  feature,
+  reviewState,
+}: {
+  feature: FeatureMapItem;
+  reviewState: ReviewRowState;
+}) {
+  if (reviewState === "running") {
+    return <span className="feature-status reviewing">reviewing</span>;
+  }
+  if (reviewState === "queued") {
+    return <span className="feature-status queued">queued</span>;
+  }
+  if (reviewState === "reviewed") {
+    return <span className="feature-status reviewed">reviewed</span>;
+  }
+  return <span className={`feature-status ${feature.status}`}>{feature.status}</span>;
+}
+
 function ReviewRowAction({
   feature,
+  reviewedFindingCount,
   reviewState,
   reviewOptions,
   onReviewFeature,
 }: {
   feature: FeatureMapItem;
-  reviewState: "idle" | "queued" | "running";
+  reviewedFindingCount: number | null;
+  reviewState: ReviewRowState;
   reviewOptions: ReviewRunOptions;
   onReviewFeature: (featureId: string, options: ReviewRunOptions) => void;
 }) {
@@ -478,6 +559,22 @@ function ReviewRowAction({
           onClick={() => onReviewFeature(feature.featureId, reviewOptions)}
           title={`Review ${feature.title} (${feature.featureId})`}
         />
+      </div>
+    );
+  }
+
+  if (reviewState === "reviewed") {
+    return (
+      <div className="review-action-cell">
+        <ActionIconButton
+          disabled
+          icon={<ClipboardCheckIcon aria-hidden="true" />}
+          label="Reviewed"
+          title="Reviewed"
+        />
+        <span className="review-action-state review-action-state-reviewed">
+          {reviewedFindingCount === null ? "Reviewed" : findingCountLabel(reviewedFindingCount)}
+        </span>
       </div>
     );
   }

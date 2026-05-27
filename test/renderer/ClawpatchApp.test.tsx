@@ -861,7 +861,7 @@ describe("ClawpatchApp header actions", () => {
     expect(screen.getByText("Billing")).toBeInTheDocument();
   });
 
-  it("keeps zero-finding review feedback visible after the reviewed row leaves the queue", async () => {
+  it("keeps zero-finding review feedback attached to the reviewed row", async () => {
     const featureMap = vi
       .fn<Api["features"]["map"]>()
       .mockResolvedValueOnce(makeFeatureMapSnapshot())
@@ -885,14 +885,18 @@ describe("ClawpatchApp header actions", () => {
       }),
     );
     await screen.findByText("Reviewed Authentication: 0 findings");
-    await waitFor(() => expect(screen.queryByText("Authentication")).not.toBeInTheDocument());
+    const authenticationRow = await screen
+      .findByText("Authentication")
+      .then((element) => element.closest('[role="row"]'));
+    expect(authenticationRow).not.toBeNull();
+    expect(authenticationRow).toHaveClass("review-row-reviewed");
+    expect(
+      within(authenticationRow as HTMLElement).getByRole("button", { name: "Reviewed" }),
+    ).toBeDisabled();
     expect(screen.getByRole("tab", { name: /^Review Queue/ })).toHaveAttribute(
       "aria-selected",
       "true",
     );
-
-    fireEvent.click(screen.getByRole("button", { name: "No action 1" }));
-    expect(await screen.findByText("Authentication")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("tab", { name: "Findings" }));
     expect(
