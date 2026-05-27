@@ -11,7 +11,9 @@ describe("ReviewMapPanel", () => {
     renderPanel({ onReviewPending });
 
     expect(screen.getByRole("heading", { name: "Review Queue" })).toBeInTheDocument();
-    expect(screen.getByText("2 pending/error of 3 map items")).toBeInTheDocument();
+    expect(screen.getByText("2 actionable of 3 map items")).toBeInTheDocument();
+    expect(screen.getByText("2 actionable of 3 total")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Actionable 2" })).toHaveClass("active");
     const updateMapButton = screen.getByRole("button", { name: "Update map" });
     const reviewMappedFeaturesButton = screen.getByRole("button", {
       name: "Review all 2 mapped features pending review",
@@ -184,6 +186,31 @@ describe("ReviewMapPanel", () => {
     expect(screen.getByText("Profile settings")).toBeInTheDocument();
   });
 
+  it("keeps reviewed zero-finding map items out of the default queue but visible", () => {
+    renderPanel();
+
+    expect(screen.getByText("Authentication")).toBeInTheDocument();
+    expect(screen.getByText("Billing")).toBeInTheDocument();
+    expect(screen.queryByText("Profile settings")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "No action 1" }));
+    expect(screen.getByText("1 of 3 shown")).toBeInTheDocument();
+    expect(screen.queryByText("Authentication")).not.toBeInTheDocument();
+    expect(screen.queryByText("Billing")).not.toBeInTheDocument();
+    expect(screen.getByText("Profile settings")).toBeInTheDocument();
+
+    const profileRow = screen.getByText("Profile settings").closest('[role="row"]');
+    expect(profileRow).not.toBeNull();
+    expect(within(profileRow as HTMLElement).getByText("reviewed")).toBeInTheDocument();
+    expect(within(profileRow as HTMLElement).getByText("0")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "All 3" }));
+    expect(screen.getByText("3 of 3 shown")).toBeInTheDocument();
+    expect(screen.getByText("Authentication")).toBeInTheDocument();
+    expect(screen.getByText("Billing")).toBeInTheDocument();
+    expect(screen.getByText("Profile settings")).toBeInTheDocument();
+  });
+
   it("closes the filter menu when clicking outside it", () => {
     renderPanel();
 
@@ -279,7 +306,7 @@ function makeSnapshot(): FeatureMapSnapshot {
         ownedFileCount: 2,
         contextFileCount: 0,
         testCount: 1,
-        findingCount: 1,
+        findingCount: 0,
         updatedAt: "2026-05-18T00:00:00.000Z",
       }),
       makeFeature({

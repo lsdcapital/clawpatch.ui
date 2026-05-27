@@ -14,6 +14,8 @@ import {
   defaultReviewQueueFilters,
   filterReviewQueue,
   getReviewQueueFilterOptions,
+  isActionableReviewItem,
+  isNoActionReviewItem,
   isReviewQueueFiltersActive,
   type ReviewQueueFilters,
   type ReviewQueueStatusFilter,
@@ -73,17 +75,19 @@ export function ReviewMapPanel({
   const filtersActive = isReviewQueueFiltersActive(filters);
   const pendingCount = snapshot?.coverage.pendingReviewCount ?? 0;
   const totalCount = snapshot?.coverage.totalFeatures ?? 0;
+  const actionableCount = useMemo(() => features.filter(isActionableReviewItem).length, [features]);
+  const noActionCount = useMemo(() => features.filter(isNoActionReviewItem).length, [features]);
   const parsedReviewLimit = parsePositiveInteger(reviewLimit);
   const hasInvalidReviewLimit = reviewLimit.trim() !== "" && parsedReviewLimit === null;
   const effectiveReviewLimit = parsedReviewLimit ?? pendingCount;
   const statusLabel = isLoading
     ? "Loading"
-    : `${pendingCount} pending/error of ${totalCount} map items`;
+    : `${actionableCount} actionable of ${totalCount} map items`;
   const countLabel = isLoading
     ? "Loading"
     : filtersActive
       ? `${filteredFeatures.length} of ${totalCount} shown`
-      : `${totalCount} total`;
+      : `${actionableCount} actionable of ${totalCount} total`;
 
   const updateFilters = (nextFilters: Partial<ReviewQueueFilters>): void => {
     setFilters((current) => ({ ...current, ...nextFilters }));
@@ -170,7 +174,14 @@ export function ReviewMapPanel({
             />
           </label>
         </div>
-        <div className="findings-filter-row">
+        <div className="findings-filter-row review-queue-filter-row">
+          <ReviewQueueModeTabs
+            actionableCount={actionableCount}
+            noActionCount={noActionCount}
+            selectedValue={filters.status}
+            totalCount={totalCount}
+            onSelect={(status) => updateFilters({ status })}
+          />
           <input
             aria-label="Search review queue"
             value={filters.search}
@@ -353,9 +364,7 @@ function ReviewMapTable({
         <span>Action</span>
       </div>
       {features.length === 0 ? (
-        <div className="feature-map-empty">
-          {hasActiveFilters ? "No map items match these filters." : "No map items found."}
-        </div>
+        <div className="feature-map-empty">{reviewQueueEmptyLabel(hasActiveFilters)}</div>
       ) : (
         features.map((feature) => {
           const isExpanded = expandedFeatureIds.has(feature.featureId);
@@ -401,6 +410,50 @@ function ReviewMapTable({
           );
         })
       )}
+    </div>
+  );
+}
+
+function reviewQueueEmptyLabel(hasActiveFilters: boolean): string {
+  return hasActiveFilters ? "No map items match these filters." : "No actionable map items.";
+}
+
+function ReviewQueueModeTabs({
+  actionableCount,
+  noActionCount,
+  selectedValue,
+  totalCount,
+  onSelect,
+}: {
+  actionableCount: number;
+  noActionCount: number;
+  selectedValue: ReviewQueueStatusFilter;
+  totalCount: number;
+  onSelect: (value: ReviewQueueStatusFilter) => void;
+}) {
+  return (
+    <div className="review-queue-mode-tabs" aria-label="Review queue visibility">
+      <button
+        className={selectedValue === "actionable" ? "active" : ""}
+        onClick={() => onSelect("actionable")}
+        type="button"
+      >
+        Actionable <span>{actionableCount}</span>
+      </button>
+      <button
+        className={selectedValue === "no-action" ? "active" : ""}
+        onClick={() => onSelect("no-action")}
+        type="button"
+      >
+        No action <span>{noActionCount}</span>
+      </button>
+      <button
+        className={selectedValue === null ? "active" : ""}
+        onClick={() => onSelect(null)}
+        type="button"
+      >
+        All <span>{totalCount}</span>
+      </button>
     </div>
   );
 }
@@ -580,6 +633,12 @@ function StatusFilterGroup({
       >
         Actionable
       </button>
+      <button
+        className={selectedValue === "no-action" ? "active" : ""}
+        onClick={() => onSelect("no-action")}
+      >
+        No action needed
+      </button>
       <button className={selectedValue === null ? "active" : ""} onClick={() => onSelect(null)}>
         All
       </button>
@@ -641,6 +700,9 @@ function statusLabelFor(value: ReviewQueueStatusFilter): string {
   }
   if (value === null) {
     return "All statuses";
+  }
+  if (value === "no-action") {
+    return "No action needed";
   }
   return labelFor(value);
 }

@@ -1,6 +1,6 @@
 import type { FeatureMapItem } from "../../shared/types";
 
-export type ReviewQueueStatusFilter = "actionable" | string | null;
+export type ReviewQueueStatusFilter = "actionable" | "no-action" | string | null;
 
 export interface ReviewQueueFilters {
   search: string;
@@ -32,12 +32,16 @@ export function filterReviewQueue(
   const source = normalize(filters.source ?? "");
 
   return features.filter((feature) => {
-    if (filters.status === "actionable" && !isActionableReviewStatus(feature.status)) {
+    if (filters.status === "actionable" && !isActionableReviewItem(feature)) {
+      return false;
+    }
+    if (filters.status === "no-action" && !isNoActionReviewItem(feature)) {
       return false;
     }
     if (
       filters.status !== null &&
       filters.status !== "actionable" &&
+      filters.status !== "no-action" &&
       feature.status !== filters.status
     ) {
       return false;
@@ -79,8 +83,35 @@ function isActionableReviewStatus(status: string): boolean {
   return status === "pending" || status === "error";
 }
 
+export function isActionableReviewItem(feature: FeatureMapItem): boolean {
+  return isActionableReviewStatus(feature.status);
+}
+
+export function isNoActionReviewItem(feature: FeatureMapItem): boolean {
+  return isReviewedReviewStatus(feature.status) && feature.findingCount === 0;
+}
+
+function isReviewedReviewStatus(status: string): boolean {
+  return status === "reviewed" || status === "fixed" || status === "revalidated";
+}
+
 function reviewQueueSearchText(feature: FeatureMapItem): string {
-  return normalize([feature.featureId, feature.title].join(" "));
+  return normalize(
+    [
+      feature.featureId,
+      feature.title,
+      feature.status,
+      feature.kind,
+      feature.source,
+      ...feature.linkedFindings.flatMap((finding) => [
+        finding.findingId,
+        finding.title,
+        finding.status,
+        finding.severity,
+        finding.confidence,
+      ]),
+    ].join(" "),
+  );
 }
 
 function normalize(value: string): string {
