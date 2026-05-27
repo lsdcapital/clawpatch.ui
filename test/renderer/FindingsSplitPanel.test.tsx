@@ -344,6 +344,7 @@ function renderSplitPanel({
     <FindingsSplitPanel
       findings={findings}
       totalFindingCount={findings.length}
+      reviewCompletionMessage={null}
       selectedFindingId="fnd-security"
       isFindingsLoading={false}
       filters={defaultFindingFilters}

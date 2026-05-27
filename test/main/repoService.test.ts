@@ -13,7 +13,7 @@ import type {
   CommandStreamEvent,
   GitStatusSummary,
 } from "../../src/shared/types";
-import { CommandSpawnError } from "../../src/main/errors";
+import { CommandAlreadyRunningError, CommandSpawnError } from "../../src/main/errors";
 import {
   ClawpatchRunner,
   type ClawpatchRunnerShape,
@@ -619,6 +619,46 @@ describe("RepoService", () => {
         findingCount: 1,
       });
       expect(calls).toEqual([]);
+    } finally {
+      await runtime.dispose();
+    }
+  });
+
+  it("retries repo commands that overlap a background status probe", async () => {
+    const calls: RunnerCall[] = [];
+    const appData = await makeTempDir();
+    await writeRepoRegistry(appData, "repo-fixture");
+    let attempts = 0;
+    const runnerService: ClawpatchRunnerShape = {
+      run: (repoPath, request) => {
+        attempts += 1;
+        if (attempts === 1) {
+          return Effect.fail(new CommandAlreadyRunningError({ repoPath }));
+        }
+        return Effect.sync(() => {
+          calls.push({ repoPath, request });
+          return makeCommandResult(repoPath, request.command);
+        });
+      },
+      interrupt: () => Effect.succeed({ interrupted: true }),
+      interruptAll: () => Effect.succeed(0),
+      isRunning: () => Effect.succeed(attempts === 1),
+    };
+    const runtime = ManagedRuntime.make(
+      makeRepoServiceTestLayer(fixtureRepo, calls, appData, false, undefined, runnerService),
+    );
+
+    try {
+      const result = await runtime.runPromise(
+        Effect.gen(function* () {
+          const service = yield* RepoService;
+          return yield* service.runCommand("repo-fixture", { command: "review", limit: 1 });
+        }),
+      );
+
+      expect(result).toMatchObject({ cwd: fixtureRepo, args: ["review"] });
+      expect(attempts).toBe(2);
+      expect(calls).toEqual([{ repoPath: fixtureRepo, request: { command: "review", limit: 1 } }]);
     } finally {
       await runtime.dispose();
     }

@@ -2776,8 +2776,16 @@ button.table-row:hover:not(:disabled) {
 
 .empty-state {
   color: var(--muted);
+  display: grid;
+  gap: 8px;
   font-size: 12px;
   padding: 20px;
+}
+
+.empty-state-detail {
+  color: var(--text);
+  line-height: 1.45;
+  max-width: 58ch;
 }
 
 @media (max-width: 1160px) {
