@@ -884,7 +884,7 @@ describe("ClawpatchApp header actions", () => {
         featureId: "feat-auth",
       }),
     );
-    await screen.findByText("Reviewed Authentication: 0 findings");
+    expect(screen.queryByText("Reviewed Authentication: 0 findings")).not.toBeInTheDocument();
     const authenticationRow = await screen
       .findByText("Authentication")
       .then((element) => element.closest('[role="row"]'));
@@ -893,17 +893,16 @@ describe("ClawpatchApp header actions", () => {
     expect(
       within(authenticationRow as HTMLElement).getByRole("button", { name: "Reviewed" }),
     ).toBeDisabled();
+    expect(within(authenticationRow as HTMLElement).getByText("0 findings")).toHaveClass(
+      "review-action-state-reviewed",
+    );
     expect(screen.getByRole("tab", { name: /^Review Queue/ })).toHaveAttribute(
       "aria-selected",
       "true",
     );
 
     fireEvent.click(screen.getByRole("tab", { name: "Findings" }));
-    expect(
-      await screen.findByText(
-        "Authentication was reviewed and produced 0 findings. Clawpatch marks that map item reviewed and records the run in .clawpatch/runs.",
-      ),
-    ).toBeInTheDocument();
+    expect(screen.queryByText(/produced 0 findings/)).not.toBeInTheDocument();
   });
 
   it("queues individual review row clicks while another review is running", async () => {
@@ -934,18 +933,13 @@ describe("ClawpatchApp header actions", () => {
         featureId: "feat-auth",
       }),
     );
-    expect(screen.getByRole("status", { name: "Active task" })).toHaveTextContent(
-      "Reviewing Authentication",
-    );
+    expect(screen.queryByRole("status", { name: "Active task" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Running" })).toBeDisabled();
     expect(screen.getByText("Running")).toHaveClass("review-action-state-running");
     expect(screen.getByRole("button", { name: "Review Billing" })).not.toBeDisabled();
 
     fireEvent.click(screen.getByRole("button", { name: "Review Billing" }));
-    expect(screen.getByRole("status", { name: "Active task" })).toHaveTextContent(
-      "Reviewing Authentication",
-    );
-    expect(screen.getByRole("status", { name: "Active task" })).toHaveTextContent("1 queued");
+    expect(screen.queryByRole("status", { name: "Active task" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Queued" })).toBeDisabled();
     expect(screen.getByText("Queued")).toHaveClass("review-action-state-queued");
     expect(run).toHaveBeenCalledTimes(1);
@@ -962,9 +956,8 @@ describe("ClawpatchApp header actions", () => {
     );
     expect(run).toHaveBeenCalledTimes(2);
     expect(repoList).toHaveBeenCalledTimes(1);
-    expect(screen.getByRole("status", { name: "Active task" })).toHaveTextContent(
-      "Reviewing Billing",
-    );
+    expect(screen.queryByRole("status", { name: "Active task" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Running" })).toBeDisabled();
 
     act(() => {
       resolvers.get("feat-billing")?.(makeCommandResult("review"));
@@ -972,13 +965,13 @@ describe("ClawpatchApp header actions", () => {
     await waitFor(() => expect(repoList).toHaveBeenCalledTimes(2));
   });
 
-  it("shows bulk review task feedback without changing durable feature status", async () => {
-    let resolveReview: ((result: CommandResult) => void) | null = null;
+  it("shows bulk review progress on queued and running rows", async () => {
+    const resolvers = new Map<string, (result: CommandResult) => void>();
     const run = vi.fn<Api["commands"]["run"]>(
       (_repoId, request) =>
         new Promise<CommandResult>((resolve) => {
-          if (request.command === "review") {
-            resolveReview = resolve;
+          if (request.command === "review" && request.featureId !== undefined) {
+            resolvers.set(request.featureId, resolve);
           } else {
             resolve(makeCommandResult(request.command));
           }
@@ -995,18 +988,35 @@ describe("ClawpatchApp header actions", () => {
     );
 
     await waitFor(() =>
-      expect(run).toHaveBeenCalledWith("repo-auth", { command: "review", limit: 2 }),
+      expect(run).toHaveBeenCalledWith("repo-auth", {
+        command: "review",
+        featureId: "feat-auth",
+      }),
     );
-    expect(screen.getByRole("status", { name: "Active task" })).toHaveTextContent(
-      "Reviewing pending features",
+    expect(run).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("status", { name: "Active task" })).not.toBeInTheDocument();
+    const authenticationRow = screen.getByText("Authentication").closest('[role="row"]');
+    const billingRow = screen.getByText("Billing").closest('[role="row"]');
+    expect(authenticationRow).not.toBeNull();
+    expect(billingRow).not.toBeNull();
+    expect(authenticationRow).toHaveClass("review-row-running");
+    expect(billingRow).toHaveClass("review-row-queued");
+    expect(within(authenticationRow as HTMLElement).getByText("reviewing")).toHaveClass(
+      "feature-status",
     );
-    expect(screen.getByText("pending")).toHaveClass("feature-status", "pending");
-    expect(screen.getByText("error")).toHaveClass("feature-status", "error");
+    expect(within(billingRow as HTMLElement).getByText("queued")).toHaveClass("feature-status");
     expect(screen.queryByRole("complementary", { name: "Command output" })).not.toBeInTheDocument();
 
     act(() => {
-      resolveReview?.(makeCommandResult("review"));
+      resolvers.get("feat-auth")?.(makeCommandResult("review"));
     });
+    await waitFor(() =>
+      expect(run).toHaveBeenCalledWith("repo-auth", {
+        command: "review",
+        featureId: "feat-billing",
+      }),
+    );
+    expect(run).toHaveBeenCalledTimes(2);
   });
 
   it("retains only the latest command stream entries", async () => {

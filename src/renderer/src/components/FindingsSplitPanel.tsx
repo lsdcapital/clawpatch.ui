@@ -20,7 +20,6 @@ const KEYBOARD_STEP = 2;
 interface Props {
   findings: readonly FindingListItem[];
   totalFindingCount: number;
-  reviewCompletionMessage: string | null;
   selectedFindingId: string | null;
   isFindingsLoading: boolean;
   filters: FindingFilters;
@@ -54,7 +53,6 @@ interface Props {
 export function FindingsSplitPanel({
   findings,
   totalFindingCount,
-  reviewCompletionMessage,
   selectedFindingId,
   isFindingsLoading,
   filters,
@@ -152,7 +150,6 @@ export function FindingsSplitPanel({
       <FindingsTable
         findings={findings}
         totalFindingCount={totalFindingCount}
-        reviewCompletionMessage={reviewCompletionMessage}
         selectedFindingId={selectedFindingId}
         isLoading={isFindingsLoading}
         filters={filters}

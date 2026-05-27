@@ -30,7 +30,6 @@ interface Props {
   queuedReviewFeatureIds: readonly string[];
   lastReviewCompletion: ReviewCompletionSummary | null;
   onReviewFeature: (featureId: string, options: ReviewRunOptions) => void;
-  onReviewPending: (options: ReviewRunOptions) => void;
   onUpdateMap: () => void;
 }
 
@@ -49,7 +48,6 @@ export function ReviewMapPanel({
   queuedReviewFeatureIds,
   lastReviewCompletion,
   onReviewFeature,
-  onReviewPending,
   onUpdateMap,
 }: Props) {
   const [expandedFeatureIds, setExpandedFeatureIds] = useState<ReadonlySet<string>>(
@@ -81,12 +79,14 @@ export function ReviewMapPanel({
   );
   const filtersActive = isReviewQueueFiltersActive(filters);
   const pendingCount = snapshot?.coverage.pendingReviewCount ?? 0;
+  const pendingReviewFeatureIds = snapshot?.coverage.pendingReviewFeatureIds ?? [];
   const totalCount = snapshot?.coverage.totalFeatures ?? 0;
   const actionableCount = useMemo(() => features.filter(isActionableReviewItem).length, [features]);
   const noActionCount = useMemo(() => features.filter(isNoActionReviewItem).length, [features]);
   const parsedReviewLimit = parsePositiveInteger(reviewLimit);
   const hasInvalidReviewLimit = reviewLimit.trim() !== "" && parsedReviewLimit === null;
-  const effectiveReviewLimit = parsedReviewLimit ?? pendingCount;
+  const effectiveReviewLimit = parsedReviewLimit ?? pendingReviewFeatureIds.length;
+  const bulkReviewFeatureIds = pendingReviewFeatureIds.slice(0, effectiveReviewLimit);
   const statusLabel = isLoading
     ? "Loading"
     : `${actionableCount} actionable of ${totalCount} map items`;
@@ -116,6 +116,12 @@ export function ReviewMapPanel({
     ...(includeDirty ? { includeDirty: true } : {}),
     ...(reviewGuidance.trim() !== "" ? { promptText: reviewGuidance.trim() } : {}),
   });
+  const reviewPendingFeatures = (): void => {
+    const options = reviewOptions();
+    for (const featureId of bulkReviewFeatureIds) {
+      onReviewFeature(featureId, options);
+    }
+  };
 
   return (
     <section className="panel review-queue-panel">
@@ -132,10 +138,10 @@ export function ReviewMapPanel({
             onClick={onUpdateMap}
           />
           <ActionIconButton
-            disabled={isBusy || pendingCount === 0 || hasInvalidReviewLimit}
+            disabled={isBusy || bulkReviewFeatureIds.length === 0 || hasInvalidReviewLimit}
             icon={<ListChecksIcon aria-hidden="true" />}
             label={`Review all ${pendingCount} mapped features pending review`}
-            onClick={() => onReviewPending(reviewOptions(effectiveReviewLimit))}
+            onClick={reviewPendingFeatures}
             title="Review mapped features"
           />
         </div>
@@ -230,7 +236,6 @@ export function ReviewMapPanel({
         </div>
         <div className="review-queue-summary-row">
           <span>{countLabel}</span>
-          <ReviewCompletionNotice completion={lastReviewCompletion} features={features} />
           {filtersActive ? (
             <div className="filter-chips" aria-label="Active review queue filters">
               {filters.search.trim() !== "" ? (
@@ -280,55 +285,6 @@ export function ReviewMapPanel({
       )}
     </section>
   );
-}
-
-function ReviewCompletionNotice({
-  completion,
-  features,
-}: {
-  completion: ReviewCompletionSummary | null;
-  features: readonly FeatureMapItem[];
-}) {
-  if (completion === null) {
-    return null;
-  }
-
-  const label =
-    completion.kind === "feature"
-      ? reviewFeatureCompletionLabel(completion, features)
-      : reviewBatchCompletionLabel(completion);
-  return (
-    <span className="review-completion-note" role="status" aria-live="polite">
-      {label}
-    </span>
-  );
-}
-
-function reviewFeatureCompletionLabel(
-  completion: Extract<ReviewCompletionSummary, { kind: "feature" }>,
-  features: readonly FeatureMapItem[],
-): string {
-  const feature = features.find((item) => item.featureId === completion.featureId);
-  const title = feature?.title ?? completion.featureId;
-  const findingCount = feature?.findingCount ?? completion.findingCount;
-  return findingCount === null
-    ? `Reviewed ${title}`
-    : `Reviewed ${title}: ${findingCountLabel(findingCount)}`;
-}
-
-function reviewBatchCompletionLabel(
-  completion: Extract<ReviewCompletionSummary, { kind: "batch" }>,
-): string {
-  if (completion.findingCount !== null) {
-    return `Review completed: ${findingCountLabel(completion.findingCount)}`;
-  }
-  if (completion.reviewedFeatureCount !== null) {
-    return `Reviewed ${completion.reviewedFeatureCount} ${plural(
-      "feature",
-      completion.reviewedFeatureCount,
-    )}`;
-  }
-  return "Review completed";
 }
 
 function findingCountLabel(count: number): string {
