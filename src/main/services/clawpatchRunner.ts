@@ -1,4 +1,7 @@
 import { randomUUID } from "node:crypto";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -19,7 +22,17 @@ import { childLogger } from "../logger";
 
 const clawpatchLogger = childLogger("clawpatch");
 
-const commandNames = new Set(["status", "map", "review", "triage", "fix", "revalidate", "doctor"]);
+const commandNames = new Set([
+  "init",
+  "status",
+  "map",
+  "review",
+  "triage",
+  "fix",
+  "revalidate",
+  "open-pr",
+  "doctor",
+]);
 
 export type ClawpatchRunnerError =
   | CommandValidationError
@@ -54,12 +67,22 @@ export const makeClawpatchRunnerLayer = () =>
             return yield* new CommandAlreadyRunningError({ repoPath });
           }
 
-          const args = yield* Effect.try({
-            try: () => buildClawpatchArgs(request),
+          const promptFile = yield* Effect.try({
+            try: () => createReviewPromptFile(request),
             catch: (error) =>
               new CommandValidationError({
                 message: error instanceof Error ? error.message : String(error),
               }),
+          });
+
+          const args = yield* Effect.try({
+            try: () => buildClawpatchArgs(request, { promptFilePath: promptFile?.filePath }),
+            catch: (error) => {
+              cleanupReviewPromptFile(promptFile);
+              return new CommandValidationError({
+                message: error instanceof Error ? error.message : String(error),
+              });
+            },
           });
           const runId = randomUUID();
           const started = Date.now();
@@ -86,7 +109,12 @@ export const makeClawpatchRunnerLayer = () =>
               }),
             ),
             Effect.mapError((cause) => new CommandSpawnError({ repoPath, cause })),
-            Effect.ensuring(Effect.sync(() => activeCommands.delete(repoPath))),
+            Effect.ensuring(
+              Effect.sync(() => {
+                activeCommands.delete(repoPath);
+                cleanupReviewPromptFile(promptFile);
+              }),
+            ),
           );
         }),
         interrupt: Effect.fn("clawpatch.runner.interrupt")(function* (repoPath) {
@@ -115,7 +143,10 @@ export function isClawpatchStatus(value: string): value is ClawpatchStatus {
   return (clawpatchStatuses as readonly string[]).includes(value);
 }
 
-export function buildClawpatchArgs(request: ClawpatchCommandRequest): string[] {
+export function buildClawpatchArgs(
+  request: ClawpatchCommandRequest,
+  options: { readonly promptFilePath?: string } = {},
+): string[] {
   if (!commandNames.has(request.command)) {
     throw new Error("Unsupported Clawpatch command");
   }
@@ -123,6 +154,7 @@ export function buildClawpatchArgs(request: ClawpatchCommandRequest): string[] {
   const args = ["--json", "--no-color", "--no-input", request.command];
 
   switch (request.command) {
+    case "init":
     case "status":
     case "map":
     case "doctor":
@@ -136,6 +168,19 @@ export function buildClawpatchArgs(request: ClawpatchCommandRequest): string[] {
       if (request.limit !== undefined) {
         assertLimit(request.limit);
         reviewArgs.push("--limit", String(Math.floor(request.limit)));
+      }
+      if (request.since !== undefined && request.since.trim() !== "") {
+        assertSafeArgument(request.since, "since");
+        reviewArgs.push("--since", request.since);
+      }
+      if (request.includeDirty === true) {
+        reviewArgs.push("--include-dirty");
+      }
+      if (request.promptText !== undefined && request.promptText.trim() !== "") {
+        if (options.promptFilePath === undefined) {
+          throw new Error("Review guidance requires a prompt file");
+        }
+        reviewArgs.push("--prompt-file", options.promptFilePath);
       }
       return reviewArgs;
     }
@@ -154,6 +199,14 @@ export function buildClawpatchArgs(request: ClawpatchCommandRequest): string[] {
     case "revalidate":
       assertFindingId(request.findingId);
       return [...args, "--finding", request.findingId];
+    case "open-pr": {
+      assertClawpatchId(request.patchAttemptId, "patchAttemptId");
+      const openPrArgs = [...args, "--patch", request.patchAttemptId];
+      if (request.draft === true) {
+        openPrArgs.push("--draft");
+      }
+      return openPrArgs;
+    }
   }
 }
 
@@ -280,10 +333,47 @@ function assertClawpatchId(id: string, field: string): void {
   }
 }
 
+function assertSafeArgument(value: string, field: string): void {
+  if (value.includes("\0") || value.includes("\r") || value.includes("\n")) {
+    throw new Error(`Invalid ${field}`);
+  }
+}
+
 function assertLimit(limit: number): void {
   if (!Number.isFinite(limit) || limit < 1 || Math.floor(limit) !== limit) {
     throw new Error("Invalid review limit");
   }
+}
+
+function createReviewPromptFile(
+  request: ClawpatchCommandRequest,
+): { readonly dirPath: string; readonly filePath: string } | null {
+  if (request.command !== "review" || request.promptText === undefined) {
+    return null;
+  }
+  const promptText = request.promptText.trim();
+  if (promptText === "") {
+    return null;
+  }
+
+  const dirPath = mkdtempSync(join(tmpdir(), "clawpatch-review-"));
+  const filePath = join(dirPath, "guidance.md");
+  try {
+    writeFileSync(filePath, `${promptText}\n`, { encoding: "utf8", mode: 0o600 });
+    return { dirPath, filePath };
+  } catch (error) {
+    cleanupReviewPromptFile({ dirPath, filePath });
+    throw error;
+  }
+}
+
+function cleanupReviewPromptFile(
+  promptFile: { readonly dirPath: string; readonly filePath: string } | null,
+): void {
+  if (promptFile === null) {
+    return;
+  }
+  rmSync(promptFile.dirPath, { recursive: true, force: true });
 }
 
 function parseJsonOutput(stdout: string): unknown | null {

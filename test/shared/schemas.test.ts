@@ -8,6 +8,7 @@ import {
   ClawpatchStateTrackingSchema,
   CommandResultSchema,
   CommandStreamEventSchema,
+  PatchOpenPrResultSchema,
   UiMetadataSchema,
   RepoSettingsSchema,
 } from "../../src/shared/schemas";
@@ -45,6 +46,34 @@ describe("shared schemas", () => {
       findingId: "f1",
       status: "open",
       note: "prefer the smaller patch",
+    };
+
+    expect(Schema.decodeUnknownSync(ClawpatchCommandRequestSchema)(request)).toEqual(request);
+  });
+
+  it("decodes setup and scoped review command requests", () => {
+    const initRequest = { command: "init" };
+    const reviewRequest = {
+      command: "review",
+      limit: 3,
+      since: "origin/main",
+      includeDirty: true,
+      promptText: "Focus on parser boundaries.",
+    };
+
+    expect(Schema.decodeUnknownSync(ClawpatchCommandRequestSchema)(initRequest)).toEqual(
+      initRequest,
+    );
+    expect(Schema.decodeUnknownSync(ClawpatchCommandRequestSchema)(reviewRequest)).toEqual(
+      reviewRequest,
+    );
+  });
+
+  it("decodes open-pr command requests", () => {
+    const request = {
+      command: "open-pr",
+      patchAttemptId: "pat-1",
+      draft: true,
     };
 
     expect(Schema.decodeUnknownSync(ClawpatchCommandRequestSchema)(request)).toEqual(request);
@@ -156,6 +185,27 @@ describe("shared schemas", () => {
     };
 
     expect(Schema.decodeUnknownSync(CommandResultSchema)(result)).toEqual(result);
+  });
+
+  it("decodes patch PR open results with command output", () => {
+    const result = {
+      worktreePath: "/tmp/worktree",
+      patchAttemptId: "pat-1",
+      commandResult: {
+        runId: "run-open-pr",
+        command: "clawpatch",
+        args: ["open-pr", "--patch", "pat-1"],
+        cwd: "/tmp/worktree",
+        exitCode: 0,
+        durationMs: 10,
+        stdout: "{}",
+        stderr: "",
+        parsedJson: {},
+      },
+      prUrl: "https://github.com/acme/repo/pull/42",
+    };
+
+    expect(Schema.decodeUnknownSync(PatchOpenPrResultSchema)(result)).toEqual(result);
   });
 
   it("rejects invalid command stream event stream literals", () => {

@@ -14,7 +14,7 @@ import type {
   FindingWorkStatus,
   PatchAttempt,
   PatchCommandRun,
-  PublishFixResult,
+  PatchOpenPrResult,
 } from "../../../shared/types";
 import { clawpatchStatuses } from "../../../shared/types";
 import {
@@ -34,14 +34,15 @@ interface Props {
   isBusy: boolean;
   commandStateLabel?: string;
   fixDisabledReason: string | null;
-  canPublishFix: boolean;
-  publishFixResult: PublishFixResult | null;
-  publishFixError: Error | null;
+  canOpenPr: boolean;
+  openPrDisabledReason: string | null;
+  openPrResult: PatchOpenPrResult | null;
+  openPrError: Error | null;
   triageError: string | null;
   onTriage: (status: ClawpatchStatus, note: string) => void;
   onFix: (status: ClawpatchStatus, note: string) => void;
   onRevalidate: () => void;
-  onPublishFix: () => void;
+  onOpenPr: () => void;
   onInterrupt?: () => void;
   onOpenDiffFile?: (filePath: string) => void;
   filesInDiff?: ReadonlySet<string>;
@@ -54,14 +55,15 @@ export function FindingDetailPanel({
   isBusy,
   commandStateLabel,
   fixDisabledReason,
-  canPublishFix,
-  publishFixResult,
-  publishFixError,
+  canOpenPr,
+  openPrDisabledReason,
+  openPrResult,
+  openPrError,
   triageError,
   onTriage,
   onFix,
   onRevalidate,
-  onPublishFix,
+  onOpenPr,
   onInterrupt,
   onOpenDiffFile,
   filesInDiff,
@@ -140,12 +142,16 @@ export function FindingDetailPanel({
             label="Revalidate"
             onClick={onRevalidate}
           />
-          {canPublishFix ? (
+          {canOpenPr || openPrDisabledReason !== null ? (
             <ActionIconButton
-              disabled={isBusy}
+              aria-describedby={
+                openPrDisabledReason !== null ? "open-pr-disabled-reason" : undefined
+              }
+              disabled={isBusy || !canOpenPr}
               icon={<GitPullRequestIcon aria-hidden="true" />}
-              label="Publish PR"
-              onClick={onPublishFix}
+              label="Open PR"
+              onClick={onOpenPr}
+              title={openPrDisabledReason ?? "Open PR"}
             />
           ) : null}
           {isBusy && onInterrupt !== undefined ? (
@@ -168,16 +174,28 @@ export function FindingDetailPanel({
             {fixDisabledReason}
           </span>
         ) : null}
-        {publishFixError !== null ? (
-          <p className="detail-action-message error">{publishFixError.message}</p>
+        {openPrDisabledReason !== null ? (
+          <span className="detail-action-reason" id="open-pr-disabled-reason">
+            {openPrDisabledReason}
+          </span>
+        ) : null}
+        {openPrError !== null ? (
+          <p className="detail-action-message error">{openPrError.message}</p>
         ) : null}
         {triageError !== null ? <p className="detail-action-message error">{triageError}</p> : null}
-        {publishFixResult !== null ? (
+        {openPrResult !== null ? (
           <p className="detail-action-message success">
-            PR draft opened for {publishFixResult.branchName}.{" "}
-            <a href={publishFixResult.prUrl} rel="noreferrer" target="_blank">
-              Open PR
-            </a>
+            Open PR completed for {openPrResult.patchAttemptId}
+            {openPrResult.prUrl !== null ? (
+              <>
+                .{" "}
+                <a href={openPrResult.prUrl} rel="noreferrer" target="_blank">
+                  Open PR
+                </a>
+              </>
+            ) : (
+              "."
+            )}
           </p>
         ) : null}
       </div>

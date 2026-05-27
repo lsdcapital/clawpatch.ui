@@ -13,7 +13,7 @@ import {
   FindingListSchema,
   FindingWorkStatusListSchema,
   GitStatusSummarySchema,
-  PublishFixResultSchema,
+  PatchOpenPrResultSchema,
   RepoSettingsSchema,
   RepoListSchema,
   RepoSnapshotSchema,
@@ -34,8 +34,8 @@ import {
   FINDINGS_LIST_CHANNEL,
   FINDINGS_WORK_STATUSES_CHANNEL,
   GIT_DIFF_CHANNEL,
-  GIT_PUBLISH_FIX_CHANNEL,
   GIT_STATUS_CHANNEL,
+  PATCHES_OPEN_PR_CHANNEL,
   REPO_ADD_CHANNEL,
   REPO_DOCTOR_CHANNEL,
   REPO_GET_CONFIG_CHANNEL,
@@ -251,18 +251,24 @@ export const installIpcHandlers = (publishCommandStream: (event: CommandStreamEv
     );
     yield* ipc.handle(
       makeIpcMethod({
-        channel: GIT_PUBLISH_FIX_CHANNEL,
+        channel: PATCHES_OPEN_PR_CHANNEL,
         payload: FindingPayload,
-        result: PublishFixResultSchema,
+        result: PatchOpenPrResultSchema,
         handler: ({ repoId, findingId }) =>
-          repos.publishFix(repoId, findingId).pipe(
-            Effect.tap((result) =>
-              Effect.tryPromise({
-                try: () => shell.openExternal(result.prUrl),
-                catch: (cause) => new CommandSpawnError({ repoPath: result.worktreePath, cause }),
+          repos
+            .openPrForFinding(repoId, findingId, (event) => publishCommandStream(event))
+            .pipe(
+              Effect.tap((result) => {
+                const prUrl = result.prUrl;
+                return prUrl === null
+                  ? Effect.void
+                  : Effect.tryPromise({
+                      try: () => shell.openExternal(prUrl),
+                      catch: (cause) =>
+                        new CommandSpawnError({ repoPath: result.worktreePath, cause }),
+                    });
               }),
             ),
-          ),
       }),
     );
     yield* ipc.handle(

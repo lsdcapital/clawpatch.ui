@@ -680,6 +680,38 @@ describe("ClawpatchApp header actions", () => {
     expect(screen.queryByRole("button", { name: "Review next" })).not.toBeInTheDocument();
   });
 
+  it("shows guided setup for repos without Clawpatch state and runs setup commands with output", async () => {
+    const run = vi.fn<Api["commands"]["run"]>(async (_repoId, request) =>
+      makeCommandResult(request.command),
+    );
+    window.clawpatch = makeApi(run, {
+      repoList: async () => [
+        makeRepo({
+          hasClawpatch: false,
+          isValid: false,
+          lastError: "No .clawpatch state found",
+        }),
+      ],
+    });
+
+    renderApp();
+
+    await screen.findByRole("heading", { name: "Set up auth" });
+    expect(screen.queryByText("No .clawpatch state found")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Initialize" }));
+    await waitFor(() => expect(run).toHaveBeenCalledWith("repo-auth", { command: "init" }));
+
+    fireEvent.click(screen.getByRole("button", { name: "Map application" }));
+    await waitFor(() => expect(run).toHaveBeenCalledWith("repo-auth", { command: "map" }));
+
+    fireEvent.click(screen.getByRole("button", { name: "Generate findings" }));
+    await waitFor(() =>
+      expect(run).toHaveBeenCalledWith("repo-auth", { command: "review", limit: 10 }),
+    );
+    expect(screen.getByRole("complementary", { name: "Command output" })).toBeInTheDocument();
+  });
+
   it("uses one shared inspector for output and diff only", async () => {
     const run = vi.fn<Api["commands"]["run"]>(async (_repoId, request) =>
       makeCommandResult(request.command),
@@ -1896,23 +1928,21 @@ describe("ClawpatchApp header actions", () => {
     expect(screen.getByRole("link", { name: "Open PR" })).toHaveAttribute("href", prUrl);
   });
 
-  it("shows Publish PR for findings with managed worktrees and opens the PR result", async () => {
-    const finding = makeFixFinding();
+  it("shows Open PR for findings with managed worktrees and patch attempts", async () => {
+    const finding = { ...makeFixFinding(), linkedPatchAttemptIds: ["pat-1"] };
     const worktreePath = "/tmp/clawpatch-ui/worktrees/repo-auth/fnd-bug";
-    const publishFix = vi.fn<Api["git"]["publishFix"]>(async () => ({
+    const openPr = vi.fn<Api["patches"]["openPr"]>(async () => ({
       worktreePath,
-      branchName: "clawpatch/fix/fnd-bug",
-      baseBranch: "main",
-      commitSha: "abc123",
-      remoteName: "origin",
-      prUrl: "https://github.com/acme/repo/compare/main...clawpatch/fix/fnd-bug?expand=1",
+      patchAttemptId: "pat-1",
+      commandResult: makeCommandResult("open-pr"),
+      prUrl: "https://github.com/acme/repo/pull/42",
     }));
     window.clawpatch = makeApi(
       vi.fn<Api["commands"]["run"]>(async () => makeCommandResult("map")),
       {
         findings: [finding],
         findingDetail: finding,
-        publishFix,
+        openPr,
         repoList: async () => [
           makeRepo({
             activeWorktreePath: worktreePath,
@@ -1925,25 +1955,21 @@ describe("ClawpatchApp header actions", () => {
     renderApp();
 
     await screen.findByRole("heading", { name: "Null branch can throw" });
-    fireEvent.click(screen.getByRole("button", { name: "Publish PR" }));
+    fireEvent.click(screen.getByRole("button", { name: "Open PR" }));
 
-    await screen.findByText(/PR draft opened for/);
-    expect(publishFix).toHaveBeenCalledWith("repo-auth", "fnd-bug");
+    await screen.findByText(/Open PR completed for pat-1/);
+    expect(openPr).toHaveBeenCalledWith("repo-auth", "fnd-bug");
     expect(await screen.findByLabelText("Work status: PR")).toBeInTheDocument();
     expect(
       screen
         .getAllByRole("link", { name: "Open PR" })
-        .some(
-          (link) =>
-            link.getAttribute("href") ===
-            "https://github.com/acme/repo/compare/main...clawpatch/fix/fnd-bug?expand=1",
-        ),
+        .some((link) => link.getAttribute("href") === "https://github.com/acme/repo/pull/42"),
     ).toBe(true);
   });
 
-  it("disables Publish PR while a finding command is running", async () => {
+  it("disables Open PR while a finding command is running", async () => {
     let resolveRun: ((result: CommandResult) => void) | undefined;
-    const finding = makeFixFinding();
+    const finding = { ...makeFixFinding(), linkedPatchAttemptIds: ["pat-1"] };
     const worktreePath = "/tmp/clawpatch-ui/worktrees/repo-auth/fnd-bug";
     window.clawpatch = makeApi(
       vi.fn<Api["commands"]["run"]>(
@@ -1969,21 +1995,21 @@ describe("ClawpatchApp header actions", () => {
     await screen.findByRole("heading", { name: "Null branch can throw" });
     fireEvent.click(screen.getByRole("button", { name: "Run fix" }));
     await screen.findByText("fix running");
-    expect(screen.getByRole("button", { name: "Publish PR" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Open PR" })).toBeDisabled();
 
     resolveRun?.(makeCommandResult("fix"));
   });
 
-  it("renders Publish PR errors", async () => {
-    const finding = makeFixFinding();
+  it("renders Open PR errors", async () => {
+    const finding = { ...makeFixFinding(), linkedPatchAttemptIds: ["pat-1"] };
     const worktreePath = "/tmp/clawpatch-ui/worktrees/repo-auth/fnd-bug";
     window.clawpatch = makeApi(
       vi.fn<Api["commands"]["run"]>(async () => makeCommandResult("map")),
       {
         findings: [finding],
         findingDetail: finding,
-        publishFix: async () => {
-          throw new Error("Remote origin is required before publishing a PR.");
+        openPr: async () => {
+          throw new Error("clawpatch open-pr failed.");
         },
         repoList: async () => [
           makeRepo({
@@ -1997,11 +2023,9 @@ describe("ClawpatchApp header actions", () => {
     renderApp();
 
     await screen.findByRole("heading", { name: "Null branch can throw" });
-    fireEvent.click(screen.getByRole("button", { name: "Publish PR" }));
+    fireEvent.click(screen.getByRole("button", { name: "Open PR" }));
 
-    expect(
-      await screen.findByText("Remote origin is required before publishing a PR."),
-    ).toBeInTheDocument();
+    expect(await screen.findByText("clawpatch open-pr failed.")).toBeInTheDocument();
   });
 });
 
@@ -2044,7 +2068,7 @@ function makeApi(
     findingDetail?: FindingDetail;
     interrupt?: Api["commands"]["interrupt"];
     gitDiff?: Api["git"]["diff"];
-    publishFix?: Api["git"]["publishFix"];
+    openPr?: Api["patches"]["openPr"];
     gitStatus?: Api["git"]["status"];
     onStream?: Api["commands"]["onStream"];
     pickFolder?: Api["repo"]["pickFolder"];
@@ -2146,18 +2170,18 @@ function makeApi(
     },
     git: {
       diff: options.gitDiff ?? (async () => ""),
-      publishFix:
-        options.publishFix ??
-        (async () => ({
-          worktreePath: "/tmp/worktree",
-          branchName: "clawpatch/fix/fnd-bug",
-          baseBranch: "main",
-          commitSha: "abc123",
-          remoteName: "origin",
-          prUrl: "https://github.com/acme/repo/compare/main...clawpatch/fix/fnd-bug?expand=1",
-        })),
       status:
         options.gitStatus ?? (async () => ({ staged: 0, modified: 0, untracked: 0, branch: null })),
+    },
+    patches: {
+      openPr:
+        options.openPr ??
+        (async () => ({
+          worktreePath: "/tmp/worktree",
+          patchAttemptId: "pat-1",
+          commandResult: makeCommandResult("open-pr"),
+          prUrl: "https://github.com/acme/repo/pull/42",
+        })),
     },
     terminal: {
       open: options.terminalOpen ?? (async (_repoId, _findingId) => ({ cwd: "/tmp/auth" })),

@@ -16,6 +16,12 @@ const encoder = new TextEncoder();
 
 describe("buildClawpatchArgs", () => {
   it("builds allowed command args without shell input", () => {
+    expect(buildClawpatchArgs({ command: "init" })).toEqual([
+      "--json",
+      "--no-color",
+      "--no-input",
+      "init",
+    ]);
     expect(buildClawpatchArgs({ command: "status" })).toEqual([
       "--json",
       "--no-color",
@@ -50,6 +56,30 @@ describe("buildClawpatchArgs", () => {
       "--limit",
       "3",
     ]);
+    expect(
+      buildClawpatchArgs(
+        {
+          command: "review",
+          limit: 3,
+          since: "origin/main",
+          includeDirty: true,
+          promptText: "Focus on parser boundaries.",
+        },
+        { promptFilePath: "/tmp/guidance.md" },
+      ),
+    ).toEqual([
+      "--json",
+      "--no-color",
+      "--no-input",
+      "review",
+      "--limit",
+      "3",
+      "--since",
+      "origin/main",
+      "--include-dirty",
+      "--prompt-file",
+      "/tmp/guidance.md",
+    ]);
     expect(buildClawpatchArgs({ command: "fix", findingId: "abc123" })).toEqual([
       "--json",
       "--no-color",
@@ -74,6 +104,9 @@ describe("buildClawpatchArgs", () => {
       "--finding",
       "abc123",
     ]);
+    expect(
+      buildClawpatchArgs({ command: "open-pr", patchAttemptId: "pat-123", draft: true }),
+    ).toEqual(["--json", "--no-color", "--no-input", "open-pr", "--patch", "pat-123", "--draft"]);
   });
 
   it("builds native triage args with optional note", () => {
@@ -111,6 +144,12 @@ describe("buildClawpatchArgs", () => {
     expect(() => buildClawpatchArgs({ command: "revalidate", findingId: "abc\nreport" })).toThrow(
       "Invalid findingId",
     );
+    expect(() => buildClawpatchArgs({ command: "open-pr", patchAttemptId: "" })).toThrow(
+      "Missing patchAttemptId",
+    );
+    expect(() => buildClawpatchArgs({ command: "open-pr", patchAttemptId: "pat\nreport" })).toThrow(
+      "Invalid patchAttemptId",
+    );
   });
 
   it("rejects suspicious review feature ids and limits", () => {
@@ -126,6 +165,12 @@ describe("buildClawpatchArgs", () => {
     expect(() => buildClawpatchArgs({ command: "review", limit: 1.5 })).toThrow(
       "Invalid review limit",
     );
+    expect(() => buildClawpatchArgs({ command: "review", since: "main\nreport" })).toThrow(
+      "Invalid since",
+    );
+    expect(() =>
+      buildClawpatchArgs({ command: "review", promptText: "Focus on parser boundaries." }),
+    ).toThrow("Review guidance requires a prompt file");
   });
 
   it("rejects unsupported triage statuses", () => {

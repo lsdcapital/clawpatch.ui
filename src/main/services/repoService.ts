@@ -20,7 +20,7 @@ import type {
   FindingListItem,
   FindingWorkStatus,
   GitStatusSummary,
-  PublishFixResult,
+  PatchOpenPrResult,
   RepoSettings,
   RepoSnapshot,
   RepoSummary,
@@ -131,10 +131,11 @@ export interface RepoServiceShape {
     repoId: string,
     findingId?: string,
   ) => Effect.Effect<GitStatusSummary, RepoServiceError>;
-  readonly publishFix: (
+  readonly openPrForFinding: (
     repoId: string,
     findingId: string,
-  ) => Effect.Effect<PublishFixResult, RepoServiceError>;
+    onStream?: (event: CommandStreamEvent) => void,
+  ) => Effect.Effect<PatchOpenPrResult, RepoServiceError>;
   readonly openTerminal: (
     repoId: string,
     findingId?: string,
@@ -681,9 +682,10 @@ export const RepoServiceLive = (appDataDir: string) =>
         );
       });
 
-      const publishFixWorktree = Effect.fn("repoService.publishFixWorktree")(function* (
+      const openPrForFindingWorktree = Effect.fn("repoService.openPrForFindingWorktree")(function* (
         repo: Pick<RepoSummary, "id" | "path">,
         findingId: string,
+        onStream?: (event: CommandStreamEvent) => void,
       ) {
         const activeWorktreePath = yield* activeWorktreePathForFinding(
           repo.id,
@@ -692,27 +694,48 @@ export const RepoServiceLive = (appDataDir: string) =>
         );
         if (activeWorktreePath === null) {
           return yield* new CommandValidationError({
-            message: "Run fix before publishing a PR for this finding.",
+            message: "Run fix before opening a PR for this finding.",
           });
         }
 
-        const { branchName } = managedWorktreeForFinding(repo, findingId);
+        const patchAttemptId = yield* latestPatchAttemptIdForFinding(
+          state,
+          activeWorktreePath,
+          repo.path,
+          findingId,
+        );
+        if (patchAttemptId === null) {
+          return yield* new CommandValidationError({
+            message: "Run fix to create a Clawpatch patch before opening a PR.",
+          });
+        }
+
         return yield* runFindingCommandLocked(
           repo.id,
           findingId,
           activeWorktreePath,
           Effect.gen(function* () {
-            const [findingTitle, registeredStatus] = yield* Effect.all([
-              readFindingTitleForCommit(state, activeWorktreePath, repo.path, findingId),
-              git.readStatus(repo.path),
-            ]);
-            return yield* git.publishFix({
-              repoPath: repo.path,
+            const commandResult = yield* runCommandAtPath(
+              repo.id,
+              activeWorktreePath,
+              { command: "open-pr", patchAttemptId, draft: true },
+              onStream,
+              findingId,
+            );
+            if (commandResult.exitCode !== 0) {
+              return yield* new CommandExecutionError({
+                command: "open-pr",
+                exitCode: commandResult.exitCode,
+                stdout: commandResult.stdout,
+                stderr: commandResult.stderr,
+              });
+            }
+            return {
               worktreePath: activeWorktreePath,
-              branchName,
-              baseBranch: registeredStatus.branch,
-              commitMessage: `Fix ${sanitizeCommitSubject(findingTitle)}`,
-            });
+              patchAttemptId,
+              commandResult,
+              prUrl: prUrlFromOpenPrJson(commandResult.parsedJson),
+            };
           }),
         );
       });
@@ -1057,10 +1080,12 @@ export const RepoServiceLive = (appDataDir: string) =>
             (yield* activeWorktreePathForFinding(repo.id, repo.path, findingId)) ?? repo.path,
           );
         }),
-        publishFix: Effect.fn("repoService.publishFix")(function* (repoIdValue, findingId) {
-          const repo = yield* requireRepo(repoIdValue);
-          return yield* publishFixWorktree(repo, findingId);
-        }),
+        openPrForFinding: Effect.fn("repoService.openPrForFinding")(
+          function* (repoIdValue, findingId, onStream) {
+            const repo = yield* requireRepo(repoIdValue);
+            return yield* openPrForFindingWorktree(repo, findingId, onStream);
+          },
+        ),
         openTerminal: Effect.fn("repoService.openTerminal")(function* (repoIdValue, findingId) {
           const repo = yield* requireRepo(repoIdValue);
           const appSettingsValue = yield* appSettings.read();
@@ -1201,21 +1226,46 @@ function sanitizeWorktreeFragment(value: string): string {
   return sanitized.length > 0 ? sanitized : "finding";
 }
 
-function readFindingTitleForCommit(
+function latestPatchAttemptIdForFinding(
   state: ClawpatchStateServiceShape,
   worktreePath: string,
   repoPath: string,
   findingId: string,
-): Effect.Effect<string, never> {
+): Effect.Effect<string | null, never> {
   return state.readFindingDetail(worktreePath, findingId).pipe(
     Effect.catch(() => state.readFindingDetail(repoPath, findingId)),
-    Effect.map((finding) => finding.title),
-    Effect.catch(() => Effect.succeed(findingId)),
+    Effect.map((finding) => finding.patchAttempts[0]?.patchAttemptId ?? null),
+    Effect.catch(() => Effect.succeed(null)),
   );
 }
 
-function sanitizeCommitSubject(value: string): string {
-  return value.replaceAll(/\s+/g, " ").trim() || "finding";
+function prUrlFromOpenPrJson(value: unknown): string | null {
+  return findUrlInJson(value, new Set(["prUrl", "pullRequestUrl", "htmlUrl", "url"]));
+}
+
+function findUrlInJson(value: unknown, keys: ReadonlySet<string>): string | null {
+  if (typeof value !== "object" || value === null) {
+    return null;
+  }
+
+  const record = value as Record<string, unknown>;
+  for (const key of keys) {
+    const candidate = record[key];
+    if (typeof candidate === "string" && isHttpUrl(candidate)) {
+      return candidate;
+    }
+  }
+  for (const candidate of Object.values(record)) {
+    const nested = findUrlInJson(candidate, keys);
+    if (nested !== null) {
+      return nested;
+    }
+  }
+  return null;
+}
+
+function isHttpUrl(value: string): boolean {
+  return value.startsWith("https://") || value.startsWith("http://");
 }
 
 function errorMessage(error: unknown): string {

@@ -10,6 +10,7 @@ import { ReviewMapPanel } from "../components/ReviewMapPanel";
 import { TaskStrip } from "../components/TaskStrip";
 import { WorkspaceHeader } from "../components/WorkspaceHeader";
 import { WorkspaceInspector } from "../components/WorkspaceInspector";
+import { WorkflowSetupPanel } from "../components/WorkflowSetupPanel";
 import { useCommandRunner } from "../hooks/useCommandRunner";
 import { useDiffInspector } from "../hooks/useDiffInspector";
 import { useFindingsWorkspace } from "../hooks/useFindingsWorkspace";
@@ -20,10 +21,11 @@ import type {
   AppSettings,
   ClawpatchConfig,
   FindingWorkStatus,
-  PublishFixResult,
+  PatchOpenPrResult,
   RepoSettings,
 } from "../../../shared/types";
 import type { ActiveInspector, ActiveWorkspace } from "../workspaceTypes";
+import type { ReviewRunOptions } from "../components/ReviewMapPanel";
 
 const REPO_SIDEBAR_ID = "repo-sidebar";
 
@@ -31,9 +33,9 @@ export function ClawpatchApp() {
   const queryClient = useQueryClient();
   const [activeWorkspace, setActiveWorkspace] = useState<ActiveWorkspace>("findings");
   const [activeInspector, setActiveInspector] = useState<ActiveInspector>(null);
-  const [publishedFix, setPublishedFix] = useState<{
+  const [openedPr, setOpenedPr] = useState<{
     readonly findingId: string;
-    readonly result: PublishFixResult;
+    readonly result: PatchOpenPrResult;
   } | null>(null);
   const [terminalError, setTerminalError] = useState<string | null>(null);
   const [settingsSection, setSettingsSection] = useState<SettingsSection | null>(null);
@@ -44,13 +46,14 @@ export function ClawpatchApp() {
     queryFn: () => window.clawpatch.repo.list(),
   });
   const { selectedRepo, selectRepo } = useSelectedRepo(reposQuery.data);
+  const stateRepo = selectedRepo?.hasClawpatch === true ? selectedRepo : null;
   const settingsRepo =
     settingsSection?.kind === "repo"
       ? (reposQuery.data?.find((repo) => repo.id === settingsSection.repoId) ?? null)
       : null;
   const settingsDoctorRepo = settingsSection?.kind === "general" ? selectedRepo : null;
 
-  const findingsWorkspace = useFindingsWorkspace({ selectedRepo });
+  const findingsWorkspace = useFindingsWorkspace({ selectedRepo: stateRepo });
   const selectedFinding = findingsWorkspace.selectedFinding;
 
   const openDiff = useCallback((): void => setActiveInspector("diff"), []);
@@ -59,7 +62,7 @@ export function ClawpatchApp() {
   };
 
   const diffInspector = useDiffInspector({
-    selectedRepo,
+    selectedRepo: stateRepo,
     selectedFinding,
     onOpenDiff: openDiff,
   });
@@ -71,9 +74,9 @@ export function ClawpatchApp() {
   const { runCommand } = commandRunner;
 
   const featureMapQuery = useQuery({
-    queryKey: clawpatchQueryKeys.features(selectedRepo?.id),
-    queryFn: () => window.clawpatch.features.map(selectedRepo!.id),
-    enabled: selectedRepo !== null,
+    queryKey: clawpatchQueryKeys.features(stateRepo?.id),
+    queryFn: () => window.clawpatch.features.map(stateRepo!.id),
+    enabled: stateRepo !== null,
   });
   const reviewQueueUnreviewedCount = featureMapQuery.data?.coverage.pendingReviewCount ?? 0;
   const activeReviewTask = reviewTaskState({
@@ -83,14 +86,20 @@ export function ClawpatchApp() {
     snapshot: featureMapQuery.data ?? null,
   });
 
-  const publishFixMutation = useMutation({
+  const openPrMutation = useMutation({
     mutationFn: ({ repoId, findingId }: { repoId: string; findingId: string }) =>
-      window.clawpatch.git.publishFix(repoId, findingId),
+      window.clawpatch.patches.openPr(repoId, findingId),
     onMutate: ({ findingId }) => {
-      setPublishedFix((current) => (current?.findingId === findingId ? null : current));
+      setOpenedPr((current) => (current?.findingId === findingId ? null : current));
+      setActiveInspector("output");
     },
     onSuccess: (result, variables) => {
-      setPublishedFix({ findingId: variables.findingId, result });
+      setOpenedPr({ findingId: variables.findingId, result });
+      commandRunner.recordCommandResult(
+        variables.repoId,
+        { command: "open-pr", patchAttemptId: result.patchAttemptId, draft: true },
+        result.commandResult,
+      );
       void invalidateRepo(queryClient, variables.repoId);
     },
   });
@@ -199,35 +208,49 @@ export function ClawpatchApp() {
   const isOutputCommandRunning =
     commandRunner.runningRepoCommand !== null ||
     (activeWorkspace === "findings" && (isSelectedFindingRunning || commandRunner.isTriagePending));
-  const selectedFindingPublishResult =
-    publishedFix !== null && publishedFix.findingId === selectedFindingId
-      ? publishedFix.result
-      : null;
+  const selectedFindingOpenPrResult =
+    openedPr !== null && openedPr.findingId === selectedFindingId ? openedPr.result : null;
   const workStatusByFindingId = useMemo(() => {
     const nextStatuses = new Map(findingsWorkspace.workStatusByFindingId);
-    if (publishedFix !== null) {
-      const current = nextStatuses.get(publishedFix.findingId);
-      nextStatuses.set(publishedFix.findingId, {
-        findingId: publishedFix.findingId,
-        worktreePath: publishedFix.result.worktreePath,
+    if (openedPr !== null && openedPr.result.prUrl !== null) {
+      const current = nextStatuses.get(openedPr.findingId);
+      nextStatuses.set(openedPr.findingId, {
+        findingId: openedPr.findingId,
+        worktreePath: openedPr.result.worktreePath,
         gitStatus: current?.gitStatus ?? {
           staged: 0,
           modified: 0,
           untracked: 0,
-          branch: publishedFix.result.branchName,
+          branch: null,
         },
-        prUrl: publishedFix.result.prUrl,
+        prUrl: openedPr.result.prUrl,
         error: current?.gitStatus === null ? null : (current?.error ?? null),
       } satisfies FindingWorkStatus);
     }
     return nextStatuses;
-  }, [findingsWorkspace.workStatusByFindingId, publishedFix]);
-  const selectedFindingPublishError =
-    publishFixMutation.variables?.findingId === selectedFindingId ? publishFixMutation.error : null;
-  const canPublishSelectedFix =
+  }, [findingsWorkspace.workStatusByFindingId, openedPr]);
+  const selectedFindingOpenPrError =
+    openPrMutation.variables?.findingId === selectedFindingId ? openPrMutation.error : null;
+  const selectedFindingHasActiveWorktree =
     selectedRepo !== null &&
     selectedFindingId !== undefined &&
     selectedRepo.activeWorktrees.some((worktree) => worktree.findingId === selectedFindingId);
+  const selectedFindingHasPatch =
+    (findingsWorkspace.detailQuery.data?.patchAttempts.length ?? 0) > 0 ||
+    (selectedFinding?.linkedPatchAttemptIds.length ?? 0) > 0;
+  const canOpenSelectedPr = selectedFindingHasActiveWorktree && selectedFindingHasPatch;
+  const openPrDisabledReason =
+    selectedFindingHasActiveWorktree && !selectedFindingHasPatch
+      ? "Run fix to create a Clawpatch patch before opening a PR"
+      : null;
+
+  const runReviewCommand = (options: ReviewRunOptions, featureId?: string): void => {
+    runCommand({
+      command: "review",
+      ...(featureId !== undefined ? { featureId } : {}),
+      ...options,
+    });
+  };
 
   return settingsSection !== null ? (
     <RepoSettingsPage
@@ -307,7 +330,7 @@ export function ClawpatchApp() {
           onOpenTerminal={openTerminal}
         />
 
-        {selectedRepo?.lastError ? (
+        {selectedRepo?.lastError && selectedRepo.hasClawpatch ? (
           <div className="repo-error">{selectedRepo.lastError}</div>
         ) : null}
         {terminalError !== null ? <div className="repo-error">{terminalError}</div> : null}
@@ -315,7 +338,7 @@ export function ClawpatchApp() {
           <TaskStrip label={activeReviewTask.label} queuedCount={activeReviewTask.queuedCount} />
         ) : null}
 
-        {selectedRepo !== null && findingsWorkspace.gitStatusQuery.data !== undefined ? (
+        {stateRepo !== null && findingsWorkspace.gitStatusQuery.data !== undefined ? (
           <GitStatusStrip status={findingsWorkspace.gitStatusQuery.data} onViewDiff={openDiff} />
         ) : null}
 
@@ -334,7 +357,20 @@ export function ClawpatchApp() {
             )
           }
         >
-          {activeWorkspace === "findings" ? (
+          {selectedRepo !== null && !selectedRepo.hasClawpatch ? (
+            <WorkflowSetupPanel
+              repo={selectedRepo}
+              isBusy={commandRunner.runningRepoCommand !== null}
+              runningCommandLabel={commandRunner.runningRepoCommand?.request.command}
+              onRunCommand={(request) => {
+                setActiveInspector("output");
+                if (request.command === "review" || request.command === "map") {
+                  setActiveWorkspace("reviewQueue");
+                }
+                runCommand(request);
+              }}
+            />
+          ) : activeWorkspace === "findings" ? (
             <FindingsSplitPanel
               findings={findingsWorkspace.sortedFindings}
               totalFindingCount={findingsWorkspace.allFindings.length}
@@ -350,21 +386,22 @@ export function ClawpatchApp() {
               isBusy={
                 commandRunner.isTriagePending ||
                 isSelectedFindingRunning ||
-                (publishFixMutation.isPending &&
-                  publishFixMutation.variables?.findingId === selectedFindingId)
+                (openPrMutation.isPending &&
+                  openPrMutation.variables?.findingId === selectedFindingId)
               }
               commandStateLabel={
-                publishFixMutation.isPending &&
-                publishFixMutation.variables?.findingId === selectedFindingId
-                  ? "publish"
+                openPrMutation.isPending &&
+                openPrMutation.variables?.findingId === selectedFindingId
+                  ? "open-pr"
                   : commandRunner.isTriagePending
                     ? "triage"
                     : selectedFindingCommand?.request.command
               }
               fixDisabledReason={findingsWorkspace.fixDisabledReason}
-              canPublishFix={canPublishSelectedFix}
-              publishFixResult={selectedFindingPublishResult}
-              publishFixError={selectedFindingPublishError}
+              canOpenPr={canOpenSelectedPr}
+              openPrDisabledReason={openPrDisabledReason}
+              openPrResult={selectedFindingOpenPrResult}
+              openPrError={selectedFindingOpenPrError}
               triageError={
                 commandRunner.triageError !== null &&
                 commandRunner.triageError.findingId === selectedFindingId
@@ -404,9 +441,9 @@ export function ClawpatchApp() {
                   });
                 }
               }}
-              onPublishFix={() => {
+              onOpenPr={() => {
                 if (selectedRepo !== null && selectedFinding !== null) {
-                  publishFixMutation.mutate({
+                  openPrMutation.mutate({
                     repoId: selectedRepo.id,
                     findingId: selectedFinding.findingId,
                   });
@@ -427,8 +464,8 @@ export function ClawpatchApp() {
                   ? commandRunner.lastReviewCompletion
                   : null
               }
-              onReviewFeature={(featureId) => runCommand({ command: "review", featureId })}
-              onReviewPending={(limit) => runCommand({ command: "review", limit })}
+              onReviewFeature={(featureId, options) => runReviewCommand(options, featureId)}
+              onReviewPending={(options) => runReviewCommand(options)}
               onUpdateMap={() => runCommand({ command: "map" })}
             />
           )}

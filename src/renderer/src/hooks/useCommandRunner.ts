@@ -384,10 +384,7 @@ export function useCommandRunner({
         return;
       }
       if (request.command === "review" && request.featureId !== undefined) {
-        enqueueReviewFeatureCommand(selectedRepo, {
-          command: "review",
-          featureId: request.featureId,
-        });
+        enqueueReviewFeatureCommand(selectedRepo, request as ReviewFeatureCommandRequest);
         return;
       }
       runRepoCommand(selectedRepo, request);
@@ -479,6 +476,8 @@ export function useCommandRunner({
     revalidateFindings,
     runCommand,
     runFixWithSavedGuidance,
+    recordCommandResult: appendCommandResults,
+    recordCommandError: appendCommandError,
     runningRepoCommand,
     runningReviewFeatureId,
     runningFindingCommands,
