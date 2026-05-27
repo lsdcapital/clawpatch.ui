@@ -43,12 +43,8 @@ export async function invalidateRepo(
 
 export async function invalidateCommandProgress(queryClient: QueryClient): Promise<void> {
   await Promise.all([
-    queryClient.invalidateQueries({ queryKey: clawpatchQueryKeys.repos() }),
     queryClient.invalidateQueries({ queryKey: clawpatchQueryKeys.allFeatures() }),
     queryClient.invalidateQueries({ queryKey: clawpatchQueryKeys.allFindings() }),
-    queryClient.invalidateQueries({ queryKey: clawpatchQueryKeys.allFindingWorkStatuses() }),
     queryClient.invalidateQueries({ queryKey: clawpatchQueryKeys.allFindingDetails() }),
-    queryClient.invalidateQueries({ queryKey: clawpatchQueryKeys.allDiffs() }),
-    queryClient.invalidateQueries({ queryKey: clawpatchQueryKeys.allGitStatuses() }),
   ]);
 }

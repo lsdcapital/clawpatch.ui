@@ -242,6 +242,21 @@ export function useCommandRunner({
     [onRevealFirstChangedFile, queryClient],
   );
 
+  const refreshAfterRepoCommand = useCallback(
+    async (repoId: string, request: ClawpatchCommandRequest): Promise<void> => {
+      if (
+        request.command === "review" &&
+        request.featureId !== undefined &&
+        reviewFeatureQueueRef.current.length > 0
+      ) {
+        await invalidateCommandProgress(queryClient);
+        return;
+      }
+      await refreshAfterCommand(repoId, request);
+    },
+    [queryClient, refreshAfterCommand],
+  );
+
   const updateReviewFeatureQueue = useCallback(
     (queue: readonly QueuedReviewFeatureCommand[]): void => {
       reviewFeatureQueueRef.current = queue;
@@ -265,7 +280,7 @@ export function useCommandRunner({
         if (request.command === "review" && result.exitCode === 0) {
           setLastReviewCompletion(reviewCompletionSummary(repo.id, request, result));
         }
-        void refreshAfterCommand(repo.id, request);
+        await refreshAfterRepoCommand(repo.id, request).catch(() => undefined);
       } catch (error: unknown) {
         appendCommandError(repo.id, request, error);
       } finally {
@@ -277,7 +292,7 @@ export function useCommandRunner({
       }
       return true;
     },
-    [appendCommandError, appendCommandResults, refreshAfterCommand],
+    [appendCommandError, appendCommandResults, refreshAfterRepoCommand],
   );
 
   const runRepoCommand = useCallback(
