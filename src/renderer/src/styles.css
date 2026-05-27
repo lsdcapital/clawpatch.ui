@@ -1615,6 +1615,10 @@ button:disabled {
   color: var(--accent);
 }
 
+.review-action-state-reviewed {
+  color: var(--success);
+}
+
 .feature-map-row strong {
   font-weight: 600;
 }
@@ -1635,8 +1639,13 @@ button:disabled {
 }
 
 .feature-status.pending,
-.feature-status.error {
+.feature-status.error,
+.feature-status.queued {
   color: var(--warning);
+}
+
+.feature-status.reviewing {
+  color: var(--accent);
 }
 
 .feature-status.needs-fix {
@@ -1647,6 +1656,18 @@ button:disabled {
 .feature-status.fixed,
 .feature-status.revalidated {
   color: var(--success);
+}
+
+.review-row-running {
+  background: color-mix(in srgb, var(--accent-soft) 48%, transparent);
+}
+
+.review-row-queued {
+  background: color-mix(in srgb, var(--warning) 12%, transparent);
+}
+
+.review-row-reviewed {
+  background: color-mix(in srgb, var(--success-soft) 42%, transparent);
 }
 
 .feature-map-empty {

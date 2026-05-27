@@ -52,6 +52,15 @@ describe("ReviewMapPanel", () => {
     expect(screen.getByRole("button", { name: "Queued" })).toBeDisabled();
     expect(screen.getByText("Running")).toHaveClass("review-action-state-running");
     expect(screen.getByText("Queued")).toHaveClass("review-action-state-queued");
+
+    const authRow = screen.getByText("Authentication").closest('[role="row"]');
+    const billingRow = screen.getByText("Billing").closest('[role="row"]');
+    expect(authRow).not.toBeNull();
+    expect(billingRow).not.toBeNull();
+    expect(authRow).toHaveClass("review-row-running");
+    expect(billingRow).toHaveClass("review-row-queued");
+    expect(within(authRow as HTMLElement).getByText("reviewing")).toHaveClass("feature-status");
+    expect(within(billingRow as HTMLElement).getByText("queued")).toHaveClass("feature-status");
   });
 
   it("does not disable row review buttons for unrelated busy toolbar actions", () => {
@@ -209,6 +218,33 @@ describe("ReviewMapPanel", () => {
     expect(screen.getByText("Authentication")).toBeInTheDocument();
     expect(screen.getByText("Billing")).toBeInTheDocument();
     expect(screen.getByText("Profile settings")).toBeInTheDocument();
+  });
+
+  it("keeps the latest reviewed map item anchored in the actionable queue", () => {
+    renderPanel({
+      lastReviewCompletion: {
+        kind: "feature",
+        repoId: "repo-auth",
+        featureId: "feat-profile",
+        findingCount: 0,
+        reviewedFeatureCount: 1,
+      },
+    });
+
+    expect(screen.getByText("Authentication")).toBeInTheDocument();
+    expect(screen.getByText("Billing")).toBeInTheDocument();
+    expect(screen.getByText("Profile settings")).toBeInTheDocument();
+
+    const profileRow = screen.getByText("Profile settings").closest('[role="row"]');
+    expect(profileRow).not.toBeNull();
+    expect(profileRow).toHaveClass("review-row-reviewed");
+    expect(within(profileRow as HTMLElement).getByText("reviewed")).toHaveClass("feature-status");
+    expect(
+      within(profileRow as HTMLElement).getByRole("button", { name: "Reviewed" }),
+    ).toBeDisabled();
+    expect(within(profileRow as HTMLElement).getByText("0 findings")).toHaveClass(
+      "review-action-state-reviewed",
+    );
   });
 
   it("closes the filter menu when clicking outside it", () => {
