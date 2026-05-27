@@ -28,6 +28,7 @@ import { ActionIconButton } from "./ActionIconButton";
 interface Props {
   findings: readonly FindingListItem[];
   totalFindingCount: number;
+  reviewCompletionMessage: string | null;
   selectedFindingId: string | null;
   isLoading: boolean;
   filters: FindingFilters;
@@ -44,6 +45,7 @@ interface Props {
 export function FindingsTable({
   findings,
   totalFindingCount,
+  reviewCompletionMessage,
   selectedFindingId,
   isLoading,
   filters,
@@ -210,7 +212,12 @@ export function FindingsTable({
           );
         })}
         {!isLoading && findings.length === 0 ? (
-          <div className="empty-state">{emptyStateLabel(filtersActive, totalFindingCount)}</div>
+          <div className="empty-state">
+            <span>{emptyStateLabel(filtersActive, totalFindingCount)}</span>
+            {reviewCompletionMessage !== null ? (
+              <span className="empty-state-detail">{reviewCompletionMessage}</span>
+            ) : null}
+          </div>
         ) : null}
       </div>
     </div>

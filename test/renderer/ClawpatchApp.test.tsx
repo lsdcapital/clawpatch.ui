@@ -890,6 +890,13 @@ describe("ClawpatchApp header actions", () => {
       "aria-selected",
       "true",
     );
+
+    fireEvent.click(screen.getByRole("tab", { name: "Findings" }));
+    expect(
+      await screen.findByText(
+        "Authentication was reviewed and produced 0 findings. Clawpatch marks that map item reviewed and records the run in .clawpatch/runs.",
+      ),
+    ).toBeInTheDocument();
   });
 
   it("queues individual review row clicks while another review is running", async () => {

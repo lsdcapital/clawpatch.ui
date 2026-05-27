@@ -62,6 +62,8 @@ interface RegistryFile {
 
 const TARGET_BASE_REF = "origin/main";
 const REPO_SERVICE_COLLECTION_CONCURRENCY = 4;
+const BACKGROUND_COMMAND_RETRY_ATTEMPTS = 20;
+const BACKGROUND_COMMAND_RETRY_DELAY = "50 millis";
 
 type ActiveWorktreePaths = Map<string, Map<string, string>>;
 type RunningCommandPaths = Map<string, string>;
@@ -623,6 +625,35 @@ export const RepoServiceLive = (appDataDir: string) =>
         );
       });
 
+      const runCommandAtPathAfterBackgroundCommand = (
+        repoIdValue: string,
+        commandPath: string,
+        request: ClawpatchCommandRequest,
+        onStream: ((event: CommandStreamEvent) => void) | undefined,
+        attempt = 0,
+      ): Effect.Effect<CommandResult, RepoServiceError> =>
+        runCommandAtPath(repoIdValue, commandPath, request, onStream).pipe(
+          Effect.catch((error) => {
+            if (
+              error instanceof CommandAlreadyRunningError &&
+              attempt < BACKGROUND_COMMAND_RETRY_ATTEMPTS
+            ) {
+              return Effect.sleep(BACKGROUND_COMMAND_RETRY_DELAY).pipe(
+                Effect.flatMap(() =>
+                  runCommandAtPathAfterBackgroundCommand(
+                    repoIdValue,
+                    commandPath,
+                    request,
+                    onStream,
+                    attempt + 1,
+                  ),
+                ),
+              );
+            }
+            return Effect.fail(error);
+          }),
+        );
+
       const runTrackedRepoCommand = Effect.fn("repoService.runTrackedRepoCommand")(function* (
         repoIdValue: string,
         commandPath: string,
@@ -640,7 +671,12 @@ export const RepoServiceLive = (appDataDir: string) =>
         if (!claimed) {
           return yield* new CommandAlreadyRunningError({ repoPath: commandPath });
         }
-        return yield* runCommandAtPath(repoIdValue, commandPath, request, onStream).pipe(
+        return yield* runCommandAtPathAfterBackgroundCommand(
+          repoIdValue,
+          commandPath,
+          request,
+          onStream,
+        ).pipe(
           Effect.ensuring(
             Ref.update(runningRepoCommandPaths, (paths) => {
               const nextPaths = new Map(paths);
