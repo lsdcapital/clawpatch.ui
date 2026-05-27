@@ -852,10 +852,10 @@ describe("ClawpatchApp header actions", () => {
       });
     });
 
-    await waitFor(() => expect(repoList).toHaveBeenCalledTimes(2));
     await waitFor(() => expect(findingsList).toHaveBeenCalledTimes(2));
     await waitFor(() => expect(featureMap).toHaveBeenCalledTimes(2));
-    await waitFor(() => expect(gitDiff).toHaveBeenCalledTimes(2));
+    expect(repoList).toHaveBeenCalledTimes(1);
+    expect(gitDiff).toHaveBeenCalledTimes(1);
     await screen.findByText("1 actionable of 3 map items");
     expect(screen.queryByText("Authentication")).not.toBeInTheDocument();
     expect(screen.getByText("Billing")).toBeInTheDocument();
@@ -904,6 +904,7 @@ describe("ClawpatchApp header actions", () => {
 
   it("queues individual review row clicks while another review is running", async () => {
     const resolvers = new Map<string, (result: CommandResult) => void>();
+    const repoList = vi.fn<Api["repo"]["list"]>(async () => [makeRepo()]);
     const run = vi.fn<Api["commands"]["run"]>(
       (_repoId, request) =>
         new Promise<CommandResult>((resolve) => {
@@ -914,11 +915,12 @@ describe("ClawpatchApp header actions", () => {
           }
         }),
     );
-    window.clawpatch = makeApi(run);
+    window.clawpatch = makeApi(run, { repoList });
 
     renderApp();
 
     await screen.findByRole("heading", { name: "auth" });
+    await waitFor(() => expect(repoList).toHaveBeenCalledTimes(1));
     fireEvent.click(await screen.findByRole("tab", { name: /^Review Queue/ }));
 
     fireEvent.click(screen.getByRole("button", { name: "Review Authentication" }));
@@ -955,6 +957,7 @@ describe("ClawpatchApp header actions", () => {
       }),
     );
     expect(run).toHaveBeenCalledTimes(2);
+    expect(repoList).toHaveBeenCalledTimes(1);
     expect(screen.getByRole("status", { name: "Active task" })).toHaveTextContent(
       "Reviewing Billing",
     );
@@ -962,6 +965,7 @@ describe("ClawpatchApp header actions", () => {
     act(() => {
       resolvers.get("feat-billing")?.(makeCommandResult("review"));
     });
+    await waitFor(() => expect(repoList).toHaveBeenCalledTimes(2));
   });
 
   it("shows bulk review task feedback without changing durable feature status", async () => {

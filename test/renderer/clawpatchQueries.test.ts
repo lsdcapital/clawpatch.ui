@@ -23,7 +23,7 @@ describe("clawpatch query helpers", () => {
     });
   });
 
-  it("uses top-level prefixes when invalidating command progress", async () => {
+  it("keeps command progress invalidation scoped to Clawpatch state", async () => {
     const queryClient = new QueryClient();
     const invalidateQueries = vi
       .spyOn(queryClient, "invalidateQueries")
@@ -32,9 +32,21 @@ describe("clawpatch query helpers", () => {
     await invalidateCommandProgress(queryClient);
 
     expect(invalidateQueries).toHaveBeenCalledWith({
-      queryKey: clawpatchQueryKeys.allDiffs(),
+      queryKey: clawpatchQueryKeys.allFeatures(),
     });
     expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: clawpatchQueryKeys.allFindings(),
+    });
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: clawpatchQueryKeys.allFindingDetails(),
+    });
+    expect(invalidateQueries).not.toHaveBeenCalledWith({
+      queryKey: clawpatchQueryKeys.repos(),
+    });
+    expect(invalidateQueries).not.toHaveBeenCalledWith({
+      queryKey: clawpatchQueryKeys.allDiffs(),
+    });
+    expect(invalidateQueries).not.toHaveBeenCalledWith({
       queryKey: clawpatchQueryKeys.allGitStatuses(),
     });
   });
