@@ -7,6 +7,7 @@ interface Props extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, "children"
   icon: ReactNode;
   label: string;
   title?: string;
+  tooltipHidden?: boolean;
   variant?: ActionIconButtonVariant;
 }
 
@@ -15,6 +16,7 @@ export function ActionIconButton({
   icon,
   label,
   title,
+  tooltipHidden = false,
   type = "button",
   variant = "secondary",
   ...props
@@ -30,6 +32,7 @@ export function ActionIconButton({
       icon={icon}
       label={label}
       tooltip={title}
+      tooltipHidden={tooltipHidden}
       type={type}
     />
   );
