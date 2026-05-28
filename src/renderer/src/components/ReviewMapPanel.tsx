@@ -550,7 +550,7 @@ function ReviewRowAction({
           disabled
           icon={<ClockIcon aria-hidden="true" />}
           label={label}
-          title={label}
+          tooltipHidden
         />
       </div>
     );
@@ -564,7 +564,7 @@ function ReviewRowAction({
         disabled
         icon={<LoaderCircleIcon aria-hidden="true" className="review-action-spinner" />}
         label={label}
-        title={label}
+        tooltipHidden
       />
     </div>
   );

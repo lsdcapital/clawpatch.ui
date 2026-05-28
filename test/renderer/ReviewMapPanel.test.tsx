@@ -78,9 +78,9 @@ describe("ReviewMapPanel", () => {
     expect(screen.queryByText("Running")).not.toBeInTheDocument();
     expect(screen.queryByText("Queued")).not.toBeInTheDocument();
     fireEvent.mouseEnter(runningButton.parentElement as HTMLElement);
-    expect(screen.getByText("Review running for Authentication")).toHaveClass("icon-tooltip");
+    expect(screen.queryByText("Review running for Authentication")).not.toBeInTheDocument();
     fireEvent.mouseEnter(queuedButton.parentElement as HTMLElement);
-    expect(screen.getByText("Review queued for Billing")).toHaveClass("icon-tooltip");
+    expect(screen.queryByText("Review queued for Billing")).not.toBeInTheDocument();
     expect(screen.queryByText("feat-auth")).not.toBeInTheDocument();
     expect(screen.queryByText("feat-billing")).not.toBeInTheDocument();
 
