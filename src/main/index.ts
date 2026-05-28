@@ -34,6 +34,10 @@ import {
 const electron = requireElectron();
 const { app, BrowserWindow, ipcMain, Menu, nativeTheme, screen } = electron;
 
+if (!app.isPackaged) {
+  app.commandLine.appendSwitch("use-mock-keychain");
+}
+
 type AppLayer = ReturnType<typeof makeAppLayer>;
 type AppRuntime = ManagedRuntime.ManagedRuntime<Layer.Success<AppLayer>, Layer.Error<AppLayer>>;
 
