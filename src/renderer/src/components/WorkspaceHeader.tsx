@@ -7,6 +7,7 @@ export function WorkspaceHeader({
   repo,
   activeWorkspace,
   activeInspector,
+  actionableFindingCount,
   isOpeningTerminal,
   reviewQueueUnreviewedCount,
   onWorkspaceChange,
@@ -16,12 +17,15 @@ export function WorkspaceHeader({
   repo: RepoSummary | null;
   activeWorkspace: ActiveWorkspace;
   activeInspector: ActiveInspector;
+  actionableFindingCount: number;
   isOpeningTerminal: boolean;
   reviewQueueUnreviewedCount: number;
   onWorkspaceChange: (workspace: ActiveWorkspace) => void;
   onToggleInspector: (inspector: Exclude<ActiveInspector, null>) => void;
   onOpenTerminal: () => void;
 }) {
+  const findingsLabel =
+    actionableFindingCount > 0 ? `Findings, ${actionableFindingCount} actionable` : "Findings";
   const reviewQueueLabel =
     reviewQueueUnreviewedCount > 0
       ? `Review Queue, ${reviewQueueUnreviewedCount} unreviewed`
@@ -39,8 +43,14 @@ export function WorkspaceHeader({
           onClick={() => onWorkspaceChange("findings")}
           role="tab"
           aria-selected={activeWorkspace === "findings"}
+          aria-label={findingsLabel}
         >
-          Findings
+          <span>Findings</span>
+          {actionableFindingCount > 0 ? (
+            <span className="workspace-tab-pill" aria-hidden="true">
+              {actionableFindingCount}
+            </span>
+          ) : null}
         </button>
         <button
           className={activeWorkspace === "reviewQueue" ? "active" : ""}

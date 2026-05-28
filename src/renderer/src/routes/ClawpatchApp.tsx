@@ -15,6 +15,7 @@ import { useDiffInspector } from "../hooks/useDiffInspector";
 import { useFindingsWorkspace } from "../hooks/useFindingsWorkspace";
 import { useRepoSidebarState } from "../hooks/useRepoSidebarState";
 import { useSelectedRepo } from "../hooks/useSelectedRepo";
+import { isActionableFindingStatus } from "../findingsFilters";
 import type {
   AppSettings,
   ClawpatchConfig,
@@ -76,6 +77,12 @@ export function ClawpatchApp() {
     queryFn: () => window.clawpatch.features.map(stateRepo!.id),
     enabled: stateRepo !== null,
   });
+  const actionableFindingCount = useMemo(
+    () =>
+      findingsWorkspace.allFindings.filter((finding) => isActionableFindingStatus(finding.status))
+        .length,
+    [findingsWorkspace.allFindings],
+  );
   const reviewQueueUnreviewedCount = featureMapQuery.data?.coverage.pendingReviewCount ?? 0;
 
   const openPrMutation = useMutation({
@@ -319,6 +326,7 @@ export function ClawpatchApp() {
           repo={selectedRepo}
           activeWorkspace={activeWorkspace}
           activeInspector={activeInspector}
+          actionableFindingCount={actionableFindingCount}
           isOpeningTerminal={terminalMutation.isPending}
           reviewQueueUnreviewedCount={reviewQueueUnreviewedCount}
           onWorkspaceChange={setActiveWorkspace}

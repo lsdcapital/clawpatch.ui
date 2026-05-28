@@ -742,12 +742,25 @@ describe("ClawpatchApp header actions", () => {
     const run = vi.fn<Api["commands"]["run"]>(async (_repoId, request) =>
       makeCommandResult(request.command),
     );
-    window.clawpatch = makeApi(run);
+    const findings: readonly FindingDetail[] = [
+      makeFinding({ findingId: "fnd-open", status: "open" }),
+      makeFinding({ findingId: "fnd-uncertain", status: "uncertain" }),
+      makeFinding({ findingId: "fnd-fixed", status: "fixed" }),
+    ];
+    window.clawpatch = makeApi(run, {
+      findings,
+      findingGet: async (_repoId, findingId) =>
+        findings.find((finding) => finding.findingId === findingId) ?? findings[0]!,
+    });
 
     renderApp();
 
     await screen.findByRole("heading", { name: "auth" });
-    expect(screen.getByRole("tab", { name: "Findings" })).toHaveAttribute("aria-selected", "true");
+    const findingsTab = await screen.findByRole("tab", {
+      name: "Findings, 2 actionable",
+    });
+    expect(findingsTab).toHaveAttribute("aria-selected", "true");
+    expect(within(findingsTab).getByText("2")).toHaveClass("workspace-tab-pill");
     expect(screen.getByRole("heading", { name: "Findings" })).toBeInTheDocument();
 
     const reviewQueueTab = await screen.findByRole("tab", {
@@ -769,19 +782,22 @@ describe("ClawpatchApp header actions", () => {
     expect(screen.getByRole("table", { name: "Review queue map" })).toBeInTheDocument();
   });
 
-  it("hides the review queue count pill when there are no unreviewed items", async () => {
+  it("hides workspace count pills when counts are zero", async () => {
     const run = vi.fn<Api["commands"]["run"]>(async (_repoId, request) =>
       makeCommandResult(request.command),
     );
     const featureMap = vi.fn<Api["features"]["map"]>(async () => makeReviewedFeatureMapSnapshot());
     window.clawpatch = makeApi(run, {
       featureMap,
+      findings: [makeFinding({ findingId: "fnd-fixed", status: "fixed" })],
     });
 
     renderApp();
 
     await screen.findByRole("heading", { name: "auth" });
     await waitFor(() => expect(featureMap).toHaveBeenCalledOnce());
+    const findingsTab = await screen.findByRole("tab", { name: "Findings" });
+    expect(within(findingsTab).queryByText("0")).not.toBeInTheDocument();
     const reviewQueueTab = await screen.findByRole("tab", { name: "Review Queue" });
     expect(within(reviewQueueTab).queryByText("0")).not.toBeInTheDocument();
   });
@@ -2235,7 +2251,7 @@ function makeApi(
   };
 }
 
-function makeFinding(): FindingDetail {
+function makeFinding(overrides: Partial<FindingDetail> = {}): FindingDetail {
   return {
     findingId: "fnd-security",
     featureId: "feat-auth",
@@ -2258,6 +2274,7 @@ function makeFinding(): FindingDetail {
     feature: null,
     patchAttempts: [],
     history: [],
+    ...overrides,
   };
 }
 

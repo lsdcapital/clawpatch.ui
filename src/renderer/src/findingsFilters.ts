@@ -145,7 +145,7 @@ function normalize(value: string): string {
   return value.trim().toLowerCase().replace(/\s+/gu, " ");
 }
 
-function isActionableFindingStatus(status: ClawpatchStatus): boolean {
+export function isActionableFindingStatus(status: ClawpatchStatus): boolean {
   return status === "open" || status === "uncertain";
 }
 
