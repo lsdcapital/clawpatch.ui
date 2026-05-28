@@ -92,11 +92,9 @@ export function ReviewMapPanel({
   const statusLabel = isLoading
     ? "Loading"
     : `${actionableCount} actionable of ${totalCount} map items`;
-  const countLabel = isLoading
+  const filteredCountLabel = isLoading
     ? "Loading"
-    : filtersActive
-      ? `${filteredFeatures.length} of ${totalCount} shown`
-      : `${actionableCount} actionable of ${totalCount} total`;
+    : `${filteredFeatures.length} of ${totalCount} shown`;
 
   const updateFilters = (nextFilters: Partial<ReviewQueueFilters>): void => {
     setFilters((current) => ({ ...current, ...nextFilters }));
@@ -144,7 +142,7 @@ export function ReviewMapPanel({
             icon={<ListChecksIcon aria-hidden="true" />}
             label={`Review all ${pendingCount} mapped features pending review`}
             onClick={reviewPendingFeatures}
-            title="Review mapped features"
+            title="Review all"
           />
         </div>
         <div className="review-scope-panel" aria-label="Review scope">
@@ -236,9 +234,9 @@ export function ReviewMapPanel({
             Clear
           </button>
         </div>
-        <div className="review-queue-summary-row">
-          <span>{countLabel}</span>
-          {filtersActive ? (
+        {filtersActive ? (
+          <div className="review-queue-summary-row">
+            <span>{filteredCountLabel}</span>
             <div className="filter-chips" aria-label="Active review queue filters">
               {filters.search.trim() !== "" ? (
                 <FilterChip
@@ -265,8 +263,8 @@ export function ReviewMapPanel({
                 />
               ) : null}
             </div>
-          ) : null}
-        </div>
+          </div>
+        ) : null}
       </div>
       {snapshot === null ? (
         <div className="empty-state">
