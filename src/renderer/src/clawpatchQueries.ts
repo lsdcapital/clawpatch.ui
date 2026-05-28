@@ -41,9 +41,15 @@ export async function invalidateRepo(
   ]);
 }
 
-export async function invalidateCommandProgress(queryClient: QueryClient): Promise<void> {
+export async function invalidateCommandProgress(
+  queryClient: QueryClient,
+  options: { readonly includeFeatures?: boolean } = {},
+): Promise<void> {
+  const includeFeatures = options.includeFeatures ?? true;
   await Promise.all([
-    queryClient.invalidateQueries({ queryKey: clawpatchQueryKeys.allFeatures() }),
+    ...(includeFeatures
+      ? [queryClient.invalidateQueries({ queryKey: clawpatchQueryKeys.allFeatures() })]
+      : []),
     queryClient.invalidateQueries({ queryKey: clawpatchQueryKeys.allFindings() }),
     queryClient.invalidateQueries({ queryKey: clawpatchQueryKeys.allFindingDetails() }),
   ]);

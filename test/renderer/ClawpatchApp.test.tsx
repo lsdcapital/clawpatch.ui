@@ -877,6 +877,80 @@ describe("ClawpatchApp header actions", () => {
     expect(screen.getByText("Billing")).toBeInTheDocument();
   });
 
+  it("keeps a running review row visible during command output", async () => {
+    let streamListener: ((event: CommandStreamEvent) => void) | null = null;
+    const resolvers = new Map<string, (result: CommandResult) => void>();
+    const featureMap = vi
+      .fn<Api["features"]["map"]>()
+      .mockResolvedValueOnce(makeFeatureMapSnapshot())
+      .mockResolvedValue(makeFeatureMapSnapshotAfterOneReview());
+    const findingsList = vi.fn<Api["findings"]["list"]>(async () => []);
+    const onStream = vi.fn<Api["commands"]["onStream"]>((listener) => {
+      streamListener = listener;
+      return () => {
+        streamListener = null;
+      };
+    });
+    const run = vi.fn<Api["commands"]["run"]>(
+      (_repoId, request) =>
+        new Promise<CommandResult>((resolve) => {
+          if (request.command === "review" && request.featureId !== undefined) {
+            resolvers.set(request.featureId, resolve);
+          } else {
+            resolve(makeCommandResult(request.command));
+          }
+        }),
+    );
+    window.clawpatch = makeApi(run, { featureMap, findingsList, onStream });
+
+    renderApp();
+
+    await screen.findByRole("heading", { name: "auth" });
+    fireEvent.click(await screen.findByRole("tab", { name: /^Review Queue/ }));
+    await waitFor(() => expect(featureMap).toHaveBeenCalledTimes(1));
+
+    fireEvent.click(screen.getByRole("button", { name: "Review Authentication" }));
+    await waitFor(() =>
+      expect(run).toHaveBeenCalledWith("repo-auth", {
+        command: "review",
+        featureId: "feat-auth",
+      }),
+    );
+    const authenticationRow = screen.getByText("Authentication").closest('[role="row"]');
+    expect(authenticationRow).not.toBeNull();
+    const runningButton = within(authenticationRow as HTMLElement).getByRole("button", {
+      name: "Review running for Authentication",
+    });
+    expect(runningButton).toBeDisabled();
+    expect(runningButton.querySelector(".review-action-spinner")).not.toBeNull();
+
+    if (streamListener === null) {
+      throw new Error("stream listener was not registered");
+    }
+
+    act(() => {
+      streamListener?.({
+        kind: "output",
+        runId: "run-review",
+        stream: "stderr",
+        chunk: "[stderr] clawpatch review claimed index=1 total=2 feature=feat-auth\n",
+      });
+    });
+
+    await waitFor(() => expect(findingsList).toHaveBeenCalledTimes(2));
+    expect(featureMap).toHaveBeenCalledTimes(1);
+    expect(screen.getByText("Authentication")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Review running for Authentication" }),
+    ).toBeDisabled();
+
+    act(() => {
+      resolvers.get("feat-auth")?.(makeCommandResult("review"));
+    });
+
+    await waitFor(() => expect(featureMap).toHaveBeenCalledTimes(2));
+  });
+
   it("keeps zero-finding review feedback attached to the reviewed row", async () => {
     const featureMap = vi
       .fn<Api["features"]["map"]>()
