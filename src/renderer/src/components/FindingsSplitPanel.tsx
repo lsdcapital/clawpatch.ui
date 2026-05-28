@@ -33,14 +33,17 @@ interface Props {
   commandStateLabel?: string;
   fixDisabledReason: string | null;
   canOpenPr: boolean;
+  isOpeningAiChat: boolean;
   openPrDisabledReason: string | null;
   openPrResult: PatchOpenPrResult | null;
   openPrError: Error | null;
+  aiChatError: Error | null;
   triageError: string | null;
   onFiltersChange: (filters: FindingFilters) => void;
   onSortChange: (sort: FindingSort) => void;
   onSelectFinding: (findingId: string) => void;
   onRevalidateShown: () => void;
+  onChatWithAi: () => void;
   onTriage: (status: ClawpatchStatus, note: string) => void;
   onFix: (status: ClawpatchStatus, note: string) => void;
   onRevalidate: () => void;
@@ -66,14 +69,17 @@ export function FindingsSplitPanel({
   commandStateLabel,
   fixDisabledReason,
   canOpenPr,
+  isOpeningAiChat,
   openPrDisabledReason,
   openPrResult,
   openPrError,
+  aiChatError,
   triageError,
   onFiltersChange,
   onSortChange,
   onSelectFinding,
   onRevalidateShown,
+  onChatWithAi,
   onTriage,
   onFix,
   onRevalidate,
@@ -187,10 +193,13 @@ export function FindingsSplitPanel({
         commandStateLabel={commandStateLabel}
         fixDisabledReason={fixDisabledReason}
         canOpenPr={canOpenPr}
+        isOpeningAiChat={isOpeningAiChat}
         openPrDisabledReason={openPrDisabledReason}
         openPrResult={openPrResult}
         openPrError={openPrError}
+        aiChatError={aiChatError}
         triageError={triageError}
+        onChatWithAi={onChatWithAi}
         onTriage={onTriage}
         onFix={onFix}
         onRevalidate={onRevalidate}

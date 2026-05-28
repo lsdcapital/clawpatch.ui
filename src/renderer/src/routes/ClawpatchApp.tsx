@@ -189,6 +189,11 @@ export function ClawpatchApp() {
     });
   }, [selectedFinding?.findingId, selectedRepo, terminalMutation]);
 
+  const aiChatMutation = useMutation({
+    mutationFn: ({ repoId, findingId }: { repoId: string; findingId: string }) =>
+      window.clawpatch.terminal.openAiChat(repoId, findingId),
+  });
+
   const selectedFindingCommand =
     selectedFindingId === undefined
       ? undefined
@@ -230,6 +235,8 @@ export function ClawpatchApp() {
   }, [findingsWorkspace.workStatusByFindingId, openedPr]);
   const selectedFindingOpenPrError =
     openPrMutation.variables?.findingId === selectedFindingId ? openPrMutation.error : null;
+  const selectedFindingAiChatError =
+    aiChatMutation.variables?.findingId === selectedFindingId ? aiChatMutation.error : null;
   const selectedRepoReviewCompletion =
     commandRunner.lastReviewCompletion?.repoId === selectedRepo?.id
       ? commandRunner.lastReviewCompletion
@@ -400,9 +407,14 @@ export function ClawpatchApp() {
               }
               fixDisabledReason={findingsWorkspace.fixDisabledReason}
               canOpenPr={canOpenSelectedPr}
+              isOpeningAiChat={
+                aiChatMutation.isPending &&
+                aiChatMutation.variables?.findingId === selectedFindingId
+              }
               openPrDisabledReason={openPrDisabledReason}
               openPrResult={selectedFindingOpenPrResult}
               openPrError={selectedFindingOpenPrError}
+              aiChatError={selectedFindingAiChatError}
               triageError={
                 commandRunner.triageError !== null &&
                 commandRunner.triageError.findingId === selectedFindingId
@@ -424,6 +436,14 @@ export function ClawpatchApp() {
               onRevalidateShown={() =>
                 commandRunner.revalidateFindings(findingsWorkspace.sortedFindings)
               }
+              onChatWithAi={() => {
+                if (selectedRepo !== null && selectedFinding !== null) {
+                  aiChatMutation.mutate({
+                    repoId: selectedRepo.id,
+                    findingId: selectedFinding.findingId,
+                  });
+                }
+              }}
               onTriage={(status, note) => {
                 if (selectedFinding !== null) {
                   commandRunner.triageFinding(selectedFinding, status, note);

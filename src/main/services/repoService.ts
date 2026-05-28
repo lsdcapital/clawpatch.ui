@@ -26,6 +26,7 @@ import type {
   RepoSummary,
   TerminalOpenResult,
 } from "../../shared/types";
+import { defaultAiAssistantCommand } from "../../shared/constants";
 import { emitCommandStream } from "../commandStream";
 import {
   CommandAlreadyRunningError,
@@ -141,6 +142,10 @@ export interface RepoServiceShape {
   readonly openTerminal: (
     repoId: string,
     findingId?: string,
+  ) => Effect.Effect<TerminalOpenResult, RepoServiceError>;
+  readonly openAiChat: (
+    repoId: string,
+    findingId: string,
   ) => Effect.Effect<TerminalOpenResult, RepoServiceError>;
 }
 
@@ -950,6 +955,76 @@ export const RepoServiceLive = (appDataDir: string) =>
         );
       });
 
+      const writeAiPromptFile = Effect.fn("repoService.writeAiPromptFile")(function* (
+        repo: Pick<RepoSummary, "id" | "path">,
+        finding: FindingDetail,
+        worktreePath: string,
+      ) {
+        const slug = sanitizeWorktreeFragment(finding.findingId);
+        const promptDirectory = path.join(appDataDir, "ai-prompts", repo.id, slug);
+        const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+        const promptPath = path.join(promptDirectory, `${timestamp}-${randomUUID()}.md`);
+        yield* fs
+          .makeDirectory(promptDirectory, { recursive: true })
+          .pipe(
+            Effect.mapError((cause) => new CommandSpawnError({ repoPath: worktreePath, cause })),
+          );
+        yield* fs
+          .writeFileString(
+            promptPath,
+            buildFindingAiPrompt({ finding, repoPath: repo.path, worktreePath }),
+          )
+          .pipe(
+            Effect.mapError((cause) => new CommandSpawnError({ repoPath: worktreePath, cause })),
+          );
+        return promptPath;
+      });
+
+      const openAiChatForFinding = Effect.fn("repoService.openAiChatForFinding")(function* (
+        repo: Pick<RepoSummary, "id" | "path">,
+        findingId: string,
+      ) {
+        const { worktreePath } = managedWorktreeForFinding(repo, findingId);
+        const settings = yield* repoSettings.read(repo.id);
+        const appSettingsValue = yield* appSettings.read();
+        return yield* runFindingCommandLocked(
+          repo.id,
+          findingId,
+          worktreePath,
+          Effect.gen(function* () {
+            const worktree = yield* createManagedWorktree(repo, findingId);
+            yield* runWorktreeSetupIfNeeded(
+              setupScripts,
+              worktree.worktreePath,
+              worktree.created,
+              settings.worktreeSetupScript,
+              commandLifecycleMetadata(repo.id, { command: "revalidate", findingId }),
+            );
+            const finding = yield* state
+              .readFindingDetail(worktree.worktreePath, findingId)
+              .pipe(Effect.catch(() => state.readFindingDetail(repo.path, findingId)));
+            const promptPath = yield* writeAiPromptFile(repo, finding, worktree.worktreePath);
+            const aiCommand = expandAiAssistantCommand(
+              appSettingsValue.aiAssistantCommand ?? defaultAiAssistantCommand,
+              {
+                findingId,
+                promptFile: promptPath,
+                repoPath: repo.path,
+                worktreePath: worktree.worktreePath,
+              },
+            );
+            return yield* terminal.open(worktree.worktreePath, {
+              appName: appSettingsValue.terminalAppPath ?? appSettingsValue.terminalAppName,
+              startupScript: [
+                `export CLAWPATCH_AI_PROMPT_FILE=${shellQuote(promptPath)}`,
+                'printf "Clawpatch AI prompt: %s\\n" "$CLAWPATCH_AI_PROMPT_FILE"',
+                aiCommand,
+              ].join("\n"),
+            });
+          }),
+        );
+      });
+
       return RepoService.of({
         getAppSettings: Effect.fn("repoService.getAppSettings")(function* () {
           return yield* appSettings.read();
@@ -1134,6 +1209,10 @@ export const RepoServiceLive = (appDataDir: string) =>
             },
           );
         }),
+        openAiChat: Effect.fn("repoService.openAiChat")(function* (repoIdValue, findingId) {
+          const repo = yield* requireRepo(repoIdValue);
+          return yield* openAiChatForFinding(repo, findingId);
+        }),
       });
     }),
   );
@@ -1244,6 +1323,97 @@ function runWorktreeSetupIfNeeded(
     return Effect.void;
   }
   return setupScripts.run(worktreePath, script, metadata, onStream);
+}
+
+export function buildFindingAiPrompt({
+  finding,
+  repoPath,
+  worktreePath,
+}: {
+  readonly finding: FindingDetail;
+  readonly repoPath: string;
+  readonly worktreePath: string;
+}): string {
+  const evidence =
+    finding.evidence.length === 0
+      ? "None provided."
+      : finding.evidence.map(formatEvidenceForPrompt).join("\n");
+  return [
+    "# Clawpatch Finding AI Chat",
+    "",
+    "You are helping investigate a Clawpatch finding. Do not modify files unless the user explicitly asks you to. Focus on explaining the issue, validating whether it is real, and identifying the smallest sensible next step.",
+    "",
+    "End your response with a short block named `Conclusion note:` that the user can paste into the Clawpatch note field.",
+    "",
+    "## Repository",
+    `- Registered checkout: ${repoPath}`,
+    `- Finding worktree: ${worktreePath}`,
+    "",
+    "## Finding",
+    `- ID: ${finding.findingId}`,
+    `- Title: ${finding.title}`,
+    `- Status: ${finding.status}`,
+    `- Severity: ${finding.severity}`,
+    `- Confidence: ${finding.confidence}`,
+    `- Category: ${finding.category}`,
+    `- Triage: ${finding.triage ?? "none"}`,
+    "",
+    "## Evidence",
+    evidence,
+    "",
+    promptSection("Reasoning", finding.reasoning),
+    promptSection("Recommendation", finding.recommendation),
+    promptSection("Reproduction", finding.reproduction),
+    promptSection("Suggested Test", finding.suggestedRegressionTest),
+  ]
+    .filter((line) => line !== null)
+    .join("\n");
+}
+
+export function expandAiAssistantCommand(
+  template: string,
+  values: {
+    readonly findingId: string;
+    readonly promptFile: string;
+    readonly repoPath: string;
+    readonly worktreePath: string;
+  },
+): string {
+  const baseTemplate = template.trim() === "" ? defaultAiAssistantCommand : template;
+  const replacements: Record<string, string> = {
+    findingId: values.findingId,
+    promptFile: values.promptFile,
+    repoPath: values.repoPath,
+    worktreePath: values.worktreePath,
+  };
+  return baseTemplate.replace(/\{(findingId|promptFile|repoPath|worktreePath)\}/g, (_match, key) =>
+    shellQuote(replacements[key] ?? ""),
+  );
+}
+
+function promptSection(title: string, value: string | null): string | null {
+  if (value === null || value.trim() === "") {
+    return null;
+  }
+  return [`## ${title}`, value.trim(), ""].join("\n");
+}
+
+function formatEvidenceForPrompt(evidence: FindingDetail["evidence"][number]): string {
+  const location =
+    evidence.startLine === null
+      ? evidence.path
+      : `${evidence.path}:${evidence.startLine}${evidence.endLine === null ? "" : `-${evidence.endLine}`}`;
+  const symbol = evidence.symbol === null ? "" : ` (${evidence.symbol})`;
+  const quote =
+    evidence.quote === null || evidence.quote.trim() === "" ? "" : `\n  Quote: ${evidence.quote}`;
+  return `- ${location}${symbol}${quote}`;
+}
+
+function shellQuote(value: string): string {
+  if (/^[A-Za-z0-9_/:=.,@%+-]+$/.test(value)) {
+    return value;
+  }
+  return `'${value.replaceAll("'", "'\\''")}'`;
 }
 
 function findingCommandKey(repoIdValue: string, findingId: string): string {

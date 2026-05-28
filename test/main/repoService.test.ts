@@ -11,6 +11,7 @@ import type {
   ClawpatchCommandRequest,
   CommandResult,
   CommandStreamEvent,
+  FindingDetail,
   GitStatusSummary,
 } from "../../src/shared/types";
 import { CommandAlreadyRunningError, CommandSpawnError } from "../../src/main/errors";
@@ -36,7 +37,12 @@ import {
   SetupScriptRunner,
   type SetupScriptRunnerShape,
 } from "../../src/main/services/setupScriptRunner";
-import { RepoService, RepoServiceLive } from "../../src/main/services/repoService";
+import {
+  RepoService,
+  RepoServiceLive,
+  buildFindingAiPrompt,
+  expandAiAssistantCommand,
+} from "../../src/main/services/repoService";
 
 const fixtureRepo = resolve("test/fixtures/clawpatch-repo");
 const tempDirs: string[] = [];
@@ -272,6 +278,33 @@ describe("RepoService", () => {
     }
   });
 
+  it("builds AI prompt text from finding details", () => {
+    const prompt = buildFindingAiPrompt({
+      finding: makeFindingDetailForPrompt(),
+      repoPath: "/repo",
+      worktreePath: "/worktree",
+    });
+
+    expect(prompt).toContain("Selected detail title");
+    expect(prompt).toContain("- Severity: high");
+    expect(prompt).toContain("- src/auth.ts:12-14");
+    expect(prompt).toContain("The token is written to logs.");
+    expect(prompt).toContain("Remove the log statement.");
+    expect(prompt).toContain("Add a regression test.");
+    expect(prompt).toContain("Conclusion note:");
+  });
+
+  it("shell-quotes AI command placeholders", () => {
+    const command = expandAiAssistantCommand("codex {promptFile} --cwd {worktreePath}", {
+      findingId: "fnd-1",
+      promptFile: "/tmp/prompt with spaces.md",
+      repoPath: "/repo",
+      worktreePath: "/tmp/repo's worktree",
+    });
+
+    expect(command).toBe("codex '/tmp/prompt with spaces.md' --cwd '/tmp/repo'\\''s worktree'");
+  });
+
   it("falls back to default repo settings when the settings file is invalid", async () => {
     const calls: RunnerCall[] = [];
     const appData = await makeTempDir();
@@ -316,6 +349,7 @@ describe("RepoService", () => {
       expect(settings).toMatchObject({
         terminalAppName: "Terminal",
         terminalAppPath: null,
+        aiAssistantCommand: 'codex "$(cat {promptFile})"',
       });
     } finally {
       await runtime.dispose();
@@ -335,6 +369,7 @@ describe("RepoService", () => {
             schemaVersion: 1,
             terminalAppName: "   ",
             terminalAppPath: "   ",
+            aiAssistantCommand: "   ",
             updatedAt: "2026-05-19T00:00:00.000Z",
           });
         }),
@@ -342,6 +377,7 @@ describe("RepoService", () => {
 
       expect(settings.terminalAppName).toBe("Terminal");
       expect(settings.terminalAppPath).toBeNull();
+      expect(settings.aiAssistantCommand).toBe('codex "$(cat {promptFile})"');
     } finally {
       await runtime.dispose();
     }
@@ -945,6 +981,97 @@ describe("RepoService", () => {
         repoPath: worktreePath,
         request: { command: "fix", findingId: "fnd-1" },
       });
+    } finally {
+      await runtime.dispose();
+    }
+  });
+
+  it("opens an AI chat in a managed worktree with a generated finding prompt", async () => {
+    const calls: RunnerCall[] = [];
+    const setupCalls: Array<{ readonly cwd: string; readonly script: string }> = [];
+    const terminalCalls: Array<{
+      readonly cwd: string;
+      readonly appName: string | undefined;
+      readonly startupScript: string | undefined;
+    }> = [];
+    const gitCalls: Array<{
+      kind: string;
+      repoPath: string;
+      worktreePath?: string;
+      branchName?: string;
+      baseRef?: string;
+    }> = [];
+    const appData = await makeTempDir();
+    const runtime = ManagedRuntime.make(
+      makeRepoServiceTestLayer(
+        fixtureRepo,
+        calls,
+        appData,
+        false,
+        makeGitMock(gitCalls),
+        undefined,
+        {
+          open: (cwd, options) =>
+            Effect.sync(() => {
+              terminalCalls.push({
+                cwd,
+                appName: options?.appName,
+                startupScript: options?.startupScript,
+              });
+              return { cwd };
+            }),
+        },
+        {
+          run: (cwd, script) =>
+            Effect.sync(() => {
+              setupCalls.push({ cwd, script });
+              return makeCommandResult(cwd, "setup");
+            }),
+        },
+      ),
+    );
+
+    try {
+      await runtime.runPromise(
+        Effect.gen(function* () {
+          const service = yield* RepoService;
+          const summary = yield* service.addRepo(fixtureRepo);
+          yield* service.updateAppSettings({
+            schemaVersion: 1,
+            terminalAppName: "Terminal",
+            terminalAppPath: null,
+            aiAssistantCommand: "claude --print {promptFile} --cwd {worktreePath}",
+            updatedAt: "2026-05-19T00:00:00.000Z",
+          });
+          yield* service.updateSettings(summary.id, {
+            schemaVersion: 1,
+            terminalStartupScript: "",
+            worktreeSetupScript: "pnpm install",
+            updatedAt: "2026-05-19T00:00:00.000Z",
+          });
+          return yield* service.openAiChat(summary.id, "fnd-1");
+        }),
+      );
+
+      const worktreePath = gitCalls.find((call) => call.kind === "worktree")?.worktreePath;
+      const startupScript = terminalCalls[0]?.startupScript ?? "";
+      const promptPath = startupScript.match(/CLAWPATCH_AI_PROMPT_FILE=([^\n]+)/)?.[1];
+      if (promptPath === undefined) {
+        throw new Error("AI prompt path was not exported");
+      }
+      const prompt = await readFile(promptPath.replace(/^'|'$/g, ""), "utf8");
+
+      expect(setupCalls).toEqual([{ cwd: worktreePath ?? "", script: "pnpm install" }]);
+      expect(terminalCalls[0]).toMatchObject({
+        cwd: worktreePath,
+        appName: "Terminal",
+      });
+      expect(startupScript).toContain('printf "Clawpatch AI prompt: %s\\n"');
+      expect(startupScript).toContain("claude --print ");
+      expect(startupScript).toContain("--cwd ");
+      expect(prompt).toContain("# Clawpatch Finding AI Chat");
+      expect(prompt).toContain("- ID: fnd-1");
+      expect(prompt).toContain("Conclusion note:");
     } finally {
       await runtime.dispose();
     }
@@ -2128,6 +2255,40 @@ function makeTerminalMock(calls: string[]): TerminalLauncherShape {
         calls.push(cwd);
         return { cwd };
       }),
+  };
+}
+
+function makeFindingDetailForPrompt(): FindingDetail {
+  return {
+    findingId: "fnd-1",
+    featureId: "feat-1",
+    title: "Selected detail title",
+    category: "security",
+    severity: "high",
+    confidence: "medium",
+    triage: null,
+    status: "open",
+    evidence: [
+      {
+        path: "src/auth.ts",
+        startLine: 12,
+        endLine: 14,
+        symbol: "login",
+        quote: "console.log(token)",
+      },
+    ],
+    linkedPatchAttemptIds: [],
+    createdAt: "2026-01-01T00:00:00.000Z",
+    updatedAt: "2026-01-01T00:00:00.000Z",
+    reasoning: "The token is written to logs.",
+    reproduction: null,
+    recommendation: "Remove the log statement.",
+    whyTestsDoNotAlreadyCoverThis: null,
+    suggestedRegressionTest: "Add a regression test.",
+    minimumFixScope: null,
+    feature: null,
+    patchAttempts: [],
+    history: [],
   };
 }
 

@@ -99,6 +99,18 @@ describe("shared schemas", () => {
       schemaVersion: 1,
       terminalAppName: "Terminal",
       terminalAppPath: null,
+      aiAssistantCommand: 'codex "$(cat {promptFile})"',
+      updatedAt: "2026-05-19T00:00:00.000Z",
+    };
+
+    expect(Schema.decodeUnknownSync(AppSettingsSchema)(settings)).toEqual(settings);
+  });
+
+  it("decodes legacy app settings without AI assistant command", () => {
+    const settings = {
+      schemaVersion: 1,
+      terminalAppName: "Terminal",
+      terminalAppPath: null,
       updatedAt: "2026-05-19T00:00:00.000Z",
     };
 

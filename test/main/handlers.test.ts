@@ -17,6 +17,7 @@ import {
   REPO_PICK_FOLDER_CHANNEL,
   REPO_UPDATE_CONFIG_CHANNEL,
   REPO_UPDATE_SETTINGS_CHANNEL,
+  TERMINAL_OPEN_AI_CHAT_CHANNEL,
   TERMINAL_OPEN_CHANNEL,
 } from "../../src/shared/ipcChannels";
 import type {
@@ -296,6 +297,24 @@ describe("IPC handlers", () => {
     }
   });
 
+  it("opens a finding AI chat through IPC", async () => {
+    const openAiChat = vi.fn(() => Effect.succeed({ cwd: "/tmp/worktree" }));
+    const { registered, runtime } = await installHandlersForTest({ openAiChat });
+    const listener = registered.get(TERMINAL_OPEN_AI_CHAT_CHANNEL);
+    if (listener === undefined) {
+      throw new Error("AI chat IPC handler was not registered");
+    }
+
+    try {
+      await expect(
+        listener({} as IpcMainInvokeEvent, { repoId: "repo-1", findingId: "fnd-1" }),
+      ).resolves.toEqual({ cwd: "/tmp/worktree" });
+      expect(openAiChat).toHaveBeenCalledWith("repo-1", "fnd-1");
+    } finally {
+      await runtime.dispose();
+    }
+  });
+
   it("reads and updates repo settings through IPC", async () => {
     const getSettings = vi.fn<RepoServiceShape["getSettings"]>(() =>
       Effect.succeed({
@@ -379,6 +398,7 @@ describe("IPC handlers", () => {
         schemaVersion: 1,
         terminalAppName: "iTerm",
         terminalAppPath: "/Applications/iTerm.app",
+        aiAssistantCommand: 'codex "$(cat {promptFile})"',
         updatedAt: "2026-05-19T00:00:00.000Z",
       }),
     );
@@ -399,6 +419,7 @@ describe("IPC handlers", () => {
       schemaVersion: 1 as const,
       terminalAppName: "Terminal",
       terminalAppPath: null,
+      aiAssistantCommand: 'codex "$(cat {promptFile})"',
       updatedAt: "2026-05-19T00:00:00.000Z",
     };
 
@@ -428,6 +449,7 @@ async function installHandlersForTest(options: {
   readonly doctor?: RepoServiceShape["doctor"];
   readonly getAppSettings?: RepoServiceShape["getAppSettings"];
   readonly interruptCommand?: RepoServiceShape["interruptCommand"];
+  readonly openAiChat?: RepoServiceShape["openAiChat"];
   readonly openTerminal?: RepoServiceShape["openTerminal"];
   readonly publish?: (event: CommandStreamEvent) => void;
   readonly openPrForFinding?: RepoServiceShape["openPrForFinding"];
@@ -448,6 +470,7 @@ async function installHandlersForTest(
     readonly doctor?: RepoServiceShape["doctor"];
     readonly getAppSettings?: RepoServiceShape["getAppSettings"];
     readonly interruptCommand?: RepoServiceShape["interruptCommand"];
+    readonly openAiChat?: RepoServiceShape["openAiChat"];
     readonly openTerminal?: RepoServiceShape["openTerminal"];
     readonly publish?: (event: CommandStreamEvent) => void;
     readonly openPrForFinding?: RepoServiceShape["openPrForFinding"];
@@ -492,6 +515,7 @@ function makeRepoServiceLayer(
     readonly doctor?: RepoServiceShape["doctor"];
     readonly getAppSettings?: RepoServiceShape["getAppSettings"];
     readonly interruptCommand?: RepoServiceShape["interruptCommand"];
+    readonly openAiChat?: RepoServiceShape["openAiChat"];
     readonly openTerminal?: RepoServiceShape["openTerminal"];
     readonly openPrForFinding?: RepoServiceShape["openPrForFinding"];
     readonly getConfig?: RepoServiceShape["getConfig"];
@@ -513,6 +537,7 @@ function makeRepoServiceLayer(
             schemaVersion: 1,
             terminalAppName: "Terminal",
             terminalAppPath: null,
+            aiAssistantCommand: 'codex "$(cat {promptFile})"',
             updatedAt: "2026-05-19T00:00:00.000Z",
           })),
       updateAppSettings:
@@ -592,6 +617,7 @@ function makeRepoServiceLayer(
             prUrl: "https://github.com/acme/repo/pull/42",
           })),
       openTerminal: options.openTerminal ?? (() => Effect.succeed({ cwd: "/tmp/repo" })),
+      openAiChat: options.openAiChat ?? (() => Effect.succeed({ cwd: "/tmp/worktree" })),
     }),
   );
 }

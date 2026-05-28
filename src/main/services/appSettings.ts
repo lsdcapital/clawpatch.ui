@@ -5,6 +5,7 @@ import * as Layer from "effect/Layer";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import { AppSettingsSchema } from "../../shared/schemas";
+import { defaultAiAssistantCommand } from "../../shared/constants";
 import type { AppSettings } from "../../shared/types";
 import { JsonDecodeError } from "../errors";
 
@@ -107,6 +108,7 @@ export function defaultAppSettings(): AppSettings {
     schemaVersion: 1,
     terminalAppName: "Terminal",
     terminalAppPath: null,
+    aiAssistantCommand: defaultAiAssistantCommand,
     updatedAt: new Date(0).toISOString(),
   };
 }
@@ -120,5 +122,9 @@ function normalizeSettings(settings: AppSettings): AppSettings {
     schemaVersion: 1,
     terminalAppName: settings.terminalAppName.trim() || defaults.terminalAppName,
     terminalAppPath: terminalAppPath === "" ? null : terminalAppPath,
+    aiAssistantCommand:
+      settings.aiAssistantCommand?.trim() === ""
+        ? defaults.aiAssistantCommand
+        : (settings.aiAssistantCommand ?? defaults.aiAssistantCommand),
   };
 }

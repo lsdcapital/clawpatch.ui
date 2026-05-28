@@ -8,6 +8,7 @@ import type {
   RepoSettings,
   RepoSummary,
 } from "../../../shared/types";
+import { defaultAiAssistantCommand } from "../../../shared/constants";
 import { appName, appVersion } from "../appInfo";
 
 export type SettingsSection =
@@ -173,6 +174,7 @@ function GeneralSettings({
 }) {
   const [terminalAppName, setTerminalAppName] = useState("Terminal");
   const [terminalAppPath, setTerminalAppPath] = useState<string | null>(null);
+  const [aiAssistantCommand, setAiAssistantCommand] = useState(defaultAiAssistantCommand);
 
   useEffect(() => {
     if (appSettings === undefined) {
@@ -180,6 +182,7 @@ function GeneralSettings({
     }
     setTerminalAppName(appSettings.terminalAppName);
     setTerminalAppPath(appSettings.terminalAppPath);
+    setAiAssistantCommand(appSettings.aiAssistantCommand ?? defaultAiAssistantCommand);
   }, [appSettings]);
 
   const resetForm = (): void => {
@@ -188,6 +191,7 @@ function GeneralSettings({
     }
     setTerminalAppName(appSettings.terminalAppName);
     setTerminalAppPath(appSettings.terminalAppPath);
+    setAiAssistantCommand(appSettings.aiAssistantCommand ?? defaultAiAssistantCommand);
   };
 
   const chooseTerminalApp = async (): Promise<void> => {
@@ -204,6 +208,7 @@ function GeneralSettings({
       schemaVersion: 1,
       terminalAppName,
       terminalAppPath,
+      aiAssistantCommand,
       updatedAt: appSettings?.updatedAt ?? new Date(0).toISOString(),
     });
   };
@@ -272,6 +277,20 @@ function GeneralSettings({
                   placeholder="Terminal"
                 />
               </label>
+              <label>
+                AI assistant command
+                <textarea
+                  value={aiAssistantCommand}
+                  onChange={(event) => setAiAssistantCommand(event.target.value)}
+                  rows={3}
+                  spellCheck={false}
+                />
+              </label>
+              <p className="settings-muted">
+                Available placeholders: {"{promptFile}"}, {"{findingId}"}, {"{repoPath}"},{" "}
+                {"{worktreePath}"}. Examples: codex "$(cat {"{promptFile}"})" or claude "$(cat{" "}
+                {"{promptFile}"})".
+              </p>
             </details>
             {appSettingsError ? (
               <div className="form-error">

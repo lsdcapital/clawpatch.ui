@@ -233,6 +233,28 @@ describe("ClawpatchApp header actions", () => {
     await waitFor(() => expect(terminalOpen).toHaveBeenCalledWith("repo-auth", "fnd-bug"));
   });
 
+  it("opens an AI chat for the selected finding from the detail toolbar", async () => {
+    const finding = makeFixFinding();
+    const terminalOpenAiChat = vi.fn<Api["terminal"]["openAiChat"]>(async () => ({
+      cwd: "/tmp/clawpatch-ui/worktrees/repo-auth/fnd-bug",
+    }));
+    window.clawpatch = makeApi(
+      vi.fn<Api["commands"]["run"]>(async () => makeCommandResult("map")),
+      {
+        findings: [finding],
+        findingDetail: finding,
+        terminalOpenAiChat,
+      },
+    );
+
+    renderApp();
+
+    await screen.findByRole("heading", { name: "Null branch can throw" });
+    fireEvent.click(screen.getByRole("button", { name: "Chat with AI" }));
+
+    await waitFor(() => expect(terminalOpenAiChat).toHaveBeenCalledWith("repo-auth", "fnd-bug"));
+  });
+
   it("shows terminal launch errors under the header", async () => {
     const terminalOpen = vi.fn<Api["terminal"]["open"]>(async () => {
       throw new Error("Opening Terminal is only supported on macOS for now");
@@ -2214,6 +2236,7 @@ function makeApi(
     repoList?: Api["repo"]["list"];
     repoUpdateConfig?: Api["repo"]["updateConfig"];
     repoUpdateSettings?: Api["repo"]["updateSettings"];
+    terminalOpenAiChat?: Api["terminal"]["openAiChat"];
     terminalOpen?: Api["terminal"]["open"];
     triageSet?: Api["triage"]["set"];
   } = {},
@@ -2226,6 +2249,7 @@ function makeApi(
           schemaVersion: 1,
           terminalAppName: "Terminal",
           terminalAppPath: null,
+          aiAssistantCommand: 'codex "$(cat {promptFile})"',
           updatedAt: "2026-05-19T00:00:00.000Z",
         })),
       pickTerminalApp: options.appPickTerminalApp ?? (async () => null),
@@ -2321,6 +2345,9 @@ function makeApi(
     },
     terminal: {
       open: options.terminalOpen ?? (async (_repoId, _findingId) => ({ cwd: "/tmp/auth" })),
+      openAiChat:
+        options.terminalOpenAiChat ??
+        (async (_repoId, _findingId) => ({ cwd: "/tmp/auth-worktree" })),
     },
   };
 }

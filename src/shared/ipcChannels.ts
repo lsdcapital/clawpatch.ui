@@ -22,3 +22,4 @@ export const GIT_DIFF_CHANNEL = "git:diff";
 export const GIT_STATUS_CHANNEL = "git:status";
 export const PATCHES_OPEN_PR_CHANNEL = "patches:open-pr";
 export const TERMINAL_OPEN_CHANNEL = "terminal:open";
+export const TERMINAL_OPEN_AI_CHAT_CHANNEL = "terminal:open-ai-chat";

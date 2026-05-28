@@ -28,6 +28,7 @@ import {
   REPO_REFRESH_CHANNEL,
   REPO_UPDATE_CONFIG_CHANNEL,
   REPO_UPDATE_SETTINGS_CHANNEL,
+  TERMINAL_OPEN_AI_CHAT_CHANNEL,
   TERMINAL_OPEN_CHANNEL,
   TRIAGE_SET_CHANNEL,
 } from "../shared/ipcChannels";
@@ -106,6 +107,8 @@ const api: Api = {
   terminal: {
     open: (repoId, findingId) =>
       ipcRenderer.invoke(TERMINAL_OPEN_CHANNEL, repoFindingPayload(repoId, findingId)),
+    openAiChat: (repoId, findingId) =>
+      ipcRenderer.invoke(TERMINAL_OPEN_AI_CHAT_CHANNEL, { repoId, findingId }),
   },
 };
 
