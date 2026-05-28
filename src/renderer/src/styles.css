@@ -1562,12 +1562,17 @@ button:disabled {
   white-space: nowrap;
 }
 
-.review-action-state-running {
-  color: var(--accent);
-}
-
 .review-action-state-reviewed {
   color: var(--success);
+}
+
+.review-action-spinner-button:disabled {
+  opacity: 1;
+}
+
+.review-action-spinner {
+  animation: detail-command-spin 0.8s linear infinite;
+  color: var(--accent);
 }
 
 .feature-map-row strong {

@@ -535,16 +535,19 @@ function ReviewRowAction({
     );
   }
 
-  const label = reviewState === "running" ? "Running" : "Queued";
+  const label =
+    reviewState === "running"
+      ? `Review running for ${feature.title} (${feature.featureId})`
+      : `Review queued for ${feature.title} (${feature.featureId})`;
   return (
     <div className="review-action-cell">
       <ActionIconButton
+        className="review-action-spinner-button"
         disabled
-        icon={<LoaderCircleIcon aria-hidden="true" />}
+        icon={<LoaderCircleIcon aria-hidden="true" className="review-action-spinner" />}
         label={label}
         title={label}
       />
-      <span className={`review-action-state review-action-state-${reviewState}`}>{label}</span>
     </div>
   );
 }
