@@ -49,10 +49,24 @@ describe("ReviewMapPanel", () => {
   it("disables row review buttons only for active features", () => {
     renderPanel({ runningReviewFeatureId: "feat-auth", queuedReviewFeatureIds: ["feat-billing"] });
 
-    expect(screen.getByRole("button", { name: "Running" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Queued" })).toBeDisabled();
-    expect(screen.getByText("Running")).toHaveClass("review-action-state-running");
-    expect(screen.getByText("Queued")).toHaveClass("review-action-state-queued");
+    const runningButton = screen.getByRole("button", {
+      name: "Review running for Authentication (feat-auth)",
+    });
+    const queuedButton = screen.getByRole("button", {
+      name: "Review queued for Billing (feat-billing)",
+    });
+    expect(runningButton).toBeDisabled();
+    expect(queuedButton).toBeDisabled();
+    expect(screen.queryByText("Running")).not.toBeInTheDocument();
+    expect(screen.queryByText("Queued")).not.toBeInTheDocument();
+    fireEvent.mouseEnter(runningButton.parentElement as HTMLElement);
+    expect(screen.getByText("Review running for Authentication (feat-auth)")).toHaveClass(
+      "icon-tooltip",
+    );
+    fireEvent.mouseEnter(queuedButton.parentElement as HTMLElement);
+    expect(screen.getByText("Review queued for Billing (feat-billing)")).toHaveClass(
+      "icon-tooltip",
+    );
 
     const authRow = screen.getByText("Authentication").closest('[role="row"]');
     const billingRow = screen.getByText("Billing").closest('[role="row"]');

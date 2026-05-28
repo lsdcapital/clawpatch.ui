@@ -934,14 +934,18 @@ describe("ClawpatchApp header actions", () => {
       }),
     );
     expect(screen.queryByRole("status", { name: "Active task" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Running" })).toBeDisabled();
-    expect(screen.getByText("Running")).toHaveClass("review-action-state-running");
+    expect(
+      screen.getByRole("button", { name: "Review running for Authentication (feat-auth)" }),
+    ).toBeDisabled();
+    expect(screen.queryByText("Running")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Review Billing" })).not.toBeDisabled();
 
     fireEvent.click(screen.getByRole("button", { name: "Review Billing" }));
     expect(screen.queryByRole("status", { name: "Active task" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Queued" })).toBeDisabled();
-    expect(screen.getByText("Queued")).toHaveClass("review-action-state-queued");
+    expect(
+      screen.getByRole("button", { name: "Review queued for Billing (feat-billing)" }),
+    ).toBeDisabled();
+    expect(screen.queryByText("Queued")).not.toBeInTheDocument();
     expect(run).toHaveBeenCalledTimes(1);
 
     act(() => {
@@ -957,7 +961,9 @@ describe("ClawpatchApp header actions", () => {
     expect(run).toHaveBeenCalledTimes(2);
     expect(repoList).toHaveBeenCalledTimes(1);
     expect(screen.queryByRole("status", { name: "Active task" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Running" })).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Review running for Billing (feat-billing)" }),
+    ).toBeDisabled();
 
     act(() => {
       resolvers.get("feat-billing")?.(makeCommandResult("review"));
@@ -1005,6 +1011,18 @@ describe("ClawpatchApp header actions", () => {
       "feature-status",
     );
     expect(within(billingRow as HTMLElement).getByText("queued")).toHaveClass("feature-status");
+    expect(
+      within(authenticationRow as HTMLElement).getByRole("button", {
+        name: "Review running for Authentication (feat-auth)",
+      }),
+    ).toBeDisabled();
+    expect(
+      within(billingRow as HTMLElement).getByRole("button", {
+        name: "Review queued for Billing (feat-billing)",
+      }),
+    ).toBeDisabled();
+    expect(screen.queryByText("Running")).not.toBeInTheDocument();
+    expect(screen.queryByText("Queued")).not.toBeInTheDocument();
     expect(screen.queryByRole("complementary", { name: "Command output" })).not.toBeInTheDocument();
 
     act(() => {
