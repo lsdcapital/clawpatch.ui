@@ -1570,6 +1570,14 @@ button:disabled {
   opacity: 1;
 }
 
+.review-action-queued-button:disabled {
+  opacity: 1;
+}
+
+.review-action-queued-button svg {
+  color: var(--warning);
+}
+
 .review-action-spinner {
   animation: detail-command-spin 0.8s linear infinite;
   color: var(--accent);

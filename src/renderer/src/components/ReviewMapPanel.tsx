@@ -2,6 +2,7 @@ import {
   ChevronDownIcon,
   ChevronRightIcon,
   ClipboardCheckIcon,
+  ClockIcon,
   LoaderCircleIcon,
   ListChecksIcon,
   MapIcon,
@@ -540,10 +541,22 @@ function ReviewRowAction({
     );
   }
 
-  const label =
-    reviewState === "running"
-      ? `Review running for ${feature.title}`
-      : `Review queued for ${feature.title}`;
+  if (reviewState === "queued") {
+    const label = `Review queued for ${feature.title}`;
+    return (
+      <div className="review-action-cell">
+        <ActionIconButton
+          className="review-action-queued-button"
+          disabled
+          icon={<ClockIcon aria-hidden="true" />}
+          label={label}
+          title={label}
+        />
+      </div>
+    );
+  }
+
+  const label = `Review running for ${feature.title}`;
   return (
     <div className="review-action-cell">
       <ActionIconButton

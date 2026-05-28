@@ -73,6 +73,8 @@ describe("ReviewMapPanel", () => {
     });
     expect(runningButton).toBeDisabled();
     expect(queuedButton).toBeDisabled();
+    expect(runningButton.querySelector(".review-action-spinner")).not.toBeNull();
+    expect(queuedButton.querySelector(".review-action-spinner")).toBeNull();
     expect(screen.queryByText("Running")).not.toBeInTheDocument();
     expect(screen.queryByText("Queued")).not.toBeInTheDocument();
     fireEvent.mouseEnter(runningButton.parentElement as HTMLElement);
@@ -92,6 +94,28 @@ describe("ReviewMapPanel", () => {
     expect(within(billingRow as HTMLElement).getByText("error")).toHaveClass("feature-status");
     expect(within(authRow as HTMLElement).queryByText("reviewing")).not.toBeInTheDocument();
     expect(within(billingRow as HTMLElement).queryByText("queued")).not.toBeInTheDocument();
+  });
+
+  it("keeps active review rows visible when their status is outside the default queue", () => {
+    renderPanel({
+      runningReviewFeatureId: "feat-profile",
+      queuedReviewFeatureIds: ["feat-billing"],
+    });
+
+    const profileRow = screen.getByText("Profile settings").closest('[role="row"]');
+    const billingRow = screen.getByText("Billing").closest('[role="row"]');
+    expect(profileRow).not.toBeNull();
+    expect(billingRow).not.toBeNull();
+    expect(
+      within(profileRow as HTMLElement).getByRole("button", {
+        name: "Review running for Profile settings",
+      }),
+    ).toBeDisabled();
+    expect(
+      within(billingRow as HTMLElement).getByRole("button", {
+        name: "Review queued for Billing",
+      }),
+    ).toBeDisabled();
   });
 
   it("does not disable row review buttons for unrelated busy toolbar actions", () => {

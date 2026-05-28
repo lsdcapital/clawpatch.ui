@@ -967,7 +967,7 @@ describe("ClawpatchApp header actions", () => {
     await waitFor(() => expect(repoList).toHaveBeenCalledTimes(2));
   });
 
-  it("shows bulk review progress on queued and running rows", async () => {
+  it("keeps bulk review progress in the action column", async () => {
     const resolvers = new Map<string, (result: CommandResult) => void>();
     const run = vi.fn<Api["commands"]["run"]>(
       (_repoId, request) =>
@@ -1011,16 +1011,16 @@ describe("ClawpatchApp header actions", () => {
       within(authenticationRow as HTMLElement).queryByText("reviewing"),
     ).not.toBeInTheDocument();
     expect(within(billingRow as HTMLElement).queryByText("queued")).not.toBeInTheDocument();
-    expect(
-      within(authenticationRow as HTMLElement).getByRole("button", {
-        name: "Review running for Authentication",
-      }),
-    ).toBeDisabled();
-    expect(
-      within(billingRow as HTMLElement).getByRole("button", {
-        name: "Review queued for Billing",
-      }),
-    ).toBeDisabled();
+    const runningButton = within(authenticationRow as HTMLElement).getByRole("button", {
+      name: "Review running for Authentication",
+    });
+    const queuedButton = within(billingRow as HTMLElement).getByRole("button", {
+      name: "Review queued for Billing",
+    });
+    expect(runningButton).toBeDisabled();
+    expect(runningButton.querySelector(".review-action-spinner")).not.toBeNull();
+    expect(queuedButton).toBeDisabled();
+    expect(queuedButton.querySelector(".review-action-spinner")).toBeNull();
     expect(screen.queryByText("Running")).not.toBeInTheDocument();
     expect(screen.queryByText("Queued")).not.toBeInTheDocument();
     expect(screen.queryByRole("complementary", { name: "Command output" })).not.toBeInTheDocument();
