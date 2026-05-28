@@ -1579,6 +1579,15 @@ button:disabled {
   font-weight: 600;
 }
 
+.feature-title-tooltip strong {
+  display: block;
+  min-width: 0;
+  outline-offset: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .feature-map-head {
   background: var(--bg);
   color: var(--subtle);

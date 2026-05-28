@@ -21,6 +21,7 @@ import {
   type ReviewQueueStatusFilter,
 } from "../reviewQueueFilters";
 import { ActionIconButton } from "./ActionIconButton";
+import { TooltipTrigger } from "./TooltipTrigger";
 
 interface Props {
   snapshot: FeatureMapSnapshot | null;
@@ -370,7 +371,13 @@ function ReviewMapTable({
                 <span>{feature.source}</span>
                 <span>{feature.ownedFileCount + feature.contextFileCount + feature.testCount}</span>
                 <span>{feature.findingCount}</span>
-                <strong title={feature.featureId}>{feature.title}</strong>
+                <TooltipTrigger className="feature-title-tooltip" tooltip={feature.featureId}>
+                  {({ describedBy }) => (
+                    <strong aria-describedby={describedBy} tabIndex={0}>
+                      {feature.title}
+                    </strong>
+                  )}
+                </TooltipTrigger>
                 <span>{formatUpdatedAt(feature.updatedAt)}</span>
                 <ReviewRowAction
                   feature={feature}

@@ -46,6 +46,22 @@ describe("ReviewMapPanel", () => {
     expect(onReviewFeature).toHaveBeenCalledWith("feat-billing", {});
   });
 
+  it("keeps feature ids out of visible row titles and shows them in styled tooltips", () => {
+    renderPanel();
+
+    const authTitle = screen.getByText("Authentication");
+    const authRow = authTitle.closest('[role="row"]');
+    expect(authRow).not.toBeNull();
+    expect(authTitle).not.toHaveAttribute("title");
+    expect(
+      within(authRow as HTMLElement).queryByText("Authentication (feat-auth)"),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("feat-auth")).not.toBeInTheDocument();
+
+    fireEvent.mouseEnter(authTitle.closest(".icon-tooltip-trigger") as HTMLElement);
+    expect(screen.getByText("feat-auth")).toHaveClass("icon-tooltip");
+  });
+
   it("disables row review buttons only for active features", () => {
     renderPanel({ runningReviewFeatureId: "feat-auth", queuedReviewFeatureIds: ["feat-billing"] });
 
