@@ -1,4 +1,3 @@
-import electron from "electron";
 import type { OpenDialogOptions } from "electron";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
@@ -21,6 +20,7 @@ import {
   RepoSummarySchema,
   TerminalOpenResultSchema,
 } from "../../shared/schemas";
+import { requireElectron } from "../../shared/electronRuntime";
 import type { CommandStreamEvent } from "../../shared/types";
 import { CommandSpawnError, DialogOpenError } from "../errors";
 import { RepoService } from "../services/repoService";
@@ -51,6 +51,7 @@ import {
 } from "../../shared/ipcChannels";
 import { EffectIpc, makeIpcMethod } from "./effectIpc";
 
+const electron = requireElectron();
 const { BrowserWindow, dialog, shell } = electron;
 
 const RepoIdPayload = Schema.Struct({ repoId: Schema.String });
