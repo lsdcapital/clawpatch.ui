@@ -422,7 +422,7 @@ function reviewQueueVisibleFeatures(
   reviewActivityFeatureIds: ReadonlySet<string>,
 ): FeatureMapItem[] {
   const filteredFeatures = filterReviewQueue(features, filters);
-  if (filters.status !== "actionable" || reviewActivityFeatureIds.size === 0) {
+  if (reviewActivityFeatureIds.size === 0) {
     return filteredFeatures;
   }
 
