@@ -106,5 +106,6 @@ export interface Api {
   };
   terminal: {
     open: (repoId: string, findingId?: string) => Promise<TerminalOpenResult>;
+    openAiChat: (repoId: string, findingId: string) => Promise<TerminalOpenResult>;
   };
 }

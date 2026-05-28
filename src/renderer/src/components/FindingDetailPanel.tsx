@@ -1,5 +1,6 @@
 import {
   ArrowUpIcon,
+  BotMessageSquareIcon,
   ChevronDownIcon,
   ChevronRightIcon,
   GitPullRequestIcon,
@@ -35,10 +36,13 @@ interface Props {
   commandStateLabel?: string;
   fixDisabledReason: string | null;
   canOpenPr: boolean;
+  isOpeningAiChat: boolean;
   openPrDisabledReason: string | null;
   openPrResult: PatchOpenPrResult | null;
   openPrError: Error | null;
+  aiChatError: Error | null;
   triageError: string | null;
+  onChatWithAi: () => void;
   onTriage: (status: ClawpatchStatus, note: string) => void;
   onFix: (status: ClawpatchStatus, note: string) => void;
   onRevalidate: () => void;
@@ -56,10 +60,13 @@ export function FindingDetailPanel({
   commandStateLabel,
   fixDisabledReason,
   canOpenPr,
+  isOpeningAiChat,
   openPrDisabledReason,
   openPrResult,
   openPrError,
+  aiChatError,
   triageError,
+  onChatWithAi,
   onTriage,
   onFix,
   onRevalidate,
@@ -128,6 +135,12 @@ export function FindingDetailPanel({
       <div className="detail-action-bar">
         <div className="action-toolbar detail-actions" aria-label="Finding actions">
           <ActionIconButton
+            disabled={isBusy || isOpeningAiChat}
+            icon={<BotMessageSquareIcon aria-hidden="true" />}
+            label="Chat with AI"
+            onClick={onChatWithAi}
+          />
+          <ActionIconButton
             aria-describedby={fixDisabledReason !== null ? "fix-disabled-reason" : undefined}
             disabled={fixButtonDisabled}
             icon={<WrenchIcon aria-hidden="true" />}
@@ -181,6 +194,9 @@ export function FindingDetailPanel({
         ) : null}
         {openPrError !== null ? (
           <p className="detail-action-message error">{openPrError.message}</p>
+        ) : null}
+        {aiChatError !== null ? (
+          <p className="detail-action-message error">{aiChatError.message}</p>
         ) : null}
         {triageError !== null ? <p className="detail-action-message error">{triageError}</p> : null}
         {openPrResult !== null ? (

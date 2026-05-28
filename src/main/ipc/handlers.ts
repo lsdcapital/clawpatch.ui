@@ -46,6 +46,7 @@ import {
   REPO_REFRESH_CHANNEL,
   REPO_UPDATE_CONFIG_CHANNEL,
   REPO_UPDATE_SETTINGS_CHANNEL,
+  TERMINAL_OPEN_AI_CHAT_CHANNEL,
   TERMINAL_OPEN_CHANNEL,
   TRIAGE_SET_CHANNEL,
 } from "../../shared/ipcChannels";
@@ -281,6 +282,14 @@ export const installIpcHandlers = (publishCommandStream: (event: CommandStreamEv
         payload: RepoFindingPayload,
         result: TerminalOpenResultSchema,
         handler: ({ repoId, findingId }) => repos.openTerminal(repoId, findingId),
+      }),
+    );
+    yield* ipc.handle(
+      makeIpcMethod({
+        channel: TERMINAL_OPEN_AI_CHAT_CHANNEL,
+        payload: FindingPayload,
+        result: TerminalOpenResultSchema,
+        handler: ({ repoId, findingId }) => repos.openAiChat(repoId, findingId),
       }),
     );
   }).pipe(Effect.withSpan("ipc.installHandlers"));

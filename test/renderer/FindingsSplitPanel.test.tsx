@@ -43,6 +43,7 @@ describe("FindingsSplitPanel", () => {
     expect(screen.getByRole("heading", { name: "Findings" })).toBeInTheDocument();
     expect(screen.getByText("Token is logged in debug output")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Selected detail title" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Chat with AI" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Revalidate" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Finding status: open" })).toBeInTheDocument();
     expect(screen.getByText("Needs product call")).toBeInTheDocument();
@@ -62,6 +63,7 @@ describe("FindingsSplitPanel", () => {
   });
 
   it("runs selected finding actions from the detail toolbar", () => {
+    const onChatWithAi = vi.fn();
     const onFix = vi.fn();
     const onOpenPr = vi.fn();
     const onInterrupt = vi.fn();
@@ -69,12 +71,14 @@ describe("FindingsSplitPanel", () => {
     const { unmount } = renderSplitPanel({
       canOpenPr: true,
       isBusy: true,
+      onChatWithAi,
       onFix,
       onInterrupt,
       onOpenPr,
     });
 
     expect(screen.getByText("fix running")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Chat with AI" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Run fix" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Revalidate" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Open PR" })).toBeDisabled();
@@ -83,13 +87,26 @@ describe("FindingsSplitPanel", () => {
     expect(onInterrupt).toHaveBeenCalledOnce();
 
     unmount();
-    renderSplitPanel({ canOpenPr: true, onFix, onOpenPr });
+    renderSplitPanel({ canOpenPr: true, onChatWithAi, onFix, onOpenPr });
+
+    fireEvent.click(screen.getByRole("button", { name: "Chat with AI" }));
+    expect(onChatWithAi).toHaveBeenCalledOnce();
 
     fireEvent.click(screen.getByRole("button", { name: "Run fix" }));
     expect(onFix).toHaveBeenCalledWith("open", "");
 
     fireEvent.click(screen.getByRole("button", { name: "Open PR" }));
     expect(onOpenPr).toHaveBeenCalledOnce();
+  });
+
+  it("disables AI chat while opening and shows launch errors", () => {
+    renderSplitPanel({
+      aiChatError: new Error("Unable to open AI chat."),
+      isOpeningAiChat: true,
+    });
+
+    expect(screen.getByRole("button", { name: "Chat with AI" })).toBeDisabled();
+    expect(screen.getByText("Unable to open AI chat.")).toBeInTheDocument();
   });
 
   it("shows disabled reasons and open PR results near the detail actions", () => {
@@ -314,6 +331,8 @@ function renderSplitPanel({
   commandStateLabel = "fix",
   fixDisabledReason = null,
   isBusy = false,
+  isOpeningAiChat = false,
+  onChatWithAi = vi.fn(),
   onFix = vi.fn(),
   onInterrupt,
   onOpenPr = vi.fn(),
@@ -322,6 +341,7 @@ function renderSplitPanel({
   onOpenDiffFile,
   openPrError = null,
   openPrResult = null,
+  aiChatError = null,
   triageError = null,
 }: {
   finding?: FindingDetail;
@@ -330,6 +350,8 @@ function renderSplitPanel({
   commandStateLabel?: string;
   fixDisabledReason?: string | null;
   isBusy?: boolean;
+  isOpeningAiChat?: boolean;
+  onChatWithAi?: () => void;
   onFix?: (status: ClawpatchStatus, note: string) => void;
   onInterrupt?: () => void;
   onOpenPr?: () => void;
@@ -338,6 +360,7 @@ function renderSplitPanel({
   onOpenDiffFile?: (filePath: string) => void;
   openPrError?: Error | null;
   openPrResult?: PatchOpenPrResult | null;
+  aiChatError?: Error | null;
   triageError?: string | null;
 } = {}) {
   return render(
@@ -357,14 +380,17 @@ function renderSplitPanel({
       commandStateLabel={commandStateLabel}
       fixDisabledReason={fixDisabledReason}
       canOpenPr={canOpenPr}
+      isOpeningAiChat={isOpeningAiChat}
       openPrDisabledReason={openPrDisabledReason}
       openPrResult={openPrResult}
       openPrError={openPrError}
+      aiChatError={aiChatError}
       triageError={triageError}
       onFiltersChange={vi.fn()}
       onSortChange={vi.fn()}
       onSelectFinding={vi.fn()}
       onRevalidateShown={vi.fn()}
+      onChatWithAi={onChatWithAi}
       onTriage={onTriage}
       onFix={onFix}
       onRevalidate={onRevalidate}

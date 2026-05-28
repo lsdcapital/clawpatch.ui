@@ -12,6 +12,7 @@ import {
   REPO_GET_SETTINGS_CHANNEL,
   REPO_UPDATE_CONFIG_CHANNEL,
   REPO_UPDATE_SETTINGS_CHANNEL,
+  TERMINAL_OPEN_AI_CHAT_CHANNEL,
   TERMINAL_OPEN_CHANNEL,
 } from "../../src/shared/ipcChannels";
 import type { Api } from "../../src/shared/types";
@@ -128,6 +129,25 @@ describe("preload api", () => {
 
     await expect(api.terminal.open("repo-1", "fnd-1")).resolves.toEqual({ cwd: "/tmp/worktree" });
     expect(invokeMock).toHaveBeenCalledWith(TERMINAL_OPEN_CHANNEL, {
+      repoId: "repo-1",
+      findingId: "fnd-1",
+    });
+  });
+
+  it("exposes finding AI chat terminal open over IPC", async () => {
+    invokeMock.mockResolvedValue({ cwd: "/tmp/worktree" });
+
+    await import("../../src/preload/index");
+
+    const api = exposeInMainWorldMock.mock.calls[0]?.[1] as Api | undefined;
+    if (api === undefined) {
+      throw new Error("preload api was not exposed");
+    }
+
+    await expect(api.terminal.openAiChat("repo-1", "fnd-1")).resolves.toEqual({
+      cwd: "/tmp/worktree",
+    });
+    expect(invokeMock).toHaveBeenCalledWith(TERMINAL_OPEN_AI_CHAT_CHANNEL, {
       repoId: "repo-1",
       findingId: "fnd-1",
     });

@@ -5,3 +5,5 @@ export const clawpatchStatuses = [
   "wont-fix",
   "uncertain",
 ] as const;
+
+export const defaultAiAssistantCommand = 'codex "$(cat {promptFile})"';

@@ -121,6 +121,7 @@ export const AppSettingsSchema = Schema.Struct({
   schemaVersion: Schema.Literal(1),
   terminalAppName: Schema.String,
   terminalAppPath: Schema.NullOr(Schema.String),
+  aiAssistantCommand: Schema.optionalKey(Schema.String),
   updatedAt: Schema.String,
 });
 
