@@ -351,7 +351,7 @@ function ReviewMapTable({
               : null;
           return (
             <Fragment key={feature.featureId}>
-              <div className={`feature-map-row review-row-${reviewState}`} role="row">
+              <div className={reviewRowClassName(reviewState)} role="row">
                 <ActionIconButton
                   aria-expanded={isExpanded}
                   className="feature-map-expand-button"
@@ -488,16 +488,14 @@ function ReviewStatusCell({
   feature: FeatureMapItem;
   reviewState: ReviewRowState;
 }) {
-  if (reviewState === "running") {
-    return <span className="feature-status reviewing">reviewing</span>;
-  }
-  if (reviewState === "queued") {
-    return <span className="feature-status queued">queued</span>;
-  }
   if (reviewState === "reviewed") {
     return <span className="feature-status reviewed">reviewed</span>;
   }
   return <span className={`feature-status ${feature.status}`}>{feature.status}</span>;
+}
+
+function reviewRowClassName(reviewState: ReviewRowState): string {
+  return reviewState === "reviewed" ? "feature-map-row review-row-reviewed" : "feature-map-row";
 }
 
 function ReviewRowAction({
