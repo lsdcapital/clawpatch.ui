@@ -12,7 +12,7 @@ describe("ReviewMapPanel", () => {
 
     expect(screen.getByRole("heading", { name: "Review Queue" })).toBeInTheDocument();
     expect(screen.getByText("2 actionable of 3 map items")).toBeInTheDocument();
-    expect(screen.getByText("2 actionable of 3 total")).toBeInTheDocument();
+    expect(screen.queryByText("2 actionable of 3 total")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Actionable 2" })).toHaveClass("active");
     const updateMapButton = screen.getByRole("button", { name: "Update map" });
     const reviewMappedFeaturesButton = screen.getByRole("button", {
@@ -25,7 +25,7 @@ describe("ReviewMapPanel", () => {
     expect(screen.queryByText(/Review \d+ remaining/)).not.toBeInTheDocument();
     expect(reviewMappedFeaturesButton).not.toHaveAttribute("title");
     fireEvent.mouseEnter(reviewMappedFeaturesButton.parentElement as HTMLElement);
-    expect(screen.getByText("Review mapped features")).toHaveClass("icon-tooltip");
+    expect(screen.getByText("Review all")).toHaveClass("icon-tooltip");
 
     fireEvent.click(reviewMappedFeaturesButton);
     expect(onReviewFeature).toHaveBeenNthCalledWith(1, "feat-auth", {});
