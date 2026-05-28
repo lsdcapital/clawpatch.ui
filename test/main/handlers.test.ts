@@ -39,7 +39,7 @@ const { getAllWindowsMock, getFocusedWindowMock, showOpenDialogMock, openExterna
 
 type TestRuntime = ManagedRuntime.ManagedRuntime<RepoService | EffectIpc, never>;
 
-vi.mock("electron", () => {
+vi.mock("../../src/shared/electronRuntime", () => {
   const electronMock = {
     BrowserWindow: {
       getAllWindows: getAllWindowsMock,
@@ -52,7 +52,7 @@ vi.mock("electron", () => {
       openExternal: openExternalMock,
     },
   };
-  return { ...electronMock, default: electronMock };
+  return { requireElectron: () => electronMock };
 });
 
 describe("IPC handlers", () => {

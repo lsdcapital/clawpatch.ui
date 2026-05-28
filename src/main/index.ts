@@ -1,4 +1,3 @@
-import electron from "electron";
 import type { BrowserWindow as ElectronBrowserWindow, Rectangle } from "electron";
 import { join } from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
@@ -6,6 +5,7 @@ import type * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as ManagedRuntime from "effect/ManagedRuntime";
 import { APP_DISPLAY_NAME, APP_ID } from "../shared/appMetadata";
+import { requireElectron } from "../shared/electronRuntime";
 import { COMMANDS_STREAM_CHANNEL } from "../shared/ipcChannels";
 import type { CommandStreamEvent } from "../shared/types";
 import { EffectIpcLive } from "./ipc/effectIpc";
@@ -31,6 +31,7 @@ import {
   type WindowBounds,
 } from "./windowState";
 
+const electron = requireElectron();
 const { app, BrowserWindow, ipcMain, Menu, nativeTheme, screen } = electron;
 
 type AppLayer = ReturnType<typeof makeAppLayer>;

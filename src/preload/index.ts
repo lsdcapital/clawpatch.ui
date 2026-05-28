@@ -1,4 +1,4 @@
-import electron from "electron";
+import type { IpcRendererEvent } from "electron";
 import type {
   Api,
   ClawpatchCommandRequest,
@@ -31,7 +31,9 @@ import {
   TERMINAL_OPEN_CHANNEL,
   TRIAGE_SET_CHANNEL,
 } from "../shared/ipcChannels";
+import { requireElectron } from "../shared/electronRuntime";
 
+const electron = requireElectron();
 const { contextBridge, ipcRenderer } = electron;
 
 const repoFindingPayload = (
@@ -85,7 +87,7 @@ const api: Api = {
     interrupt: (repoId: string, findingId?: string) =>
       ipcRenderer.invoke(COMMANDS_INTERRUPT_CHANNEL, repoFindingPayload(repoId, findingId)),
     onStream: (listener: (event: CommandStreamEvent) => void) => {
-      const handler = (_event: Electron.IpcRendererEvent, payload: CommandStreamEvent): void =>
+      const handler = (_event: IpcRendererEvent, payload: CommandStreamEvent): void =>
         listener(payload);
       ipcRenderer.on(COMMANDS_STREAM_CHANNEL, handler);
       return () => ipcRenderer.removeListener(COMMANDS_STREAM_CHANNEL, handler);

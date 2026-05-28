@@ -23,7 +23,7 @@ const { exposeInMainWorldMock, invokeMock, onMock, removeListenerMock } = vi.hoi
   removeListenerMock: vi.fn(),
 }));
 
-vi.mock("electron", () => {
+vi.mock("../../src/shared/electronRuntime", () => {
   const electronMock = {
     contextBridge: {
       exposeInMainWorld: exposeInMainWorldMock,
@@ -34,7 +34,7 @@ vi.mock("electron", () => {
       removeListener: removeListenerMock,
     },
   };
-  return { ...electronMock, default: electronMock };
+  return { requireElectron: () => electronMock };
 });
 
 describe("preload api", () => {
