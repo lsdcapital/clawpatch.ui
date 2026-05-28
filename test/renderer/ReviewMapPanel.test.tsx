@@ -118,6 +118,20 @@ describe("ReviewMapPanel", () => {
     ).toBeDisabled();
   });
 
+  it("keeps active review rows visible through status filter changes", () => {
+    renderPanel({ runningReviewFeatureId: "feat-auth" });
+
+    fireEvent.click(screen.getByRole("button", { name: "No action 1" }));
+
+    expect(screen.getByText("Authentication")).toBeInTheDocument();
+    expect(screen.getByText("Profile settings")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", {
+        name: "Review running for Authentication",
+      }),
+    ).toBeDisabled();
+  });
+
   it("does not disable row review buttons for unrelated busy toolbar actions", () => {
     renderPanel({ isBusy: true });
 
