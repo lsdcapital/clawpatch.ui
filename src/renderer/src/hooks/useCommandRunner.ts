@@ -83,12 +83,18 @@ export function useCommandRunner({
   const isTriagePendingRef = useRef(false);
   const isBulkRevalidationRunningRef = useRef(false);
 
+  const invalidateProgressForCurrentCommand = useCallback((): void => {
+    void invalidateCommandProgress(queryClient, {
+      includeFeatures: !isRunningFeatureReview(runningRepoCommandRef.current),
+    });
+  }, [queryClient]);
+
   useEffect(() => {
     return window.clawpatch.commands.onStream((event) => {
       setCommandLog((current) => appendCommandLogEntries(current, [{ kind: "stream", event }]));
-      void invalidateCommandProgress(queryClient);
+      invalidateProgressForCurrentCommand();
     });
-  }, [queryClient]);
+  }, [invalidateProgressForCurrentCommand]);
 
   const commandInterruptMutation = useMutation({
     mutationFn: ({ repo, findingId }: { repo: RepoSummary; findingId?: string }) =>
@@ -203,11 +209,11 @@ export function useCommandRunner({
     }
 
     const intervalId = window.setInterval(() => {
-      void invalidateCommandProgress(queryClient);
+      invalidateProgressForCurrentCommand();
     }, 1000);
 
     return () => window.clearInterval(intervalId);
-  }, [isAnyCommandRunning, queryClient]);
+  }, [invalidateProgressForCurrentCommand, isAnyCommandRunning]);
 
   const nextCommandInvocationId = (): string => {
     commandInvocationSeqRef.current += 1;
@@ -528,6 +534,10 @@ function reviewCompletionSummary(
     findingCount,
     reviewedFeatureCount,
   };
+}
+
+function isRunningFeatureReview(command: RunningRepoCommand | null): boolean {
+  return command?.request.command === "review" && command.request.featureId !== undefined;
 }
 
 function countFromParsedJson(value: unknown, countKey: string, idsKey: string): number | null {
