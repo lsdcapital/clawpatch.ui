@@ -86,10 +86,12 @@ describe("ReviewMapPanel", () => {
     const billingRow = screen.getByText("Billing").closest('[role="row"]');
     expect(authRow).not.toBeNull();
     expect(billingRow).not.toBeNull();
-    expect(authRow).toHaveClass("review-row-running");
-    expect(billingRow).toHaveClass("review-row-queued");
-    expect(within(authRow as HTMLElement).getByText("reviewing")).toHaveClass("feature-status");
-    expect(within(billingRow as HTMLElement).getByText("queued")).toHaveClass("feature-status");
+    expect(authRow).not.toHaveClass("review-row-running");
+    expect(billingRow).not.toHaveClass("review-row-queued");
+    expect(within(authRow as HTMLElement).getByText("pending")).toHaveClass("feature-status");
+    expect(within(billingRow as HTMLElement).getByText("error")).toHaveClass("feature-status");
+    expect(within(authRow as HTMLElement).queryByText("reviewing")).not.toBeInTheDocument();
+    expect(within(billingRow as HTMLElement).queryByText("queued")).not.toBeInTheDocument();
   });
 
   it("does not disable row review buttons for unrelated busy toolbar actions", () => {

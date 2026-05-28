@@ -1001,12 +1001,16 @@ describe("ClawpatchApp header actions", () => {
     const billingRow = screen.getByText("Billing").closest('[role="row"]');
     expect(authenticationRow).not.toBeNull();
     expect(billingRow).not.toBeNull();
-    expect(authenticationRow).toHaveClass("review-row-running");
-    expect(billingRow).toHaveClass("review-row-queued");
-    expect(within(authenticationRow as HTMLElement).getByText("reviewing")).toHaveClass(
+    expect(authenticationRow).not.toHaveClass("review-row-running");
+    expect(billingRow).not.toHaveClass("review-row-queued");
+    expect(within(authenticationRow as HTMLElement).getByText("pending")).toHaveClass(
       "feature-status",
     );
-    expect(within(billingRow as HTMLElement).getByText("queued")).toHaveClass("feature-status");
+    expect(within(billingRow as HTMLElement).getByText("error")).toHaveClass("feature-status");
+    expect(
+      within(authenticationRow as HTMLElement).queryByText("reviewing"),
+    ).not.toBeInTheDocument();
+    expect(within(billingRow as HTMLElement).queryByText("queued")).not.toBeInTheDocument();
     expect(
       within(authenticationRow as HTMLElement).getByRole("button", {
         name: "Review running for Authentication",

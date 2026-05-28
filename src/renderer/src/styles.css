@@ -1623,14 +1623,6 @@ button:disabled {
   color: var(--success);
 }
 
-.review-row-running {
-  background: color-mix(in srgb, var(--accent-soft) 48%, transparent);
-}
-
-.review-row-queued {
-  background: color-mix(in srgb, var(--warning) 12%, transparent);
-}
-
 .review-row-reviewed {
   background: color-mix(in srgb, var(--success-soft) 42%, transparent);
 }
