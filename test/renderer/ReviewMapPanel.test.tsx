@@ -66,23 +66,21 @@ describe("ReviewMapPanel", () => {
     renderPanel({ runningReviewFeatureId: "feat-auth", queuedReviewFeatureIds: ["feat-billing"] });
 
     const runningButton = screen.getByRole("button", {
-      name: "Review running for Authentication (feat-auth)",
+      name: "Review running for Authentication",
     });
     const queuedButton = screen.getByRole("button", {
-      name: "Review queued for Billing (feat-billing)",
+      name: "Review queued for Billing",
     });
     expect(runningButton).toBeDisabled();
     expect(queuedButton).toBeDisabled();
     expect(screen.queryByText("Running")).not.toBeInTheDocument();
     expect(screen.queryByText("Queued")).not.toBeInTheDocument();
     fireEvent.mouseEnter(runningButton.parentElement as HTMLElement);
-    expect(screen.getByText("Review running for Authentication (feat-auth)")).toHaveClass(
-      "icon-tooltip",
-    );
+    expect(screen.getByText("Review running for Authentication")).toHaveClass("icon-tooltip");
     fireEvent.mouseEnter(queuedButton.parentElement as HTMLElement);
-    expect(screen.getByText("Review queued for Billing (feat-billing)")).toHaveClass(
-      "icon-tooltip",
-    );
+    expect(screen.getByText("Review queued for Billing")).toHaveClass("icon-tooltip");
+    expect(screen.queryByText("feat-auth")).not.toBeInTheDocument();
+    expect(screen.queryByText("feat-billing")).not.toBeInTheDocument();
 
     const authRow = screen.getByText("Authentication").closest('[role="row"]');
     const billingRow = screen.getByText("Billing").closest('[role="row"]');

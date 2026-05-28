@@ -520,7 +520,7 @@ function ReviewRowAction({
           icon={<ClipboardCheckIcon aria-hidden="true" />}
           label={`Review ${feature.title}`}
           onClick={() => onReviewFeature(feature.featureId, reviewOptions)}
-          title={`Review ${feature.title} (${feature.featureId})`}
+          title={`Review ${feature.title}`}
         />
       </div>
     );
@@ -544,8 +544,8 @@ function ReviewRowAction({
 
   const label =
     reviewState === "running"
-      ? `Review running for ${feature.title} (${feature.featureId})`
-      : `Review queued for ${feature.title} (${feature.featureId})`;
+      ? `Review running for ${feature.title}`
+      : `Review queued for ${feature.title}`;
   return (
     <div className="review-action-cell">
       <ActionIconButton
