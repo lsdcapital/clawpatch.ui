@@ -1,4 +1,5 @@
-import { BrowserWindow, dialog, shell, type OpenDialogOptions } from "electron";
+import electron from "electron";
+import type { OpenDialogOptions } from "electron";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import {
@@ -49,6 +50,8 @@ import {
   TRIAGE_SET_CHANNEL,
 } from "../../shared/ipcChannels";
 import { EffectIpc, makeIpcMethod } from "./effectIpc";
+
+const { BrowserWindow, dialog, shell } = electron;
 
 const RepoIdPayload = Schema.Struct({ repoId: Schema.String });
 const AppSettingsPayload = Schema.Struct({ settings: AppSettingsSchema });
