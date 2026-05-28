@@ -1,4 +1,5 @@
-import { app, BrowserWindow, ipcMain, Menu, nativeTheme, screen, type Rectangle } from "electron";
+import electron from "electron";
+import type { BrowserWindow as ElectronBrowserWindow, Rectangle } from "electron";
 import { join } from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import type * as Effect from "effect/Effect";
@@ -30,10 +31,12 @@ import {
   type WindowBounds,
 } from "./windowState";
 
+const { app, BrowserWindow, ipcMain, Menu, nativeTheme, screen } = electron;
+
 type AppLayer = ReturnType<typeof makeAppLayer>;
 type AppRuntime = ManagedRuntime.ManagedRuntime<Layer.Success<AppLayer>, Layer.Error<AppLayer>>;
 
-let mainWindow: BrowserWindow | null = null;
+let mainWindow: ElectronBrowserWindow | null = null;
 let appRuntime: AppRuntime | null = null;
 const WINDOW_STATE_SAVE_DEBOUNCE_MS = 250;
 const LIGHT_WINDOW_BACKGROUND = "#f6f7f8";
@@ -206,14 +209,14 @@ function getInitialWindowBackgroundColor(): string {
   return nativeTheme.shouldUseDarkColors ? DARK_WINDOW_BACKGROUND : LIGHT_WINDOW_BACKGROUND;
 }
 
-function syncWindowAppearance(window: BrowserWindow): void {
+function syncWindowAppearance(window: ElectronBrowserWindow): void {
   if (window.isDestroyed()) {
     return;
   }
   window.setBackgroundColor(getInitialWindowBackgroundColor());
 }
 
-function makeOneShotWindowReveal(window: BrowserWindow): () => void {
+function makeOneShotWindowReveal(window: ElectronBrowserWindow): () => void {
   let revealed = false;
   return () => {
     if (revealed || window.isDestroyed()) {
@@ -275,7 +278,7 @@ function installApplicationMenu(): void {
   );
 }
 
-function installWindowStatePersistence(window: BrowserWindow, userDataPath: string): void {
+function installWindowStatePersistence(window: ElectronBrowserWindow, userDataPath: string): void {
   let saveTimeout: NodeJS.Timeout | null = null;
 
   const saveNow = (): void => {

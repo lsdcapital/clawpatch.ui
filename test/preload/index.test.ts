@@ -23,16 +23,19 @@ const { exposeInMainWorldMock, invokeMock, onMock, removeListenerMock } = vi.hoi
   removeListenerMock: vi.fn(),
 }));
 
-vi.mock("electron", () => ({
-  contextBridge: {
-    exposeInMainWorld: exposeInMainWorldMock,
-  },
-  ipcRenderer: {
-    invoke: invokeMock,
-    on: onMock,
-    removeListener: removeListenerMock,
-  },
-}));
+vi.mock("electron", () => {
+  const electronMock = {
+    contextBridge: {
+      exposeInMainWorld: exposeInMainWorldMock,
+    },
+    ipcRenderer: {
+      invoke: invokeMock,
+      on: onMock,
+      removeListener: removeListenerMock,
+    },
+  };
+  return { ...electronMock, default: electronMock };
+});
 
 describe("preload api", () => {
   afterEach(() => {

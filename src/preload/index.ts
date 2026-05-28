@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from "electron";
+import electron from "electron";
 import type {
   Api,
   ClawpatchCommandRequest,
@@ -31,6 +31,8 @@ import {
   TERMINAL_OPEN_CHANNEL,
   TRIAGE_SET_CHANNEL,
 } from "../shared/ipcChannels";
+
+const { contextBridge, ipcRenderer } = electron;
 
 const repoFindingPayload = (
   repoId: string,
