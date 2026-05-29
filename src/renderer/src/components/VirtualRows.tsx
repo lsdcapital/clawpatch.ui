@@ -1,4 +1,5 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
+import { useEffect, useReducer } from "react";
 import type { ReactNode, RefObject } from "react";
 
 // Lists shorter than this render every row directly; longer lists are
@@ -30,6 +31,17 @@ export function VirtualRows<T>({
     overscan: 10,
     getItemKey: (index) => getKey(items[index], index),
   });
+
+  // The virtualizer measures its scroll element in a layout effect and tries to
+  // flush the first window with flushSync — which React ignores when called from
+  // a layout effect, so the initial window never commits and the list shows up
+  // empty until some other state change re-renders it. Force one render after
+  // mount (a passive effect, after the measurement has been recorded) so the
+  // first window appears without user interaction.
+  const [, forceRenderAfterMount] = useReducer((tick: number) => tick + 1, 0);
+  useEffect(() => {
+    forceRenderAfterMount();
+  }, []);
 
   return (
     <div

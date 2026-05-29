@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { useMemo, useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 import type { FindingListItem, FindingWorkStatus } from "../../src/shared/types";
@@ -381,6 +381,45 @@ describe("FindingsTable virtualization", () => {
     const spacer = container.querySelector(".virtual-rows") as HTMLElement | null;
     expect(spacer).not.toBeNull();
     expect(spacer?.style.height).toBe(`${many.length * 34}px`);
+  });
+
+  it("renders a window of rows on initial mount without any interaction", async () => {
+    // Regression: the virtualizer measures its viewport in a layout effect and
+    // can't flushSync a re-render from there, so the first window only appeared
+    // after an unrelated state change (e.g. opening the filter). Give the viewport
+    // a real size and assert rows show up on their own.
+    const many = Array.from({ length: 80 }, (_, index) =>
+      makeFinding({ findingId: `fnd-${index}`, title: `Finding number ${index}`, status: "open" }),
+    );
+    const heightDescriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "offsetHeight");
+    const widthDescriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "offsetWidth");
+    Object.defineProperty(HTMLElement.prototype, "offsetHeight", {
+      configurable: true,
+      value: 400,
+    });
+    Object.defineProperty(HTMLElement.prototype, "offsetWidth", { configurable: true, value: 800 });
+
+    try {
+      const { container } = render(
+        <FilterHarness
+          findings={many}
+          initialFilters={{ ...defaultFindingFilters, status: null }}
+        />,
+      );
+
+      await waitFor(() => {
+        const count = container.querySelectorAll("button.table-row").length;
+        expect(count).toBeGreaterThan(0);
+        expect(count).toBeLessThan(many.length);
+      });
+    } finally {
+      if (heightDescriptor) {
+        Object.defineProperty(HTMLElement.prototype, "offsetHeight", heightDescriptor);
+      }
+      if (widthDescriptor) {
+        Object.defineProperty(HTMLElement.prototype, "offsetWidth", widthDescriptor);
+      }
+    }
   });
 
   it("renders every row directly when below the threshold", () => {
