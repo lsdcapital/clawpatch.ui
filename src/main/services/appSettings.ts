@@ -3,16 +3,11 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Path from "effect/Path";
-import * as Schema from "effect/Schema";
 import { AppSettingsSchema } from "../../shared/schemas";
 import { defaultAiAssistantCommand } from "../../shared/constants";
 import type { AppSettings } from "../../shared/types";
 import { JsonDecodeError } from "../errors";
-
-type SettingsReadResult =
-  | { readonly status: "missing" }
-  | { readonly status: "invalid" }
-  | { readonly status: "valid"; readonly settings: AppSettings };
+import { makeJsonFileStore } from "./jsonFileStore";
 
 export interface AppSettingsServiceShape {
   readonly read: () => Effect.Effect<AppSettings, AppSettingsError>;
@@ -42,64 +37,18 @@ function makeLiveService(
   path: Path.Path,
 ): AppSettingsServiceShape {
   const settingsPath = path.join(appDataDir, "app-settings.json");
-
-  const readSettingsFile = Effect.fn("appSettings.readSettingsFile")(function* () {
-    const exists = yield* fs.exists(settingsPath).pipe(Effect.catch(() => Effect.succeed(false)));
-    if (!exists) {
-      return { status: "missing" } satisfies SettingsReadResult;
-    }
-
-    const raw = yield* fs
-      .readFileString(settingsPath)
-      .pipe(Effect.catch(() => Effect.succeed(null)));
-    if (raw === null) {
-      return { status: "invalid" } satisfies SettingsReadResult;
-    }
-
-    const parsed = yield* Effect.try({
-      try: () => JSON.parse(raw) as unknown,
-      catch: (cause) => cause,
-    }).pipe(Effect.catch(() => Effect.succeed(undefined)));
-    if (parsed === undefined) {
-      return { status: "invalid" } satisfies SettingsReadResult;
-    }
-
-    return yield* Schema.decodeUnknownEffect(AppSettingsSchema)(parsed).pipe(
-      Effect.map(
-        (settings): SettingsReadResult => ({
-          status: "valid",
-          settings: normalizeSettings(settings),
-        }),
-      ),
-      Effect.catch(() => Effect.succeed({ status: "invalid" } satisfies SettingsReadResult)),
-    );
-  });
-
-  const writeSettingsFile = Effect.fn("appSettings.writeSettingsFile")(function* (
-    settings: AppSettings,
-  ) {
-    yield* fs
-      .makeDirectory(path.dirname(settingsPath), { recursive: true })
-      .pipe(Effect.mapError((cause) => new JsonDecodeError({ path: settingsPath, cause })));
-    yield* fs
-      .writeFileString(settingsPath, `${JSON.stringify(settings, null, 2)}\n`)
-      .pipe(Effect.mapError((cause) => new JsonDecodeError({ path: settingsPath, cause })));
+  const store = makeJsonFileStore({
+    name: "appSettings",
+    schema: AppSettingsSchema,
+    fs,
+    path,
+    normalize: normalizeSettings,
+    fallback: defaultAppSettings,
   });
 
   return {
-    read: Effect.fn("appSettings.read")(function* () {
-      const result = yield* readSettingsFile();
-      return result.status === "valid" ? result.settings : defaultAppSettings();
-    }),
-    write: Effect.fn("appSettings.write")(function* (settings) {
-      const next = normalizeSettings({
-        ...settings,
-        schemaVersion: 1 as const,
-        updatedAt: new Date().toISOString(),
-      });
-      yield* writeSettingsFile(next);
-      return next;
-    }),
+    read: () => store.read(settingsPath),
+    write: (settings) => store.write(settingsPath, settings),
   };
 }
 

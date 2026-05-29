@@ -169,10 +169,10 @@ export const ClawpatchStateServiceLive = Layer.effect(
             readRecords(repoPath, "patches"),
           ]);
           const feature =
-            features.find((item) => objectId(item, "featureId") === finding.featureId) ?? null;
+            features.find((item) => stringValue(item, "featureId") === finding.featureId) ?? null;
           const patchIds = new Set(finding.linkedPatchAttemptIds ?? []);
           const linkedPatches = patches
-            .filter((item) => patchIds.has(objectId(item, "patchAttemptId")))
+            .filter((item) => patchIds.has(stringValue(item, "patchAttemptId")))
             .map(decodePatchAttempt)
             .filter((patch): patch is PatchAttempt => patch !== null)
             .toSorted((a, b) => timestamp(b.createdAt) - timestamp(a.createdAt));
@@ -222,7 +222,7 @@ function toFindingListItem(finding: RawFinding): FindingListItem {
     triage: finding.triage ?? null,
     status: finding.status,
     evidence: (finding.evidence ?? []).map((item) => ({
-      path: valueOrEmpty(item, "path"),
+      path: stringValue(item, "path"),
       startLine: nullableNumber(item, "startLine"),
       endLine: nullableNumber(item, "endLine"),
       symbol: nullableString(item, "symbol"),
@@ -250,7 +250,7 @@ function toFeatureMapItem(
   value: unknown,
   findingsById: ReadonlyMap<string, RawFinding>,
 ): FeatureMapItem | null {
-  const featureId = valueOrEmpty(value, "featureId");
+  const featureId = stringValue(value, "featureId");
   if (featureId === "") {
     return null;
   }
@@ -314,7 +314,7 @@ function toFeatureMapFileRef(value: unknown): FeatureMapItem["ownedFiles"][numbe
   if (typeof value === "string") {
     return value.trim() === "" ? null : { path: value, reason: null };
   }
-  const path = valueOrEmpty(value, "path");
+  const path = stringValue(value, "path");
   if (path.trim() === "") {
     return null;
   }
@@ -322,7 +322,7 @@ function toFeatureMapFileRef(value: unknown): FeatureMapItem["ownedFiles"][numbe
 }
 
 function toFeatureMapEntrypoint(value: unknown): FeatureMapItem["entrypoints"][number] | null {
-  const path = valueOrEmpty(value, "path");
+  const path = stringValue(value, "path");
   if (path.trim() === "") {
     return null;
   }
@@ -350,7 +350,7 @@ function toReviewRunSummary(value: unknown): ReviewRunSummary | null {
   if (command !== "review" && !args.includes("review")) {
     return null;
   }
-  const runId = valueOrEmpty(value, "runId");
+  const runId = stringValue(value, "runId");
   if (runId === "") {
     return null;
   }
@@ -422,28 +422,8 @@ function firstNonEmptyString(...values: string[]): string {
   return values.find((value) => value.trim() !== "") ?? "";
 }
 
-function objectId(value: unknown, key: string): string {
-  if (
-    typeof value === "object" &&
-    value !== null &&
-    typeof (value as Record<string, unknown>)[key] === "string"
-  ) {
-    return (value as Record<string, string>)[key];
-  }
-  return "";
-}
-
-function valueOrEmpty(value: unknown, key: string): string {
-  if (
-    typeof value === "object" &&
-    value !== null &&
-    typeof (value as Record<string, unknown>)[key] === "string"
-  ) {
-    return (value as Record<string, string>)[key];
-  }
-  return "";
-}
-
+// Returns the string at `key`, or "" when the value is not an object or the
+// field is missing/non-string.
 function stringValue(value: unknown, key: string): string {
   if (
     typeof value === "object" &&

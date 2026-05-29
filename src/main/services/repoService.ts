@@ -22,7 +22,6 @@ import type {
   GitStatusSummary,
   PatchOpenPrResult,
   RepoSettings,
-  RepoSnapshot,
   RepoSummary,
   TerminalOpenResult,
 } from "../../shared/types";
@@ -48,7 +47,6 @@ import { AppSettingsService, type AppSettingsError } from "./appSettings";
 import { RepoSettingsService, type RepoSettingsError } from "./repoSettings";
 import { SetupScriptRunner, type SetupScriptRunnerShape } from "./setupScriptRunner";
 import { TerminalLauncher, type TerminalLauncherError } from "./terminalLauncher";
-import { UiMetadataService, type UiMetadataError } from "./uiMetadata";
 
 interface RegistryRepo {
   readonly id: string;
@@ -80,8 +78,7 @@ export type RepoServiceError =
   | TerminalLauncherError
   | AppSettingsError
   | ClawpatchConfigError
-  | RepoSettingsError
-  | UiMetadataError;
+  | RepoSettingsError;
 
 export interface RepoServiceShape {
   readonly getAppSettings: () => Effect.Effect<AppSettings, RepoServiceError>;
@@ -90,7 +87,6 @@ export interface RepoServiceShape {
   ) => Effect.Effect<AppSettings, RepoServiceError>;
   readonly listRepos: () => Effect.Effect<RepoSummary[], RepoServiceError>;
   readonly addRepo: (repoPath: string) => Effect.Effect<RepoSummary, RepoServiceError>;
-  readonly refreshRepo: (repoId: string) => Effect.Effect<RepoSnapshot, RepoServiceError>;
   readonly doctor: (repoId: string) => Effect.Effect<CommandResult, RepoServiceError>;
   readonly getConfig: (repoId: string) => Effect.Effect<ClawpatchConfig, RepoServiceError>;
   readonly updateConfig: (
@@ -159,7 +155,6 @@ export const RepoServiceLive = (appDataDir: string) =>
     Effect.gen(function* () {
       const runner = yield* ClawpatchRunner;
       const state = yield* ClawpatchStateService;
-      const metadata = yield* UiMetadataService;
       const appSettings = yield* AppSettingsService;
       const clawpatchConfig = yield* ClawpatchConfigService;
       const repoSettings = yield* RepoSettingsService;
@@ -1061,25 +1056,6 @@ export const RepoServiceLive = (appDataDir: string) =>
             }),
           );
           return yield* summarizeRepo(repo.path, repo.id, repo.updatedAt);
-        }),
-        refreshRepo: Effect.fn("repoService.refreshRepo")(function* (repoIdValue) {
-          const repo = yield* requireRepo(repoIdValue);
-          const repoMetadata = yield* metadata.read(repo.id, repo.path);
-          const [summary, diff] = yield* Effect.all([
-            summarizeRepo(repo.path, repo.id, repo.updatedAt),
-            git.readDiff(repo.path),
-          ]);
-          const findings = yield* readFindingListWithActiveWorktrees(repo.id, repo.path);
-          return {
-            repo: {
-              ...summary,
-              findingCount: findings.length,
-              openFindingCount: findings.filter((item) => item.status === "open").length,
-            },
-            findings,
-            diff,
-            metadata: repoMetadata,
-          };
         }),
         getSettings: Effect.fn("repoService.getSettings")(function* (repoIdValue) {
           const repo = yield* requireRepo(repoIdValue);

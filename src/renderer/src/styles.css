@@ -1993,6 +1993,20 @@ button:disabled {
   overflow: auto;
 }
 
+/* When windowed, rows are absolutely positioned inside a sized spacer, so the
+   container must use block flow (not the grid auto-rows track sizing). */
+.findings-table.is-virtualized,
+.feature-map-table.is-virtualized {
+  display: block;
+}
+
+.findings-table.is-virtualized .table-head,
+.feature-map-table.is-virtualized .feature-map-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
 .table-row {
   align-items: center;
   background: var(--surface);

@@ -7,7 +7,8 @@ import {
   ListChecksIcon,
   MapIcon,
 } from "lucide-react";
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, useMemo, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import type { FeatureMapItem, FeatureMapSnapshot } from "../../../shared/types";
 import { useDismissiblePopover } from "../hooks/useDismissiblePopover";
 import type { ReviewCompletionSummary } from "../hooks/useCommandRunner";
@@ -23,6 +24,10 @@ import {
 } from "../reviewQueueFilters";
 import { ActionIconButton } from "./ActionIconButton";
 import { TooltipTrigger } from "./TooltipTrigger";
+import { FilterChip, FilterGroup, formatFilterLabel } from "./filters";
+import { VIRTUALIZE_THRESHOLD, VirtualRows } from "./VirtualRows";
+
+const FEATURE_ROW_ESTIMATE_PX = 34;
 
 interface Props {
   snapshot: FeatureMapSnapshot | null;
@@ -252,13 +257,13 @@ export function ReviewMapPanel({
               ) : null}
               {filters.kind !== null ? (
                 <FilterChip
-                  label={labelFor(filters.kind)}
+                  label={formatFilterLabel(filters.kind)}
                   onClear={() => updateFilters({ kind: null })}
                 />
               ) : null}
               {filters.source !== null ? (
                 <FilterChip
-                  label={labelFor(filters.source)}
+                  label={formatFilterLabel(filters.source)}
                   onClear={() => updateFilters({ source: null })}
                 />
               ) : null}
@@ -318,8 +323,73 @@ function ReviewMapTable({
 }) {
   const reviewedFeatureId =
     lastReviewCompletion?.kind === "feature" ? lastReviewCompletion.featureId : null;
+  const tableRef = useRef<HTMLDivElement>(null);
+  const shouldVirtualize = features.length > VIRTUALIZE_THRESHOLD;
+
+  const renderFeatureRow = (feature: FeatureMapItem): ReactNode => {
+    const isExpanded = expandedFeatureIds.has(feature.featureId);
+    const reviewState =
+      runningReviewFeatureId === feature.featureId
+        ? "running"
+        : queuedReviewFeatureIds.has(feature.featureId)
+          ? "queued"
+          : reviewedFeatureId === feature.featureId
+            ? "reviewed"
+            : "idle";
+    const reviewedFindingCount =
+      reviewState === "reviewed" && lastReviewCompletion?.kind === "feature"
+        ? (lastReviewCompletion.findingCount ?? feature.findingCount)
+        : null;
+    return (
+      <Fragment key={feature.featureId}>
+        <div className={reviewRowClassName(reviewState)} role="row">
+          <ActionIconButton
+            aria-expanded={isExpanded}
+            className="feature-map-expand-button"
+            icon={
+              isExpanded ? (
+                <ChevronDownIcon aria-hidden="true" />
+              ) : (
+                <ChevronRightIcon aria-hidden="true" />
+              )
+            }
+            label={`${isExpanded ? "Collapse" : "Expand"} ${feature.title}`}
+            onClick={() => onToggleExpanded(feature.featureId)}
+            title={`${isExpanded ? "Collapse" : "Expand"} details`}
+          />
+          <ReviewStatusCell feature={feature} reviewState={reviewState} />
+          <span>{feature.kind}</span>
+          <span>{feature.source}</span>
+          <span>{feature.ownedFileCount + feature.contextFileCount + feature.testCount}</span>
+          <span>{feature.findingCount}</span>
+          <TooltipTrigger className="feature-title-tooltip" tooltip={feature.featureId}>
+            {({ describedBy }) => (
+              <strong aria-describedby={describedBy} tabIndex={0}>
+                {feature.title}
+              </strong>
+            )}
+          </TooltipTrigger>
+          <span>{formatUpdatedAt(feature.updatedAt)}</span>
+          <ReviewRowAction
+            feature={feature}
+            reviewedFindingCount={reviewedFindingCount}
+            reviewState={reviewState}
+            reviewOptions={reviewOptions}
+            onReviewFeature={onReviewFeature}
+          />
+        </div>
+        {isExpanded ? <FeatureMapDetail feature={feature} /> : null}
+      </Fragment>
+    );
+  };
+
   return (
-    <div className="feature-map-table" role="table" aria-label="Review queue map">
+    <div
+      className={shouldVirtualize ? "feature-map-table is-virtualized" : "feature-map-table"}
+      role="table"
+      aria-label="Review queue map"
+      ref={tableRef}
+    >
       <div className="feature-map-row feature-map-head" role="row">
         <span>More</span>
         <span>Status</span>
@@ -333,63 +403,16 @@ function ReviewMapTable({
       </div>
       {features.length === 0 ? (
         <div className="feature-map-empty">{reviewQueueEmptyLabel(hasActiveFilters)}</div>
+      ) : shouldVirtualize ? (
+        <VirtualRows
+          items={features}
+          scrollRef={tableRef}
+          estimateSize={FEATURE_ROW_ESTIMATE_PX}
+          getKey={(feature) => feature.featureId}
+          renderItem={(feature) => renderFeatureRow(feature)}
+        />
       ) : (
-        features.map((feature) => {
-          const isExpanded = expandedFeatureIds.has(feature.featureId);
-          const reviewState =
-            runningReviewFeatureId === feature.featureId
-              ? "running"
-              : queuedReviewFeatureIds.has(feature.featureId)
-                ? "queued"
-                : reviewedFeatureId === feature.featureId
-                  ? "reviewed"
-                  : "idle";
-          const reviewedFindingCount =
-            reviewState === "reviewed" && lastReviewCompletion?.kind === "feature"
-              ? (lastReviewCompletion.findingCount ?? feature.findingCount)
-              : null;
-          return (
-            <Fragment key={feature.featureId}>
-              <div className={reviewRowClassName(reviewState)} role="row">
-                <ActionIconButton
-                  aria-expanded={isExpanded}
-                  className="feature-map-expand-button"
-                  icon={
-                    isExpanded ? (
-                      <ChevronDownIcon aria-hidden="true" />
-                    ) : (
-                      <ChevronRightIcon aria-hidden="true" />
-                    )
-                  }
-                  label={`${isExpanded ? "Collapse" : "Expand"} ${feature.title}`}
-                  onClick={() => onToggleExpanded(feature.featureId)}
-                  title={`${isExpanded ? "Collapse" : "Expand"} details`}
-                />
-                <ReviewStatusCell feature={feature} reviewState={reviewState} />
-                <span>{feature.kind}</span>
-                <span>{feature.source}</span>
-                <span>{feature.ownedFileCount + feature.contextFileCount + feature.testCount}</span>
-                <span>{feature.findingCount}</span>
-                <TooltipTrigger className="feature-title-tooltip" tooltip={feature.featureId}>
-                  {({ describedBy }) => (
-                    <strong aria-describedby={describedBy} tabIndex={0}>
-                      {feature.title}
-                    </strong>
-                  )}
-                </TooltipTrigger>
-                <span>{formatUpdatedAt(feature.updatedAt)}</span>
-                <ReviewRowAction
-                  feature={feature}
-                  reviewedFindingCount={reviewedFindingCount}
-                  reviewState={reviewState}
-                  reviewOptions={reviewOptions}
-                  onReviewFeature={onReviewFeature}
-                />
-              </div>
-              {isExpanded ? <FeatureMapDetail feature={feature} /> : null}
-            </Fragment>
-          );
-        })
+        features.map(renderFeatureRow)
       )}
     </div>
   );
@@ -720,49 +743,10 @@ function StatusFilterGroup({
           className={selectedValue === value ? "active" : ""}
           onClick={() => onSelect(value)}
         >
-          {labelFor(value)}
+          {formatFilterLabel(value)}
         </button>
       ))}
     </div>
-  );
-}
-
-function FilterGroup({
-  title,
-  values,
-  selectedValue,
-  onSelect,
-}: {
-  title: string;
-  values: readonly string[];
-  selectedValue: string | null;
-  onSelect: (value: string | null) => void;
-}) {
-  return (
-    <div className="filter-group">
-      <span>{title}</span>
-      <button className={selectedValue === null ? "active" : ""} onClick={() => onSelect(null)}>
-        All
-      </button>
-      {values.map((value) => (
-        <button
-          key={value}
-          className={selectedValue === value ? "active" : ""}
-          onClick={() => onSelect(value)}
-        >
-          {labelFor(value)}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-function FilterChip({ label, onClear }: { label: string; onClear: () => void }) {
-  return (
-    <button className="filter-chip" onClick={onClear} aria-label={`Clear ${label} filter`}>
-      <span>{label}</span>
-      <span aria-hidden="true">x</span>
-    </button>
   );
 }
 
@@ -776,14 +760,7 @@ function statusLabelFor(value: ReviewQueueStatusFilter): string {
   if (value === "no-action") {
     return "No action needed";
   }
-  return labelFor(value);
-}
-
-function labelFor(value: string): string {
-  return value
-    .split("-")
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ");
+  return formatFilterLabel(value);
 }
 
 function formatUpdatedAt(value: string): string {

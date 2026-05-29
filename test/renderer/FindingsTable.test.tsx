@@ -361,6 +361,42 @@ describe("FindingsTable filters", () => {
   });
 });
 
+describe("FindingsTable virtualization", () => {
+  it("switches to a windowed scroll area once the list exceeds the threshold", () => {
+    const many = Array.from({ length: 80 }, (_, index) =>
+      makeFinding({
+        findingId: `fnd-${index}`,
+        title: `Finding number ${index}`,
+        status: "open",
+      }),
+    );
+    const { container } = render(
+      <FilterHarness findings={many} initialFilters={{ ...defaultFindingFilters, status: null }} />,
+    );
+
+    // The container opts into the virtualized layout, and the sizing spacer
+    // reserves space for every item (count * estimated row height) so the
+    // scrollbar is correct even though only a window of rows is mounted.
+    expect(container.querySelector(".findings-table.is-virtualized")).not.toBeNull();
+    const spacer = container.querySelector(".virtual-rows") as HTMLElement | null;
+    expect(spacer).not.toBeNull();
+    expect(spacer?.style.height).toBe(`${many.length * 34}px`);
+  });
+
+  it("renders every row directly when below the threshold", () => {
+    const few = Array.from({ length: 5 }, (_, index) =>
+      makeFinding({ findingId: `fnd-${index}`, title: `Finding number ${index}`, status: "open" }),
+    );
+    const { container } = render(
+      <FilterHarness findings={few} initialFilters={{ ...defaultFindingFilters, status: null }} />,
+    );
+
+    expect(container.querySelector(".findings-table.is-virtualized")).toBeNull();
+    expect(container.querySelector(".virtual-rows")).toBeNull();
+    expect(container.querySelectorAll("button.table-row")).toHaveLength(few.length);
+  });
+});
+
 function FilterHarness({
   findings,
   initialFilters = defaultFindingFilters,

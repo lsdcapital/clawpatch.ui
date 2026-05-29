@@ -373,6 +373,74 @@ describe("GitService", () => {
 
     expect(result).toBe(false);
   });
+
+  it("treats an empty git cherry output as not yet applied to the base", async () => {
+    // A freshly-created branch with no unique commits produces no cherry output.
+    // That is "nothing was done", not "already merged".
+    const layer = makeMockGitLayer(() => "");
+
+    const result = await Effect.runPromise(
+      Effect.gen(function* () {
+        const gitService = yield* GitService;
+        return yield* gitService.isBranchAppliedToBase({
+          repoPath: "/tmp/repo",
+          branchName: "clawpatch/fix/fnd-1",
+          baseRef: "origin/main",
+        });
+      }).pipe(Effect.provide(layer)),
+    );
+
+    expect(result).toBe(false);
+  });
+
+  it("ignores git stderr warnings when a status command succeeds", async () => {
+    // git often writes hints/warnings to stderr while exiting 0; those must not
+    // be folded into stdout or a clean tree reads as dirty.
+    const spawnerLayer = Layer.succeed(
+      ChildProcessSpawner.ChildProcessSpawner,
+      ChildProcessSpawner.make(() =>
+        Effect.succeed(
+          mockHandle({
+            stdout: "## main...origin/main\n",
+            stderr: "warning: CRLF will be replaced\n",
+          }),
+        ),
+      ),
+    );
+    const layer = GitServiceLive.pipe(
+      Layer.provide(Layer.mergeAll(NodeServices.layer, spawnerLayer)),
+    );
+
+    const status = await Effect.runPromise(
+      Effect.gen(function* () {
+        const git = yield* GitService;
+        return yield* git.readStatus("/tmp/repo-status");
+      }).pipe(Effect.provide(layer)),
+    );
+
+    expect(status).toEqual({ staged: 0, modified: 0, untracked: 0, branch: "main" });
+  });
+
+  it("parses the branch from a no-commits-yet status header", async () => {
+    const spawnerLayer = Layer.succeed(
+      ChildProcessSpawner.ChildProcessSpawner,
+      ChildProcessSpawner.make(() =>
+        Effect.succeed(mockHandle({ stdout: "## No commits yet on main\n" })),
+      ),
+    );
+    const layer = GitServiceLive.pipe(
+      Layer.provide(Layer.mergeAll(NodeServices.layer, spawnerLayer)),
+    );
+
+    const status = await Effect.runPromise(
+      Effect.gen(function* () {
+        const git = yield* GitService;
+        return yield* git.readStatus("/tmp/repo-empty");
+      }).pipe(Effect.provide(layer)),
+    );
+
+    expect(status.branch).toBe("main");
+  });
 });
 
 function mockHandle(options: {

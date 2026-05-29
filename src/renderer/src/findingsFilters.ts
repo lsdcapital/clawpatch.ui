@@ -214,13 +214,15 @@ function categorySortValue(category: string): number {
 }
 
 function statusSortValue(status: ClawpatchStatus): number {
-  return {
-    open: 0,
-    uncertain: 1,
-    fixed: 2,
-    "false-positive": 3,
-    "wont-fix": 4,
-  }[status];
+  return (
+    {
+      open: 0,
+      uncertain: 1,
+      fixed: 2,
+      "false-positive": 3,
+      "wont-fix": 4,
+    }[status] ?? 5
+  );
 }
 
 function compareText(left: string, right: string): number {

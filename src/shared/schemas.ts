@@ -106,17 +106,6 @@ export const CommandStreamEventSchema = Schema.Union([
   }),
 ]);
 
-export const UiMetadataSchema = Schema.Struct({
-  schemaVersion: Schema.Literal(1),
-  filters: Schema.Struct({
-    severity: Schema.NullOr(Schema.String),
-    status: Schema.NullOr(ClawpatchStatusSchema),
-    search: Schema.String,
-  }),
-  lastSelectedFindingId: Schema.NullOr(Schema.String),
-  updatedAt: Schema.String,
-});
-
 export const AppSettingsSchema = Schema.Struct({
   schemaVersion: Schema.Literal(1),
   terminalAppName: Schema.String,
@@ -294,13 +283,6 @@ export const RepoSummarySchema = Schema.Struct({
   findingCount: Schema.Number,
   openFindingCount: Schema.Number,
   updatedAt: Schema.String,
-});
-
-export const RepoSnapshotSchema = Schema.Struct({
-  repo: RepoSummarySchema,
-  findings: Schema.Array(FindingListItemSchema),
-  diff: Schema.String,
-  metadata: UiMetadataSchema,
 });
 
 export const TerminalOpenResultSchema = Schema.Struct({

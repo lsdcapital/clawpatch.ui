@@ -21,8 +21,6 @@ import type {
   PatchGitInfoSchema,
   PatchOpenPrResultSchema,
   RepoSettingsSchema,
-  UiMetadataSchema,
-  RepoSnapshotSchema,
   RepoSummarySchema,
   ReviewCoverageSchema,
   ReviewRunSummarySchema,
@@ -42,8 +40,6 @@ export type PatchOpenPrResult = typeof PatchOpenPrResultSchema.Type;
 export type RepoSettings = typeof RepoSettingsSchema.Type;
 export type ActiveWorktree = typeof ActiveWorktreeSchema.Type;
 export type RepoSummary = typeof RepoSummarySchema.Type;
-export type RepoSnapshot = typeof RepoSnapshotSchema.Type;
-export type UiMetadata = typeof UiMetadataSchema.Type;
 export type EvidenceRef = typeof EvidenceRefSchema.Type;
 export type FindingListItem = typeof FindingListItemSchema.Type;
 export type FindingHistoryEntry = typeof FindingHistoryEntrySchema.Type;
@@ -69,7 +65,6 @@ export interface Api {
     list: () => Promise<readonly RepoSummary[]>;
     add: (repoPath: string) => Promise<RepoSummary>;
     pickFolder: () => Promise<string | null>;
-    refresh: (repoId: string) => Promise<RepoSnapshot>;
     doctor: (repoId: string) => Promise<CommandResult>;
     getConfig: (repoId: string) => Promise<ClawpatchConfig>;
     updateConfig: (repoId: string, config: ClawpatchConfig) => Promise<ClawpatchConfig>;

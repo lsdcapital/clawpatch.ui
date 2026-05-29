@@ -18,7 +18,6 @@ import { GitServiceLive } from "./services/gitService";
 import { AppSettingsServiceLive } from "./services/appSettings";
 import { RepoSettingsServiceLive } from "./services/repoSettings";
 import { TerminalLauncherLive } from "./services/terminalLauncher";
-import { UiMetadataServiceLive } from "./services/uiMetadata";
 import { RepoServiceLive } from "./services/repoService";
 import { SetupScriptRunnerLive } from "./services/setupScriptRunner";
 import { makeBeforeQuitHandler, makeProcessSignalHandler, shutdownSignals } from "./shutdown";
@@ -347,7 +346,6 @@ function makeAppLayer(
     ClawpatchRunnerLive,
     ClawpatchConfigServiceLive,
     ClawpatchStateServiceLive,
-    UiMetadataServiceLive(userDataPath),
     AppSettingsServiceLive(userDataPath),
     RepoSettingsServiceLive(userDataPath),
     GitServiceLive,

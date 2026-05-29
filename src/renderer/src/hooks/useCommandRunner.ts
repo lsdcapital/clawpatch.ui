@@ -22,6 +22,7 @@ type ReviewFeatureCommandRequest = Extract<ClawpatchCommandRequest, { command: "
 type RunningRepoCommand = {
   request: ClawpatchCommandRequest;
   invocationId: string;
+  repoId: string;
 };
 type QueuedReviewFeatureCommand = {
   readonly repo: RepoSummary;
@@ -30,6 +31,7 @@ type QueuedReviewFeatureCommand = {
 export type RunningFindingCommand = {
   request: FindingCommandRequest;
   invocationId: string;
+  repoId: string;
 };
 export interface BulkRevalidationProgress {
   readonly current: number;
@@ -49,6 +51,8 @@ export type ReviewCompletionSummary =
       readonly findingCount: number | null;
       readonly reviewedFeatureCount: number | null;
     };
+
+const STREAM_INVALIDATE_THROTTLE_MS = 750;
 
 export function useCommandRunner({
   selectedRepo,
@@ -83,17 +87,51 @@ export function useCommandRunner({
   const isTriagePendingRef = useRef(false);
   const isBulkRevalidationRunningRef = useRef(false);
 
+  const activeCommandRepoIds = useCallback((): readonly string[] => {
+    const repoIds = new Set<string>();
+    const repoCommand = runningRepoCommandRef.current;
+    if (repoCommand !== null) {
+      repoIds.add(repoCommand.repoId);
+    }
+    for (const findingCommand of Object.values(runningFindingCommandsRef.current)) {
+      repoIds.add(findingCommand.repoId);
+    }
+    return [...repoIds];
+  }, []);
+
   const invalidateProgressForCurrentCommand = useCallback((): void => {
     void invalidateCommandProgress(queryClient, {
       includeFeatures: !isRunningFeatureReview(runningRepoCommandRef.current),
+      repoIds: activeCommandRepoIds(),
     });
-  }, [queryClient]);
+  }, [activeCommandRepoIds, queryClient]);
 
   useEffect(() => {
-    return window.clawpatch.commands.onStream((event) => {
+    // Command output can arrive as many chunks per second. Invalidating queries
+    // on every chunk re-spawns `clawpatch status` repeatedly; throttle so bursts
+    // coalesce. The 1s interval below is the trailing-edge backstop.
+    let trailingTimer: number | null = null;
+    let lastInvalidatedAt = 0;
+    const dispose = window.clawpatch.commands.onStream((event) => {
       setCommandLog((current) => appendCommandLogEntries(current, [{ kind: "stream", event }]));
-      invalidateProgressForCurrentCommand();
+      const elapsed = Date.now() - lastInvalidatedAt;
+      if (elapsed >= STREAM_INVALIDATE_THROTTLE_MS) {
+        lastInvalidatedAt = Date.now();
+        invalidateProgressForCurrentCommand();
+      } else if (trailingTimer === null) {
+        trailingTimer = window.setTimeout(() => {
+          trailingTimer = null;
+          lastInvalidatedAt = Date.now();
+          invalidateProgressForCurrentCommand();
+        }, STREAM_INVALIDATE_THROTTLE_MS - elapsed);
+      }
     });
+    return () => {
+      if (trailingTimer !== null) {
+        window.clearTimeout(trailingTimer);
+      }
+      dispose();
+    };
   }, [invalidateProgressForCurrentCommand]);
 
   const commandInterruptMutation = useMutation({
@@ -255,7 +293,7 @@ export function useCommandRunner({
         request.featureId !== undefined &&
         reviewFeatureQueueRef.current.length > 0
       ) {
-        await invalidateCommandProgress(queryClient);
+        await invalidateCommandProgress(queryClient, { repoIds: [repoId] });
         return;
       }
       await refreshAfterCommand(repoId, request);
@@ -276,7 +314,7 @@ export function useCommandRunner({
       if (runningRepoCommandRef.current !== null) {
         return false;
       }
-      const runningCommand = { request, invocationId: nextCommandInvocationId() };
+      const runningCommand = { request, invocationId: nextCommandInvocationId(), repoId: repo.id };
       runningRepoCommandRef.current = runningCommand;
       setRunningRepoCommand(runningCommand);
       setLastReviewCompletion(null);
@@ -360,7 +398,7 @@ export function useCommandRunner({
       if (runningFindingCommandsRef.current[request.findingId] !== undefined) {
         return false;
       }
-      const runningCommand = { request, invocationId: nextCommandInvocationId() };
+      const runningCommand = { request, invocationId: nextCommandInvocationId(), repoId: repo.id };
       runningFindingCommandsRef.current = {
         ...runningFindingCommandsRef.current,
         [request.findingId]: runningCommand,
@@ -485,10 +523,7 @@ export function useCommandRunner({
   return {
     commandLog,
     bulkRevalidationProgress,
-    firstRunningFindingId: Object.keys(runningFindingCommands)[0],
     interruptCommand,
-    isAnyCommandRunning,
-    isBulkRevalidationRunning,
     isRepoCommandBusy,
     isTriagePending: triageMutation.isPending,
     lastReviewCompletion,
@@ -498,7 +533,6 @@ export function useCommandRunner({
     runCommand,
     runFixWithSavedGuidance,
     recordCommandResult: appendCommandResults,
-    recordCommandError: appendCommandError,
     runningRepoCommand,
     runningReviewFeatureId,
     runningFindingCommands,

@@ -194,6 +194,12 @@ function parseGitStatus(output: string): GitStatusSummary {
     }
     if (line.startsWith("## ")) {
       const header = line.slice(3);
+      // A fresh repo with no commits reports `## No commits yet on <branch>`.
+      const noCommitsMatch = /^No commits yet on (.+)$/.exec(header);
+      if (noCommitsMatch) {
+        branch = noCommitsMatch[1] ?? null;
+        continue;
+      }
       const dotsIndex = header.indexOf("...");
       const spaceIndex = header.indexOf(" ");
       const end = dotsIndex >= 0 ? dotsIndex : spaceIndex >= 0 ? spaceIndex : header.length;
@@ -223,7 +229,10 @@ function parseGitCherryAppliedToBase(output: string): boolean {
     .map((line) => line.trim())
     .filter((line) => line !== "");
 
-  return lines.every((line) => line.startsWith("- "));
+  // `git cherry` emits no output when the branch has zero unique commits. That
+  // is "nothing was done", not "everything is already in base" — so require at
+  // least one line before concluding the branch has been applied.
+  return lines.length > 0 && lines.every((line) => line.startsWith("- "));
 }
 
 function runGitOutput(
@@ -235,7 +244,14 @@ function runGitOutput(
   return runGitResult(spawner, repoPath, args, onLifecycle).pipe(
     Effect.flatMap(({ stdout, stderr, exitCode }) => {
       if (exitCode === 0) {
-        return Effect.succeed(stdout || stderr);
+        // Return stdout only. Git frequently writes hints/warnings (dubious
+        // ownership, CRLF, diverging-branches) to stderr while exiting 0; if we
+        // folded those into the output, callers parsing `git status --porcelain`
+        // would see a non-empty result and wrongly treat a clean tree as dirty.
+        if (stderr.trim() !== "") {
+          gitLogger.debug({ repoPath, args, stderr }, "Git command emitted stderr on success");
+        }
+        return Effect.succeed(stdout);
       }
       gitLogger.debug(
         {

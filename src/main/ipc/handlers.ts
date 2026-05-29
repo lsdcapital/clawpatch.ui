@@ -16,7 +16,6 @@ import {
   PatchOpenPrResultSchema,
   RepoSettingsSchema,
   RepoListSchema,
-  RepoSnapshotSchema,
   RepoSummarySchema,
   TerminalOpenResultSchema,
 } from "../../shared/schemas";
@@ -43,7 +42,6 @@ import {
   REPO_GET_SETTINGS_CHANNEL,
   REPO_LIST_CHANNEL,
   REPO_PICK_FOLDER_CHANNEL,
-  REPO_REFRESH_CHANNEL,
   REPO_UPDATE_CONFIG_CHANNEL,
   REPO_UPDATE_SETTINGS_CHANNEL,
   TERMINAL_OPEN_AI_CHAT_CHANNEL,
@@ -130,14 +128,6 @@ export const installIpcHandlers = (publishCommandStream: (event: CommandStreamEv
         payload: Schema.Void,
         result: Schema.NullOr(Schema.String),
         handler: () => pickRepoFolder(),
-      }),
-    );
-    yield* ipc.handle(
-      makeIpcMethod({
-        channel: REPO_REFRESH_CHANNEL,
-        payload: RepoIdPayload,
-        result: RepoSnapshotSchema,
-        handler: ({ repoId }) => repos.refreshRepo(repoId),
       }),
     );
     yield* ipc.handle(

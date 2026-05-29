@@ -9,7 +9,6 @@ import {
   CommandResultSchema,
   CommandStreamEventSchema,
   PatchOpenPrResultSchema,
-  UiMetadataSchema,
   RepoSettingsSchema,
 } from "../../src/shared/schemas";
 
@@ -77,21 +76,6 @@ describe("shared schemas", () => {
     };
 
     expect(Schema.decodeUnknownSync(ClawpatchCommandRequestSchema)(request)).toEqual(request);
-  });
-
-  it("decodes UI metadata with nullable status filters", () => {
-    const metadata = {
-      schemaVersion: 1,
-      filters: {
-        severity: null,
-        status: "uncertain",
-        search: "",
-      },
-      lastSelectedFindingId: null,
-      updatedAt: "2026-05-19T00:00:00.000Z",
-    };
-
-    expect(Schema.decodeUnknownSync(UiMetadataSchema)(metadata)).toEqual(metadata);
   });
 
   it("decodes app settings", () => {

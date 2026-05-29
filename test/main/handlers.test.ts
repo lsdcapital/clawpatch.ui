@@ -550,22 +550,6 @@ function makeRepoServiceLayer(
           })),
       listRepos: () => Effect.succeed([]),
       addRepo: () => Effect.succeed(makeRepoSummary()),
-      refreshRepo: () =>
-        Effect.succeed({
-          repo: makeRepoSummary(),
-          findings: [],
-          diff: "",
-          metadata: {
-            lastSelectedFindingId: null,
-            schemaVersion: 1,
-            filters: {
-              severity: null,
-              status: null,
-              search: "",
-            },
-            updatedAt: "2026-05-19T00:00:00.000Z",
-          },
-        }),
       getSettings:
         options.getSettings ??
         (() =>

@@ -2265,17 +2265,6 @@ function makeApi(
       list: options.repoList ?? (async () => [makeRepo()]),
       add: options.add ?? (async () => makeRepo()),
       pickFolder: options.pickFolder ?? (async () => null),
-      refresh: async () => ({
-        repo: makeRepo(),
-        findings: [],
-        diff: "",
-        metadata: {
-          schemaVersion: 1,
-          filters: { severity: null, status: null, search: "" },
-          lastSelectedFindingId: null,
-          updatedAt: "2026-05-19T00:00:00.000Z",
-        },
-      }),
       doctor: options.repoDoctor ?? (async () => makeCommandResult("doctor")),
       getConfig:
         options.repoGetConfig ??

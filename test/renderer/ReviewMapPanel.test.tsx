@@ -332,6 +332,49 @@ describe("ReviewMapPanel", () => {
   });
 });
 
+describe("ReviewMapPanel virtualization", () => {
+  it("switches to a windowed scroll area once the list exceeds the threshold", () => {
+    const features = Array.from({ length: 80 }, (_, index) =>
+      makeFeature({ featureId: `feat-${index}`, title: `Feature ${index}`, status: "pending" }),
+    );
+    const snapshot: FeatureMapSnapshot = {
+      features,
+      coverage: {
+        totalFeatures: features.length,
+        pendingReviewCount: features.length,
+        pendingReviewFeatureIds: features.map((feature) => feature.featureId),
+        latestReviewRun: null,
+        latestLimitedReviewRun: null,
+        hasLimitedReviewRemainder: false,
+      },
+    };
+
+    const { container } = render(
+      <ReviewMapPanel
+        snapshot={snapshot}
+        isLoading={false}
+        isBusy={false}
+        runningReviewFeatureId={null}
+        queuedReviewFeatureIds={[]}
+        lastReviewCompletion={null}
+        onReviewFeature={vi.fn()}
+        onUpdateMap={vi.fn()}
+      />,
+    );
+
+    expect(container.querySelector(".feature-map-table.is-virtualized")).not.toBeNull();
+    const spacer = container.querySelector(".virtual-rows") as HTMLElement | null;
+    expect(spacer).not.toBeNull();
+    expect(spacer?.style.height).toBe(`${features.length * 34}px`);
+  });
+
+  it("renders every feature directly when below the threshold", () => {
+    const { container } = renderPanel();
+    expect(container.querySelector(".feature-map-table.is-virtualized")).toBeNull();
+    expect(container.querySelector(".virtual-rows")).toBeNull();
+  });
+});
+
 function renderPanel({
   onReviewFeature = vi.fn(),
   onUpdateMap = vi.fn(),

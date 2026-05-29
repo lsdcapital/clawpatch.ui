@@ -25,7 +25,6 @@ import {
   REPO_GET_SETTINGS_CHANNEL,
   REPO_LIST_CHANNEL,
   REPO_PICK_FOLDER_CHANNEL,
-  REPO_REFRESH_CHANNEL,
   REPO_UPDATE_CONFIG_CHANNEL,
   REPO_UPDATE_SETTINGS_CHANNEL,
   TERMINAL_OPEN_AI_CHAT_CHANNEL,
@@ -61,7 +60,6 @@ const api: Api = {
     list: () => ipcRenderer.invoke(REPO_LIST_CHANNEL),
     add: (repoPath) => ipcRenderer.invoke(REPO_ADD_CHANNEL, { repoPath }),
     pickFolder: () => ipcRenderer.invoke(REPO_PICK_FOLDER_CHANNEL),
-    refresh: (repoId) => ipcRenderer.invoke(REPO_REFRESH_CHANNEL, { repoId }),
     doctor: (repoId) => ipcRenderer.invoke(REPO_DOCTOR_CHANNEL, { repoId }),
     getConfig: (repoId) => ipcRenderer.invoke(REPO_GET_CONFIG_CHANNEL, { repoId }),
     updateConfig: (repoId, config) =>

@@ -8,7 +8,8 @@ import {
   GitPullRequestIcon,
   FileCheck2Icon,
 } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
+import type { ReactNode } from "react";
 import type { ClawpatchStatus, FindingListItem, FindingWorkStatus } from "../../../shared/types";
 import type { BulkRevalidationProgress } from "../hooks/useCommandRunner";
 import { useDismissiblePopover } from "../hooks/useDismissiblePopover";
@@ -24,6 +25,10 @@ import {
 } from "../findingsFilters";
 import { findingWorkLabel, findingWorkState, findingWorkTitle } from "../findingWorkStatus";
 import { ActionIconButton } from "./ActionIconButton";
+import { FilterChip, FilterGroup, formatFilterLabel } from "./filters";
+import { VIRTUALIZE_THRESHOLD, VirtualRows } from "./VirtualRows";
+
+const FINDING_ROW_ESTIMATE_PX = 34;
 
 interface Props {
   findings: readonly FindingListItem[];
@@ -78,6 +83,28 @@ export function FindingsTable({
       field,
       direction: sort.field === field ? toggleDirection(sort.direction) : "asc",
     });
+  };
+
+  const tableRef = useRef<HTMLDivElement>(null);
+  const shouldVirtualize = findings.length > VIRTUALIZE_THRESHOLD;
+
+  const renderFindingRow = (finding: FindingListItem): ReactNode => {
+    const workStatus = workStatusByFindingId?.get(finding.findingId) ?? null;
+    return (
+      <button
+        key={finding.findingId}
+        className={finding.findingId === selectedFindingId ? "table-row selected" : "table-row"}
+        onClick={() => onSelectFinding(finding.findingId)}
+        role="row"
+      >
+        <span className={`severity ${finding.severity}`}>{finding.severity}</span>
+        <span>{finding.confidence}</span>
+        <span>{finding.status}</span>
+        <FindingWorkBadge status={workStatus} />
+        <span>{finding.category}</span>
+        <strong>{finding.title}</strong>
+      </button>
+    );
   };
 
   return (
@@ -161,26 +188,30 @@ export function FindingsTable({
             ) : null}
             {filters.severity !== null ? (
               <FilterChip
-                label={`Severity: ${labelFor(filters.severity)}`}
+                label={`Severity: ${formatFilterLabel(filters.severity)}`}
                 onClear={() => updateFilters({ severity: null })}
               />
             ) : null}
             {filters.confidence !== null ? (
               <FilterChip
-                label={`Confidence: ${labelFor(filters.confidence)}`}
+                label={`Confidence: ${formatFilterLabel(filters.confidence)}`}
                 onClear={() => updateFilters({ confidence: null })}
               />
             ) : null}
             {filters.category !== null ? (
               <FilterChip
-                label={`Category: ${labelFor(filters.category)}`}
+                label={`Category: ${formatFilterLabel(filters.category)}`}
                 onClear={() => updateFilters({ category: null })}
               />
             ) : null}
           </div>
         ) : null}
       </div>
-      <div className="findings-table" role="table">
+      <div
+        className={shouldVirtualize ? "findings-table is-virtualized" : "findings-table"}
+        role="table"
+        ref={tableRef}
+      >
         <div className="table-row table-head" role="row">
           <SortableHeader field="severity" label="Severity" sort={sort} onSort={updateSort} />
           <SortableHeader field="confidence" label="Confidence" sort={sort} onSort={updateSort} />
@@ -189,26 +220,17 @@ export function FindingsTable({
           <SortableHeader field="category" label="Category" sort={sort} onSort={updateSort} />
           <SortableHeader field="title" label="Title" sort={sort} onSort={updateSort} />
         </div>
-        {findings.map((finding) => {
-          const workStatus = workStatusByFindingId?.get(finding.findingId) ?? null;
-          return (
-            <button
-              key={finding.findingId}
-              className={
-                finding.findingId === selectedFindingId ? "table-row selected" : "table-row"
-              }
-              onClick={() => onSelectFinding(finding.findingId)}
-              role="row"
-            >
-              <span className={`severity ${finding.severity}`}>{finding.severity}</span>
-              <span>{finding.confidence}</span>
-              <span>{finding.status}</span>
-              <FindingWorkBadge status={workStatus} />
-              <span>{finding.category}</span>
-              <strong>{finding.title}</strong>
-            </button>
-          );
-        })}
+        {shouldVirtualize ? (
+          <VirtualRows
+            items={findings}
+            scrollRef={tableRef}
+            estimateSize={FINDING_ROW_ESTIMATE_PX}
+            getKey={(finding) => finding.findingId}
+            renderItem={(finding) => renderFindingRow(finding)}
+          />
+        ) : (
+          findings.map(renderFindingRow)
+        )}
         {!isLoading && findings.length === 0 ? (
           <div className="empty-state">
             <span>{emptyStateLabel(filtersActive, totalFindingCount)}</span>
@@ -314,37 +336,7 @@ function StatusFilterGroup({
           className={selectedValue === value ? "active" : ""}
           onClick={() => onSelect(value)}
         >
-          {labelFor(value)}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-function FilterGroup<TValue extends string>({
-  title,
-  values,
-  selectedValue,
-  onSelect,
-}: {
-  title: string;
-  values: readonly TValue[];
-  selectedValue: TValue | null;
-  onSelect: (value: TValue | null) => void;
-}) {
-  return (
-    <div className="filter-group">
-      <span>{title}</span>
-      <button className={selectedValue === null ? "active" : ""} onClick={() => onSelect(null)}>
-        All
-      </button>
-      {values.map((value) => (
-        <button
-          key={value}
-          className={selectedValue === value ? "active" : ""}
-          onClick={() => onSelect(value)}
-        >
-          {labelFor(value)}
+          {formatFilterLabel(value)}
         </button>
       ))}
     </div>
@@ -358,15 +350,6 @@ function emptyStateLabel(filtersActive: boolean, totalFindingCount: number): str
   return totalFindingCount > 0 ? "No actionable findings" : "No findings found";
 }
 
-function FilterChip({ label, onClear }: { label: string; onClear: () => void }) {
-  return (
-    <button className="filter-chip" onClick={onClear} aria-label={`Clear ${label} filter`}>
-      <span>{label}</span>
-      <span aria-hidden="true">x</span>
-    </button>
-  );
-}
-
 function statusLabelFor(value: FindingStatusFilter): string {
   if (value === "actionable") {
     return "Actionable";
@@ -374,17 +357,7 @@ function statusLabelFor(value: FindingStatusFilter): string {
   if (value === null) {
     return "All statuses";
   }
-  return labelFor(value);
-}
-
-function labelFor(value: ClawpatchStatus | string): string {
-  if (value === "wont-fix") {
-    return "Won't Fix";
-  }
-  return value
-    .split("-")
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ");
+  return formatFilterLabel(value);
 }
 
 function toggleDirection(direction: FindingSortDirection): FindingSortDirection {

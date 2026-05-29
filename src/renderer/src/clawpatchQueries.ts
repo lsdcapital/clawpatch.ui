@@ -14,6 +14,7 @@ export const clawpatchQueryKeys = {
   allFindingWorkStatuses: () => ["findingWorkStatuses"] as const,
   finding: (repoId?: string | null, findingId?: string | null) =>
     ["finding", repoId, findingId] as const,
+  repoFindingDetails: (repoId: string | null) => ["finding", repoId] as const,
   allFindingDetails: () => ["finding"] as const,
   diff: (repoId?: string | null, findingId?: string | null) => ["diff", repoId, findingId] as const,
   repoDiffs: (repoId: string | null) => ["diff", repoId] as const,
@@ -43,14 +44,37 @@ export async function invalidateRepo(
 
 export async function invalidateCommandProgress(
   queryClient: QueryClient,
-  options: { readonly includeFeatures?: boolean } = {},
+  options: { readonly includeFeatures?: boolean; readonly repoIds?: readonly string[] } = {},
 ): Promise<void> {
   const includeFeatures = options.includeFeatures ?? true;
-  await Promise.all([
-    ...(includeFeatures
-      ? [queryClient.invalidateQueries({ queryKey: clawpatchQueryKeys.allFeatures() })]
-      : []),
-    queryClient.invalidateQueries({ queryKey: clawpatchQueryKeys.allFindings() }),
-    queryClient.invalidateQueries({ queryKey: clawpatchQueryKeys.allFindingDetails() }),
-  ]);
+  const repoIds = options.repoIds ?? [];
+
+  // Scope invalidation to the repos with in-flight commands when known. Falling
+  // back to the global keys (no repoIds) would re-run `clawpatch status` for
+  // every registered repo on every command-output chunk.
+  if (repoIds.length === 0) {
+    await Promise.all([
+      ...(includeFeatures
+        ? [queryClient.invalidateQueries({ queryKey: clawpatchQueryKeys.allFeatures() })]
+        : []),
+      queryClient.invalidateQueries({ queryKey: clawpatchQueryKeys.allFindings() }),
+      queryClient.invalidateQueries({ queryKey: clawpatchQueryKeys.allFindingDetails() }),
+    ]);
+    return;
+  }
+
+  await Promise.all(
+    repoIds.flatMap((repoId) => {
+      const invalidations = [
+        queryClient.invalidateQueries({ queryKey: clawpatchQueryKeys.findings(repoId) }),
+        queryClient.invalidateQueries({ queryKey: clawpatchQueryKeys.repoFindingDetails(repoId) }),
+      ];
+      if (includeFeatures) {
+        invalidations.push(
+          queryClient.invalidateQueries({ queryKey: clawpatchQueryKeys.features(repoId) }),
+        );
+      }
+      return invalidations;
+    }),
+  );
 }
