@@ -62,25 +62,32 @@ describe("ReviewMapPanel", () => {
     expect(screen.getByText("feat-auth")).toHaveClass("icon-tooltip");
   });
 
-  it("disables row review buttons only for active features", () => {
-    renderPanel({ runningReviewFeatureId: "feat-auth", queuedReviewFeatureIds: ["feat-billing"] });
+  it("disables the running review button and lets queued reviews be removed", () => {
+    const onCancelReview = vi.fn();
+    renderPanel({
+      runningReviewFeatureId: "feat-auth",
+      queuedReviewFeatureIds: ["feat-billing"],
+      onCancelReview,
+    });
 
     const runningButton = screen.getByRole("button", {
       name: "Review running for Authentication",
     });
+    // The queued button is actionable: clicking it removes the review from the queue.
     const queuedButton = screen.getByRole("button", {
-      name: "Review queued for Billing",
+      name: "Remove Billing from the review queue",
     });
     expect(runningButton).toBeDisabled();
-    expect(queuedButton).toBeDisabled();
+    expect(queuedButton).not.toBeDisabled();
     expect(runningButton.querySelector(".review-action-spinner")).not.toBeNull();
     expect(queuedButton.querySelector(".review-action-spinner")).toBeNull();
     expect(screen.queryByText("Running")).not.toBeInTheDocument();
     expect(screen.queryByText("Queued")).not.toBeInTheDocument();
     fireEvent.mouseEnter(runningButton.parentElement as HTMLElement);
     expect(screen.queryByText("Review running for Authentication")).not.toBeInTheDocument();
-    fireEvent.mouseEnter(queuedButton.parentElement as HTMLElement);
-    expect(screen.queryByText("Review queued for Billing")).not.toBeInTheDocument();
+
+    fireEvent.click(queuedButton);
+    expect(onCancelReview).toHaveBeenCalledWith("feat-billing");
     expect(screen.queryByText("feat-auth")).not.toBeInTheDocument();
     expect(screen.queryByText("feat-billing")).not.toBeInTheDocument();
 
@@ -113,9 +120,9 @@ describe("ReviewMapPanel", () => {
     ).toBeDisabled();
     expect(
       within(billingRow as HTMLElement).getByRole("button", {
-        name: "Review queued for Billing",
+        name: "Remove Billing from the review queue",
       }),
-    ).toBeDisabled();
+    ).not.toBeDisabled();
   });
 
   it("keeps active review rows visible through status filter changes", () => {
@@ -358,6 +365,7 @@ describe("ReviewMapPanel virtualization", () => {
         queuedReviewFeatureIds={[]}
         lastReviewCompletion={null}
         onReviewFeature={vi.fn()}
+        onCancelReview={vi.fn()}
         onUpdateMap={vi.fn()}
       />,
     );
@@ -377,6 +385,7 @@ describe("ReviewMapPanel virtualization", () => {
 
 function renderPanel({
   onReviewFeature = vi.fn(),
+  onCancelReview = vi.fn(),
   onUpdateMap = vi.fn(),
   isBusy = false,
   runningReviewFeatureId = null,
@@ -384,6 +393,7 @@ function renderPanel({
   lastReviewCompletion = null,
 }: {
   onReviewFeature?: ComponentProps<typeof ReviewMapPanel>["onReviewFeature"];
+  onCancelReview?: ComponentProps<typeof ReviewMapPanel>["onCancelReview"];
   onUpdateMap?: () => void;
   isBusy?: boolean;
   runningReviewFeatureId?: string | null;
@@ -399,6 +409,7 @@ function renderPanel({
       queuedReviewFeatureIds={queuedReviewFeatureIds}
       lastReviewCompletion={lastReviewCompletion}
       onReviewFeature={onReviewFeature}
+      onCancelReview={onCancelReview}
       onUpdateMap={onUpdateMap}
     />,
   );

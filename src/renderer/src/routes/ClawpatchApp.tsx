@@ -482,6 +482,7 @@ export function ClawpatchApp() {
               queuedReviewFeatureIds={commandRunner.queuedReviewFeatureIds}
               lastReviewCompletion={selectedRepoReviewCompletion}
               onReviewFeature={(featureId, options) => runReviewCommand(options, featureId)}
+              onCancelReview={commandRunner.cancelReviewFeature}
               onUpdateMap={() => runCommand({ command: "map" })}
             />
           )}

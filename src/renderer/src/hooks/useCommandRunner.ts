@@ -344,6 +344,16 @@ export function useCommandRunner({
     [],
   );
 
+  const cancelReviewFeature = useCallback(
+    (featureId: string): void => {
+      if (selectedRepo === null) {
+        return;
+      }
+      void window.clawpatch.reviewQueue.cancel(selectedRepo.id, featureId);
+    },
+    [selectedRepo],
+  );
+
   const runFindingCommandOnce = useCallback(
     async (repo: RepoSummary, request: FindingCommandRequest): Promise<boolean> => {
       if (runningFindingCommandsRef.current[request.findingId] !== undefined) {
@@ -482,6 +492,7 @@ export function useCommandRunner({
     queuedReviewFeatureIds,
     revalidateFindings,
     runCommand,
+    cancelReviewFeature,
     runFixWithSavedGuidance,
     recordCommandResult: appendCommandResults,
     runningRepoCommand,

@@ -1074,6 +1074,7 @@ describe("ClawpatchApp header actions", () => {
 
   it("renders running and queued review rows from pushed queue state", async () => {
     const reviewQueueEnqueue = vi.fn<Api["reviewQueue"]["enqueue"]>(async () => undefined);
+    const reviewQueueCancel = vi.fn<Api["reviewQueue"]["cancel"]>(async () => undefined);
     let pushReviewState: ((state: ReviewQueueState) => void) | null = null;
     const reviewQueueOnState = vi.fn<Api["reviewQueue"]["onState"]>((listener) => {
       pushReviewState = listener;
@@ -1084,7 +1085,11 @@ describe("ClawpatchApp header actions", () => {
     const run = vi.fn<Api["commands"]["run"]>(async (_repoId, request) =>
       makeCommandResult(request.command),
     );
-    window.clawpatch = makeApi(run, { reviewQueueEnqueue, reviewQueueOnState });
+    window.clawpatch = makeApi(run, {
+      reviewQueueEnqueue,
+      reviewQueueCancel,
+      reviewQueueOnState,
+    });
 
     renderApp();
 
@@ -1127,9 +1132,16 @@ describe("ClawpatchApp header actions", () => {
         lastCompletion: null,
       });
     });
-    expect(screen.getByRole("button", { name: "Review queued for Billing" })).toBeDisabled();
+    const queuedButton = screen.getByRole("button", {
+      name: "Remove Billing from the review queue",
+    });
+    expect(queuedButton).not.toBeDisabled();
     expect(screen.queryByText("Queued")).not.toBeInTheDocument();
     expect(reviewQueueEnqueue).toHaveBeenCalledTimes(2);
+
+    // Clicking a queued row removes it from the main-process queue.
+    fireEvent.click(queuedButton);
+    expect(reviewQueueCancel).toHaveBeenCalledWith("repo-auth", "feat-billing");
 
     // Authentication finishes; Billing starts.
     act(() => {
@@ -1202,11 +1214,11 @@ describe("ClawpatchApp header actions", () => {
       name: "Review running for Authentication",
     });
     const queuedButton = within(billingRow as HTMLElement).getByRole("button", {
-      name: "Review queued for Billing",
+      name: "Remove Billing from the review queue",
     });
     expect(runningButton).toBeDisabled();
     expect(runningButton.querySelector(".review-action-spinner")).not.toBeNull();
-    expect(queuedButton).toBeDisabled();
+    expect(queuedButton).not.toBeDisabled();
     expect(queuedButton.querySelector(".review-action-spinner")).toBeNull();
     expect(screen.queryByText("Running")).not.toBeInTheDocument();
     expect(screen.queryByText("Queued")).not.toBeInTheDocument();

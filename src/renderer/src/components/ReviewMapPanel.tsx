@@ -37,6 +37,7 @@ interface Props {
   queuedReviewFeatureIds: readonly string[];
   lastReviewCompletion: ReviewCompletionSummary | null;
   onReviewFeature: (featureId: string, options: ReviewRunOptions) => void;
+  onCancelReview: (featureId: string) => void;
   onUpdateMap: () => void;
 }
 
@@ -55,6 +56,7 @@ export function ReviewMapPanel({
   queuedReviewFeatureIds,
   lastReviewCompletion,
   onReviewFeature,
+  onCancelReview,
   onUpdateMap,
 }: Props) {
   const [expandedFeatureIds, setExpandedFeatureIds] = useState<ReadonlySet<string>>(
@@ -285,6 +287,7 @@ export function ReviewMapPanel({
           lastReviewCompletion={lastReviewCompletion}
           reviewOptions={reviewOptions()}
           onReviewFeature={onReviewFeature}
+          onCancelReview={onCancelReview}
           onToggleExpanded={toggleExpanded}
         />
       )}
@@ -308,6 +311,7 @@ function ReviewMapTable({
   runningReviewFeatureId,
   lastReviewCompletion,
   onReviewFeature,
+  onCancelReview,
   onToggleExpanded,
   reviewOptions,
 }: {
@@ -319,6 +323,7 @@ function ReviewMapTable({
   lastReviewCompletion: ReviewCompletionSummary | null;
   reviewOptions: ReviewRunOptions;
   onReviewFeature: (featureId: string, options: ReviewRunOptions) => void;
+  onCancelReview: (featureId: string) => void;
   onToggleExpanded: (featureId: string) => void;
 }) {
   const reviewedFeatureId =
@@ -376,6 +381,7 @@ function ReviewMapTable({
             reviewState={reviewState}
             reviewOptions={reviewOptions}
             onReviewFeature={onReviewFeature}
+            onCancelReview={onCancelReview}
           />
         </div>
         {isExpanded ? <FeatureMapDetail feature={feature} /> : null}
@@ -526,12 +532,14 @@ function ReviewRowAction({
   reviewState,
   reviewOptions,
   onReviewFeature,
+  onCancelReview,
 }: {
   feature: FeatureMapItem;
   reviewedFindingCount: number | null;
   reviewState: ReviewRowState;
   reviewOptions: ReviewRunOptions;
   onReviewFeature: (featureId: string, options: ReviewRunOptions) => void;
+  onCancelReview: (featureId: string) => void;
 }) {
   if (reviewState === "idle") {
     return (
@@ -563,15 +571,14 @@ function ReviewRowAction({
   }
 
   if (reviewState === "queued") {
-    const label = `Review queued for ${feature.title}`;
     return (
       <div className="review-action-cell">
         <ActionIconButton
           className="review-action-queued-button"
-          disabled
           icon={<ClockIcon aria-hidden="true" />}
-          label={label}
-          tooltipHidden
+          label={`Remove ${feature.title} from the review queue`}
+          onClick={() => onCancelReview(feature.featureId)}
+          title="Queued — click to remove"
         />
       </div>
     );
