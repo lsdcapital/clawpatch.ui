@@ -159,6 +159,7 @@ function makeGhosttyStartupCommand(
   cwd: string,
   startupScript: string,
 ): ReturnType<typeof ChildProcess.make> {
+  const command = `${startupScript}\nexec /bin/zsh -l`;
   return ChildProcess.make(
     "open",
     [
@@ -170,8 +171,8 @@ function makeGhosttyStartupCommand(
       "--wait-after-command=true",
       "-e",
       "/bin/zsh",
-      "-lc",
-      startupScript,
+      "-lic",
+      command,
     ],
     { shell: false },
   );
