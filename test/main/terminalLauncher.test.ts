@@ -141,12 +141,74 @@ describe("TerminalLauncher", () => {
     expect(commands[0]?.shell).toBe(false);
   });
 
-  it("rejects startup scripts for non-Terminal apps", async () => {
+  it("runs Ghostty startup scripts with open args", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "clawpatch-terminal-"));
+    const commands: Array<{
+      readonly command: string;
+      readonly args: readonly string[];
+      readonly shell: boolean | undefined;
+    }> = [];
+    const spawnerLayer = Layer.succeed(
+      ChildProcessSpawner.ChildProcessSpawner,
+      ChildProcessSpawner.make((command) => {
+        const childProcess = command as unknown as {
+          readonly command: string;
+          readonly args: readonly string[];
+          readonly options: { readonly shell?: boolean };
+        };
+        commands.push({
+          command: childProcess.command,
+          args: childProcess.args,
+          shell: childProcess.options.shell,
+        });
+        return Effect.succeed(mockHandle());
+      }),
+    );
+
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const terminal = yield* TerminalLauncher;
+        return yield* terminal.open(cwd, {
+          appName: "/Applications/Ghostty.app",
+          startupScript: "pnpm dev",
+        });
+      }).pipe(
+        Effect.provide(
+          makeTerminalLauncherLayer("darwin").pipe(
+            Layer.provide(Layer.mergeAll(NodeServices.layer, spawnerLayer)),
+          ),
+        ),
+      ),
+    );
+
+    expect(commands).toEqual([
+      {
+        command: "open",
+        args: [
+          "-n",
+          "-a",
+          "/Applications/Ghostty.app",
+          "--args",
+          `--working-directory=${cwd}`,
+          "--wait-after-command=true",
+          "-e",
+          "/bin/zsh",
+          "-lc",
+          "pnpm dev",
+        ],
+        shell: false,
+      },
+    ]);
+  });
+
+  it("rejects startup scripts for unsupported terminal apps", async () => {
     const cwd = await mkdtemp(join(tmpdir(), "clawpatch-terminal-"));
 
     await expect(
       openTerminal(cwd, "darwin", { appName: "iTerm", startupScript: "pnpm dev" }),
-    ).rejects.toThrow("Terminal startup scripts are only supported with Terminal.app for now");
+    ).rejects.toThrow(
+      "Terminal startup scripts are only supported with Terminal.app and Ghostty for now",
+    );
   });
 
   it("rejects missing or non-directory cwd values", async () => {

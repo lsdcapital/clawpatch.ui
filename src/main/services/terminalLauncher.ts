@@ -67,14 +67,17 @@ export const makeTerminalLauncherLayer = (platform: NodeJS.Platform = process.pl
 
             const appName = normalizeTerminalAppName(options?.appName);
             const startupScript = options?.startupScript?.trim() ?? "";
-            if (startupScript !== "" && !isTerminalApp(appName)) {
-              return yield* new TerminalStartupScriptUnsupportedError({ appName });
-            }
+            const appKind = terminalAppKind(appName);
             const command =
               startupScript === ""
                 ? ChildProcess.make("open", ["-a", appName, cwd], { shell: false })
-                : makeTerminalStartupCommand(cwd, startupScript);
-            const launchDescription = startupScript === "" ? `open -a ${appName}` : "osascript";
+                : yield* Effect.gen(function* () {
+                    if (appKind === "unsupported") {
+                      return yield* new TerminalStartupScriptUnsupportedError({ appName });
+                    }
+                    return makeStartupScriptCommand(appName, appKind, cwd, startupScript);
+                  });
+            const launchDescription = launchCommandDescription(appName, appKind, startupScript);
             const child = yield* spawner
               .spawn(command)
               .pipe(Effect.mapError((cause) => new TerminalLaunchError({ cwd, cause })));
@@ -100,6 +103,28 @@ export const TerminalLauncherLive = makeTerminalLauncherLayer();
 function normalizeTerminalAppName(appName: string | undefined): string {
   const trimmed = appName?.trim();
   return trimmed === undefined || trimmed === "" ? "Terminal" : trimmed;
+}
+
+function launchCommandDescription(
+  appName: string,
+  appKind: "terminal" | "ghostty" | "unsupported",
+  startupScript: string,
+): string {
+  if (startupScript === "") {
+    return `open -a ${appName}`;
+  }
+  return appKind === "terminal" ? "osascript" : `open -a ${appName}`;
+}
+
+function makeStartupScriptCommand(
+  appName: string,
+  appKind: "terminal" | "ghostty",
+  cwd: string,
+  startupScript: string,
+): ReturnType<typeof ChildProcess.make> {
+  return appKind === "terminal"
+    ? makeTerminalStartupCommand(cwd, startupScript)
+    : makeGhosttyStartupCommand(appName, cwd, startupScript);
 }
 
 function makeTerminalStartupCommand(
@@ -129,9 +154,39 @@ function makeTerminalStartupCommand(
   );
 }
 
-function isTerminalApp(appName: string): boolean {
+function makeGhosttyStartupCommand(
+  appName: string,
+  cwd: string,
+  startupScript: string,
+): ReturnType<typeof ChildProcess.make> {
+  return ChildProcess.make(
+    "open",
+    [
+      "-n",
+      "-a",
+      appName,
+      "--args",
+      `--working-directory=${cwd}`,
+      "--wait-after-command=true",
+      "-e",
+      "/bin/zsh",
+      "-lc",
+      startupScript,
+    ],
+    { shell: false },
+  );
+}
+
+function terminalAppKind(appName: string): "terminal" | "ghostty" | "unsupported" {
   const appBasename = appName.trim().split(/[\\/]/).at(-1) ?? "";
-  return appBasename.toLowerCase().replace(/\.app$/, "") === "terminal";
+  const normalized = appBasename.toLowerCase().replace(/\.app$/, "");
+  if (normalized === "terminal") {
+    return "terminal";
+  }
+  if (normalized === "ghostty") {
+    return "ghostty";
+  }
+  return "unsupported";
 }
 
 function shellQuote(value: string): string {
