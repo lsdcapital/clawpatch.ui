@@ -79,14 +79,19 @@ dequeue(repoId, featureId): Promise<void>; onState(listener): () => void }`.
   semantics (recursive URL-by-key search vs. top-level count/array-length read), so merging would
   obscure both.
 
-### Phase 1 — `ReviewQueueService` in main
+### Phase 1 — `ReviewQueueService` in main ✅ done
 
-- New `src/main/services/reviewQueueService.ts`, an `Effect.Service` `Layer` depending on
-  `RepoService` (for `runCommand`/`runTrackedRepoCommand`).
-- Holds `Queue.unbounded<QueuedReview>()` and `SubscriptionRef.make<ReviewQueueState>(empty)`.
-- On layer construction, `Effect.forkScoped` a consumer (sketch below).
-- Wire its `state.changes` stream into the existing push mechanism (`publishCommandStream`'s sibling):
-  in `main/index.ts`, subscribe to `state.changes` and `webContents.send(REVIEW_QUEUE_STATE_CHANNEL, ...)`.
+- New `src/main/services/reviewQueueService.ts` (+ `test/main/reviewQueueService.test.ts`), an
+  `Effect.Service` built with `Layer.effect` (which manages the scope in Effect 4 — there is no
+  `Layer.scoped`), depending on `RepoService`.
+- Holds `Queue.unbounded<QueuedReview>()` and `SubscriptionRef.make<ReviewQueueState>(empty)`; a
+  `Effect.forkScoped` consumer drains one review at a time via `repos.runCommand(..., publish)`.
+- Exposes `enqueue` (dedupes already-pending features), `cancel` (skip-on-take via the queued list),
+  `getState`, and `changes` (`SubscriptionRef.changes(ref)` — a function in this version, not a property).
+- Tests use a `Promise`-gated `RepoService.runCommand` stub to assert serialization, cancel,
+  error-recovery (queue keeps draining), and dedupe.
+- **Not yet wired into app boot or IPC** — kept strictly additive so startup is untouched. Wiring
+  into `makeAppLayer` + the `state.changes` → `webContents.send` push happens in Phase 2.
 
 ### Phase 2 — IPC + preload + Api types
 
