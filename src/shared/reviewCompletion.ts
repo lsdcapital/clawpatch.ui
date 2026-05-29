@@ -18,6 +18,20 @@ export type ReviewCompletionSummary =
       readonly reviewedFeatureCount: number | null;
     };
 
+// Observable state of the main-process review queue, shared so the renderer can
+// reflect it and the `Api` can type the IPC surface.
+export interface QueuedFeature {
+  readonly repoId: string;
+  readonly featureId: string;
+}
+
+export interface ReviewQueueState {
+  readonly runningRepoId: string | null;
+  readonly runningFeatureId: string | null;
+  readonly queued: readonly QueuedFeature[];
+  readonly lastCompletion: ReviewCompletionSummary | null;
+}
+
 export function reviewCompletionSummary(
   repoId: string,
   request: ClawpatchCommandRequest,

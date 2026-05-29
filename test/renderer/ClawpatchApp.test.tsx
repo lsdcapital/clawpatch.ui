@@ -2229,6 +2229,9 @@ function makeApi(
     openPr?: Api["patches"]["openPr"];
     gitStatus?: Api["git"]["status"];
     onStream?: Api["commands"]["onStream"];
+    reviewQueueEnqueue?: Api["reviewQueue"]["enqueue"];
+    reviewQueueCancel?: Api["reviewQueue"]["cancel"];
+    reviewQueueOnState?: Api["reviewQueue"]["onState"];
     pickFolder?: Api["repo"]["pickFolder"];
     repoDoctor?: Api["repo"]["doctor"];
     repoGetConfig?: Api["repo"]["getConfig"];
@@ -2316,6 +2319,11 @@ function makeApi(
       run,
       interrupt: options.interrupt ?? (async () => ({ interrupted: false })),
       onStream: options.onStream ?? (() => () => undefined),
+    },
+    reviewQueue: {
+      enqueue: options.reviewQueueEnqueue ?? (async () => undefined),
+      cancel: options.reviewQueueCancel ?? (async () => undefined),
+      onState: options.reviewQueueOnState ?? (() => () => undefined),
     },
     git: {
       diff: options.gitDiff ?? (async () => ""),

@@ -93,11 +93,23 @@ dequeue(repoId, featureId): Promise<void>; onState(listener): () => void }`.
 - **Not yet wired into app boot or IPC** — kept strictly additive so startup is untouched. Wiring
   into `makeAppLayer` + the `state.changes` → `webContents.send` push happens in Phase 2.
 
-### Phase 2 — IPC + preload + Api types
+### Phase 2 — IPC + preload + Api types ✅ done
 
-- Add handlers in `handlers.ts` for enqueue/dequeue; add the state push (model on
-  `installIpcHandlers(publishCommandStream)` — pass a second `publishReviewQueueState`).
-- Mirror `onStream` in `preload/index.ts` for `onState`.
+- New channels `review-queue:{enqueue,cancel,state}` (`ipcChannels.ts`); `Api.reviewQueue`
+  (`enqueue`, `cancel`, `onState`) in `types.ts`; `ReviewQueueState`/`QueuedFeature` live in
+  `shared/reviewCompletion.ts`.
+- `installReviewQueueHandlers` is a **separate** exported function in `handlers.ts` (not folded into
+  `installIpcHandlers`), so the existing handler suite and `handlers.test.ts` are untouched. Its
+  enqueue/cancel handlers use `Schema.Void` results (same pattern as the no-arg `app-settings:get`).
+- The state push mirrors `publishCommandStream`: a raw `webContents.send` (no schema on the push —
+  consistent with `commands:stream`). A fire-and-forget `Stream.runForEach(reviewQueue.changes, ...)`
+  on the runtime forwards changes for the app's lifetime (Effect 4 has no `forkDaemon`; the
+  never-completing `runForEach` promise is intentionally not awaited).
+- `makeAppLayer` adds the queue via `ReviewQueueServiceLive(...).pipe(Layer.provideMerge(repoLayer))`
+  so the consumer and the IPC handlers share **one** `RepoService` instance (the lock backstop).
+- Deviation from the original sketch: no `ReviewQueueStateSchema` — the push is unvalidated like the
+  command stream, and `ReviewCompletionSummary` was already a hand-written shared type. `pnpm build`
+  confirms main/preload/renderer bundle cleanly. The renderer does **not** consume any of this yet.
 
 ### Phase 3 — renderer becomes a thin view
 

@@ -8,6 +8,7 @@ import type { ClawpatchCommandRequest, CommandStreamEvent } from "../../shared/t
 import {
   reviewCompletionSummary,
   type ReviewCompletionSummary,
+  type ReviewQueueState,
 } from "../../shared/reviewCompletion";
 import { RepoService } from "./repoService";
 
@@ -19,18 +20,6 @@ export interface QueuedReview {
   readonly repoId: string;
   readonly featureId: string;
   readonly request: ReviewCommandRequest;
-}
-
-export interface QueuedFeature {
-  readonly repoId: string;
-  readonly featureId: string;
-}
-
-export interface ReviewQueueState {
-  readonly runningRepoId: string | null;
-  readonly runningFeatureId: string | null;
-  readonly queued: readonly QueuedFeature[];
-  readonly lastCompletion: ReviewCompletionSummary | null;
 }
 
 export const emptyReviewQueueState: ReviewQueueState = {

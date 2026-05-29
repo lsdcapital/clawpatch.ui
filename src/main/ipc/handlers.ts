@@ -23,12 +23,15 @@ import { requireElectron } from "../../shared/electronRuntime";
 import type { CommandStreamEvent } from "../../shared/types";
 import { CommandSpawnError, DialogOpenError } from "../errors";
 import { RepoService } from "../services/repoService";
+import { ReviewQueueService, type ReviewCommandRequest } from "../services/reviewQueueService";
 import {
   APP_SETTINGS_GET_CHANNEL,
   APP_SETTINGS_PICK_TERMINAL_APP_CHANNEL,
   APP_SETTINGS_UPDATE_CHANNEL,
   COMMANDS_INTERRUPT_CHANNEL,
   COMMANDS_RUN_CHANNEL,
+  REVIEW_QUEUE_ENQUEUE_CHANNEL,
+  REVIEW_QUEUE_CANCEL_CHANNEL,
   FEATURES_MAP_CHANNEL,
   FINDINGS_GET_CHANNEL,
   FINDINGS_LIST_CHANNEL,
@@ -75,6 +78,14 @@ const TriageSetPayload = Schema.Struct({
 const CommandRunPayload = Schema.Struct({
   repoId: Schema.String,
   request: ClawpatchCommandRequestSchema,
+});
+const ReviewQueueEnqueuePayload = Schema.Struct({
+  repoId: Schema.String,
+  request: ClawpatchCommandRequestSchema,
+});
+const ReviewQueueCancelPayload = Schema.Struct({
+  repoId: Schema.String,
+  featureId: Schema.String,
 });
 
 export const installIpcHandlers = (publishCommandStream: (event: CommandStreamEvent) => void) =>
@@ -283,6 +294,37 @@ export const installIpcHandlers = (publishCommandStream: (event: CommandStreamEv
       }),
     );
   }).pipe(Effect.withSpan("ipc.installHandlers"));
+
+// Registered separately from installIpcHandlers so the existing handler suite
+// (and its tests) need not depend on ReviewQueueService.
+export const installReviewQueueHandlers = Effect.fn("ipc.installReviewQueueHandlers")(function* () {
+  const ipc = yield* EffectIpc;
+  const reviewQueue = yield* ReviewQueueService;
+
+  yield* ipc.handle(
+    makeIpcMethod({
+      channel: REVIEW_QUEUE_ENQUEUE_CHANNEL,
+      payload: ReviewQueueEnqueuePayload,
+      result: Schema.Void,
+      handler: ({ repoId, request }) =>
+        request.command === "review" && request.featureId !== undefined
+          ? reviewQueue.enqueue({
+              repoId,
+              featureId: request.featureId,
+              request: request as ReviewCommandRequest,
+            })
+          : Effect.void,
+    }),
+  );
+  yield* ipc.handle(
+    makeIpcMethod({
+      channel: REVIEW_QUEUE_CANCEL_CHANNEL,
+      payload: ReviewQueueCancelPayload,
+      result: Schema.Void,
+      handler: ({ repoId, featureId }) => reviewQueue.cancel(repoId, featureId),
+    }),
+  );
+});
 
 const pickRepoFolder = Effect.fn("repo.pickFolder")(function* () {
   const owner = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0] ?? null;

@@ -4,6 +4,7 @@ import type {
   ClawpatchCommandRequest,
   ClawpatchStatus,
   CommandStreamEvent,
+  ReviewQueueState,
 } from "../shared/types";
 import {
   APP_SETTINGS_GET_CHANNEL,
@@ -12,6 +13,9 @@ import {
   COMMANDS_INTERRUPT_CHANNEL,
   COMMANDS_RUN_CHANNEL,
   COMMANDS_STREAM_CHANNEL,
+  REVIEW_QUEUE_ENQUEUE_CHANNEL,
+  REVIEW_QUEUE_CANCEL_CHANNEL,
+  REVIEW_QUEUE_STATE_CHANNEL,
   FEATURES_MAP_CHANNEL,
   FINDINGS_GET_CHANNEL,
   FINDINGS_LIST_CHANNEL,
@@ -90,6 +94,18 @@ const api: Api = {
         listener(payload);
       ipcRenderer.on(COMMANDS_STREAM_CHANNEL, handler);
       return () => ipcRenderer.removeListener(COMMANDS_STREAM_CHANNEL, handler);
+    },
+  },
+  reviewQueue: {
+    enqueue: (repoId: string, request: ClawpatchCommandRequest) =>
+      ipcRenderer.invoke(REVIEW_QUEUE_ENQUEUE_CHANNEL, { repoId, request }),
+    cancel: (repoId: string, featureId: string) =>
+      ipcRenderer.invoke(REVIEW_QUEUE_CANCEL_CHANNEL, { repoId, featureId }),
+    onState: (listener: (state: ReviewQueueState) => void) => {
+      const handler = (_event: IpcRendererEvent, payload: ReviewQueueState): void =>
+        listener(payload);
+      ipcRenderer.on(REVIEW_QUEUE_STATE_CHANNEL, handler);
+      return () => ipcRenderer.removeListener(REVIEW_QUEUE_STATE_CHANNEL, handler);
     },
   },
   git: {

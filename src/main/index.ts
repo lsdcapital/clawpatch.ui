@@ -1,15 +1,16 @@
 import type { BrowserWindow as ElectronBrowserWindow, Rectangle } from "electron";
 import { join } from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
-import type * as Effect from "effect/Effect";
+import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as ManagedRuntime from "effect/ManagedRuntime";
+import * as Stream from "effect/Stream";
 import { APP_DISPLAY_NAME, APP_ID } from "../shared/appMetadata";
 import { requireElectron } from "../shared/electronRuntime";
-import { COMMANDS_STREAM_CHANNEL } from "../shared/ipcChannels";
-import type { CommandStreamEvent } from "../shared/types";
+import { COMMANDS_STREAM_CHANNEL, REVIEW_QUEUE_STATE_CHANNEL } from "../shared/ipcChannels";
+import type { CommandStreamEvent, ReviewQueueState } from "../shared/types";
 import { EffectIpcLive } from "./ipc/effectIpc";
-import { installIpcHandlers } from "./ipc/handlers";
+import { installIpcHandlers, installReviewQueueHandlers } from "./ipc/handlers";
 import { childLogger, logger } from "./logger";
 import { ClawpatchRunnerLive } from "./services/clawpatchRunner";
 import { ClawpatchConfigServiceLive } from "./services/clawpatchConfig";
@@ -19,6 +20,7 @@ import { AppSettingsServiceLive } from "./services/appSettings";
 import { RepoSettingsServiceLive } from "./services/repoSettings";
 import { TerminalLauncherLive } from "./services/terminalLauncher";
 import { RepoServiceLive } from "./services/repoService";
+import { ReviewQueueService, ReviewQueueServiceLive } from "./services/reviewQueueService";
 import { SetupScriptRunnerLive } from "./services/setupScriptRunner";
 import { makeBeforeQuitHandler, makeProcessSignalHandler, shutdownSignals } from "./shutdown";
 import {
@@ -162,6 +164,22 @@ app
     appRuntime = makeAppRuntime(app.getPath("userData"));
     startupLogger.debug("Installing IPC handlers");
     await appRuntime.runPromise(installIpcHandlers((event) => publishCommandStream(event)));
+    await appRuntime.runPromise(installReviewQueueHandlers());
+    // Forward review-queue state changes to the renderer for the app's lifetime.
+    // SubscriptionRef.changes never completes, so this promise stays pending
+    // until the runtime is disposed on quit; it is intentionally not awaited.
+    void appRuntime
+      .runPromise(
+        Effect.gen(function* () {
+          const reviewQueue = yield* ReviewQueueService;
+          yield* Stream.runForEach(reviewQueue.changes, (state) =>
+            Effect.sync(() => publishReviewQueueState(state)),
+          );
+        }),
+      )
+      .catch((error: unknown) => {
+        startupLogger.error({ err: error }, "Review queue state forwarder stopped");
+      });
     startupLogger.debug("IPC handlers installed");
     await createWindow();
 
@@ -200,6 +218,10 @@ function publishCommandStream(event: CommandStreamEvent): void {
     "Publishing command stream event",
   );
   mainWindow?.webContents.send(COMMANDS_STREAM_CHANNEL, event);
+}
+
+function publishReviewQueueState(state: ReviewQueueState): void {
+  mainWindow?.webContents.send(REVIEW_QUEUE_STATE_CHANNEL, state);
 }
 
 function getAppIconPath(): string {
@@ -356,10 +378,17 @@ function makeAppLayer(
     Layer.provideMerge(coreLayer),
     Layer.provide(NodeServices.layer),
   );
+  // provideMerge(repoLayer) so the queue's consumer and the IPC handlers share a
+  // single RepoService instance — the per-repo lock is the safety backstop and
+  // must be the same one both sides see.
+  const reviewQueueLayer = ReviewQueueServiceLive((event) => publishCommandStream(event)).pipe(
+    Layer.provideMerge(repoLayer),
+    Layer.provide(NodeServices.layer),
+  );
   return Layer.mergeAll(
     NodeServices.layer,
     coreLayer,
-    repoLayer,
+    reviewQueueLayer,
     EffectIpcLive(ipcMain, runPromise),
   );
 }

@@ -27,6 +27,9 @@ import type {
   TerminalOpenResultSchema,
 } from "./schemas";
 export { clawpatchStatuses } from "./constants";
+export type { ReviewQueueState, QueuedFeature } from "./reviewCompletion";
+
+import type { ReviewQueueState } from "./reviewCompletion";
 
 export type AppSettings = typeof AppSettingsSchema.Type;
 export type ClawpatchStatus = typeof ClawpatchStatusSchema.Type;
@@ -91,6 +94,11 @@ export interface Api {
     run: (repoId: string, request: ClawpatchCommandRequest) => Promise<CommandResult>;
     interrupt: (repoId: string, findingId?: string) => Promise<CommandInterruptResult>;
     onStream: (listener: (event: CommandStreamEvent) => void) => () => void;
+  };
+  reviewQueue: {
+    enqueue: (repoId: string, request: ClawpatchCommandRequest) => Promise<void>;
+    cancel: (repoId: string, featureId: string) => Promise<void>;
+    onState: (listener: (state: ReviewQueueState) => void) => () => void;
   };
   git: {
     diff: (repoId: string, findingId?: string) => Promise<string>;
