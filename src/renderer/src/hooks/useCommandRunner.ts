@@ -14,6 +14,12 @@ import {
 } from "../commandLogEntries";
 import { clawpatchQueryKeys, invalidateCommandProgress, invalidateRepo } from "../clawpatchQueries";
 import type { CommandLogEntry } from "../workspaceTypes";
+import {
+  reviewCompletionSummary,
+  type ReviewCompletionSummary,
+} from "../../../shared/reviewCompletion";
+
+export type { ReviewCompletionSummary };
 
 type FindingCommandRequest = Extract<ClawpatchCommandRequest, { command: "fix" | "revalidate" }>;
 type ReviewFeatureCommandRequest = Extract<ClawpatchCommandRequest, { command: "review" }> & {
@@ -37,20 +43,6 @@ export interface BulkRevalidationProgress {
   readonly current: number;
   readonly total: number;
 }
-export type ReviewCompletionSummary =
-  | {
-      readonly kind: "feature";
-      readonly repoId: string;
-      readonly featureId: string;
-      readonly findingCount: number | null;
-      readonly reviewedFeatureCount: number | null;
-    }
-  | {
-      readonly kind: "batch";
-      readonly repoId: string;
-      readonly findingCount: number | null;
-      readonly reviewedFeatureCount: number | null;
-    };
 
 const STREAM_INVALIDATE_THROTTLE_MS = 750;
 
@@ -540,49 +532,6 @@ export function useCommandRunner({
   };
 }
 
-function reviewCompletionSummary(
-  repoId: string,
-  request: ClawpatchCommandRequest,
-  result: CommandResult,
-): ReviewCompletionSummary {
-  const findingCount = countFromParsedJson(result.parsedJson, "findingCount", "findingIds");
-  const reviewedFeatureCount = countFromParsedJson(
-    result.parsedJson,
-    "reviewedFeatureCount",
-    "claimedFeatureIds",
-  );
-
-  if (request.command === "review" && request.featureId !== undefined) {
-    return {
-      kind: "feature",
-      repoId,
-      featureId: request.featureId,
-      findingCount,
-      reviewedFeatureCount,
-    };
-  }
-
-  return {
-    kind: "batch",
-    repoId,
-    findingCount,
-    reviewedFeatureCount,
-  };
-}
-
 function isRunningFeatureReview(command: RunningRepoCommand | null): boolean {
   return command?.request.command === "review" && command.request.featureId !== undefined;
-}
-
-function countFromParsedJson(value: unknown, countKey: string, idsKey: string): number | null {
-  if (typeof value !== "object" || value === null) {
-    return null;
-  }
-  const record = value as Record<string, unknown>;
-  const count = record[countKey];
-  if (typeof count === "number" && Number.isFinite(count) && count >= 0) {
-    return Math.floor(count);
-  }
-  const ids = record[idsKey];
-  return Array.isArray(ids) ? ids.length : null;
 }
