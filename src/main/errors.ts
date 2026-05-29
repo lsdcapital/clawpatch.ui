@@ -90,7 +90,7 @@ export class TerminalStartupScriptUnsupportedError extends Data.TaggedError(
   readonly appName: string;
 }> {
   override get message() {
-    return "Terminal startup scripts are only supported with Terminal.app for now";
+    return "Terminal startup scripts are only supported with Terminal.app and Ghostty for now";
   }
 }
 
