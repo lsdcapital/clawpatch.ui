@@ -12,6 +12,7 @@ import type {
   FindingDetail,
   FindingListItem,
   RepoSummary,
+  ReviewQueueState,
 } from "../../src/shared/types";
 
 const repoSidebarCollapsedStorageKey = "clawpatch.repoSidebarCollapsed.v1";
@@ -901,7 +902,7 @@ describe("ClawpatchApp header actions", () => {
 
   it("keeps a running review row visible during command output", async () => {
     let streamListener: ((event: CommandStreamEvent) => void) | null = null;
-    const resolvers = new Map<string, (result: CommandResult) => void>();
+    let pushReviewState: ((state: ReviewQueueState) => void) | null = null;
     const featureMap = vi
       .fn<Api["features"]["map"]>()
       .mockResolvedValueOnce(makeFeatureMapSnapshot())
@@ -913,17 +914,23 @@ describe("ClawpatchApp header actions", () => {
         streamListener = null;
       };
     });
-    const run = vi.fn<Api["commands"]["run"]>(
-      (_repoId, request) =>
-        new Promise<CommandResult>((resolve) => {
-          if (request.command === "review" && request.featureId !== undefined) {
-            resolvers.set(request.featureId, resolve);
-          } else {
-            resolve(makeCommandResult(request.command));
-          }
-        }),
+    const reviewQueueEnqueue = vi.fn<Api["reviewQueue"]["enqueue"]>(async () => undefined);
+    const reviewQueueOnState = vi.fn<Api["reviewQueue"]["onState"]>((listener) => {
+      pushReviewState = listener;
+      return () => {
+        pushReviewState = null;
+      };
+    });
+    const run = vi.fn<Api["commands"]["run"]>(async (_repoId, request) =>
+      makeCommandResult(request.command),
     );
-    window.clawpatch = makeApi(run, { featureMap, findingsList, onStream });
+    window.clawpatch = makeApi(run, {
+      featureMap,
+      findingsList,
+      onStream,
+      reviewQueueEnqueue,
+      reviewQueueOnState,
+    });
 
     renderApp();
 
@@ -933,11 +940,22 @@ describe("ClawpatchApp header actions", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Review Authentication" }));
     await waitFor(() =>
-      expect(run).toHaveBeenCalledWith("repo-auth", {
+      expect(reviewQueueEnqueue).toHaveBeenCalledWith("repo-auth", {
         command: "review",
         featureId: "feat-auth",
       }),
     );
+
+    // The main-process queue reports the review as running.
+    act(() => {
+      pushReviewState?.({
+        runningRepoId: "repo-auth",
+        runningFeatureId: "feat-auth",
+        queued: [],
+        lastCompletion: null,
+      });
+    });
+
     const authenticationRow = screen.getByText("Authentication").closest('[role="row"]');
     expect(authenticationRow).not.toBeNull();
     const runningButton = within(authenticationRow as HTMLElement).getByRole("button", {
@@ -959,30 +977,50 @@ describe("ClawpatchApp header actions", () => {
       });
     });
 
-    await waitFor(() => expect(findingsList).toHaveBeenCalledTimes(2));
-    expect(featureMap).toHaveBeenCalledTimes(1);
+    // The running row stays visible through streamed output, and the feature map
+    // is not invalidated mid-review (so the list does not reshuffle).
     expect(screen.getByText("Authentication")).toBeInTheDocument();
+    expect(featureMap).toHaveBeenCalledTimes(1);
     expect(
       screen.getByRole("button", { name: "Review running for Authentication" }),
     ).toBeDisabled();
 
+    // Completion is reported by the queue; the repo is refreshed.
     act(() => {
-      resolvers.get("feat-auth")?.(makeCommandResult("review"));
+      pushReviewState?.({
+        runningRepoId: null,
+        runningFeatureId: null,
+        queued: [],
+        lastCompletion: {
+          kind: "feature",
+          repoId: "repo-auth",
+          featureId: "feat-auth",
+          findingCount: 1,
+          reviewedFeatureCount: 1,
+        },
+      });
     });
 
     await waitFor(() => expect(featureMap).toHaveBeenCalledTimes(2));
   });
 
   it("keeps zero-finding review feedback attached to the reviewed row", async () => {
+    let pushReviewState: ((state: ReviewQueueState) => void) | null = null;
     const featureMap = vi
       .fn<Api["features"]["map"]>()
       .mockResolvedValueOnce(makeFeatureMapSnapshot())
       .mockResolvedValue(makeFeatureMapSnapshotAfterZeroFindingReview());
-    const run = vi.fn<Api["commands"]["run"]>(async () => ({
-      ...makeCommandResult("review"),
-      parsedJson: { claimedFeatureIds: ["feat-auth"], findingIds: [] },
-    }));
-    window.clawpatch = makeApi(run, { featureMap });
+    const reviewQueueEnqueue = vi.fn<Api["reviewQueue"]["enqueue"]>(async () => undefined);
+    const reviewQueueOnState = vi.fn<Api["reviewQueue"]["onState"]>((listener) => {
+      pushReviewState = listener;
+      return () => {
+        pushReviewState = null;
+      };
+    });
+    const run = vi.fn<Api["commands"]["run"]>(async (_repoId, request) =>
+      makeCommandResult(request.command),
+    );
+    window.clawpatch = makeApi(run, { featureMap, reviewQueueEnqueue, reviewQueueOnState });
 
     renderApp();
 
@@ -991,12 +1029,29 @@ describe("ClawpatchApp header actions", () => {
     fireEvent.click(screen.getByRole("button", { name: "Review Authentication" }));
 
     await waitFor(() =>
-      expect(run).toHaveBeenCalledWith("repo-auth", {
+      expect(reviewQueueEnqueue).toHaveBeenCalledWith("repo-auth", {
         command: "review",
         featureId: "feat-auth",
       }),
     );
     expect(screen.queryByText("Reviewed Authentication: 0 findings")).not.toBeInTheDocument();
+
+    // The queue reports completion with zero findings.
+    act(() => {
+      pushReviewState?.({
+        runningRepoId: null,
+        runningFeatureId: null,
+        queued: [],
+        lastCompletion: {
+          kind: "feature",
+          repoId: "repo-auth",
+          featureId: "feat-auth",
+          findingCount: 0,
+          reviewedFeatureCount: 1,
+        },
+      });
+    });
+
     const authenticationRow = await screen
       .findByText("Authentication")
       .then((element) => element.closest('[role="row"]'));
@@ -1017,35 +1072,40 @@ describe("ClawpatchApp header actions", () => {
     expect(screen.queryByText(/produced 0 findings/)).not.toBeInTheDocument();
   });
 
-  it("queues individual review row clicks while another review is running", async () => {
-    const resolvers = new Map<string, (result: CommandResult) => void>();
-    const repoList = vi.fn<Api["repo"]["list"]>(async () => [makeRepo()]);
-    const run = vi.fn<Api["commands"]["run"]>(
-      (_repoId, request) =>
-        new Promise<CommandResult>((resolve) => {
-          if (request.command === "review" && request.featureId !== undefined) {
-            resolvers.set(request.featureId, resolve);
-          } else {
-            resolve(makeCommandResult(request.command));
-          }
-        }),
+  it("renders running and queued review rows from pushed queue state", async () => {
+    const reviewQueueEnqueue = vi.fn<Api["reviewQueue"]["enqueue"]>(async () => undefined);
+    let pushReviewState: ((state: ReviewQueueState) => void) | null = null;
+    const reviewQueueOnState = vi.fn<Api["reviewQueue"]["onState"]>((listener) => {
+      pushReviewState = listener;
+      return () => {
+        pushReviewState = null;
+      };
+    });
+    const run = vi.fn<Api["commands"]["run"]>(async (_repoId, request) =>
+      makeCommandResult(request.command),
     );
-    window.clawpatch = makeApi(run, { repoList });
+    window.clawpatch = makeApi(run, { reviewQueueEnqueue, reviewQueueOnState });
 
     renderApp();
 
     await screen.findByRole("heading", { name: "auth" });
-    await waitFor(() => expect(repoList).toHaveBeenCalledTimes(1));
     fireEvent.click(await screen.findByRole("tab", { name: /^Review Queue/ }));
 
     fireEvent.click(screen.getByRole("button", { name: "Review Authentication" }));
     await waitFor(() =>
-      expect(run).toHaveBeenCalledWith("repo-auth", {
+      expect(reviewQueueEnqueue).toHaveBeenCalledWith("repo-auth", {
         command: "review",
         featureId: "feat-auth",
       }),
     );
-    expect(screen.queryByRole("status", { name: "Active task" })).not.toBeInTheDocument();
+    act(() => {
+      pushReviewState?.({
+        runningRepoId: "repo-auth",
+        runningFeatureId: "feat-auth",
+        queued: [],
+        lastCompletion: null,
+      });
+    });
     expect(
       screen.getByRole("button", { name: "Review running for Authentication" }),
     ).toBeDisabled();
@@ -1053,45 +1113,55 @@ describe("ClawpatchApp header actions", () => {
     expect(screen.getByRole("button", { name: "Review Billing" })).not.toBeDisabled();
 
     fireEvent.click(screen.getByRole("button", { name: "Review Billing" }));
-    expect(screen.queryByRole("status", { name: "Active task" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Review queued for Billing" })).toBeDisabled();
-    expect(screen.queryByText("Queued")).not.toBeInTheDocument();
-    expect(run).toHaveBeenCalledTimes(1);
-
-    act(() => {
-      resolvers.get("feat-auth")?.(makeCommandResult("review"));
-    });
-
     await waitFor(() =>
-      expect(run).toHaveBeenCalledWith("repo-auth", {
+      expect(reviewQueueEnqueue).toHaveBeenCalledWith("repo-auth", {
         command: "review",
         featureId: "feat-billing",
       }),
     );
-    expect(run).toHaveBeenCalledTimes(2);
-    expect(repoList).toHaveBeenCalledTimes(1);
-    expect(screen.queryByRole("status", { name: "Active task" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Review running for Billing" })).toBeDisabled();
-
     act(() => {
-      resolvers.get("feat-billing")?.(makeCommandResult("review"));
+      pushReviewState?.({
+        runningRepoId: "repo-auth",
+        runningFeatureId: "feat-auth",
+        queued: [{ repoId: "repo-auth", featureId: "feat-billing" }],
+        lastCompletion: null,
+      });
     });
-    await waitFor(() => expect(repoList).toHaveBeenCalledTimes(2));
+    expect(screen.getByRole("button", { name: "Review queued for Billing" })).toBeDisabled();
+    expect(screen.queryByText("Queued")).not.toBeInTheDocument();
+    expect(reviewQueueEnqueue).toHaveBeenCalledTimes(2);
+
+    // Authentication finishes; Billing starts.
+    act(() => {
+      pushReviewState?.({
+        runningRepoId: "repo-auth",
+        runningFeatureId: "feat-billing",
+        queued: [],
+        lastCompletion: {
+          kind: "feature",
+          repoId: "repo-auth",
+          featureId: "feat-auth",
+          findingCount: 1,
+          reviewedFeatureCount: 1,
+        },
+      });
+    });
+    expect(screen.getByRole("button", { name: "Review running for Billing" })).toBeDisabled();
   });
 
-  it("keeps bulk review progress in the action column", async () => {
-    const resolvers = new Map<string, (result: CommandResult) => void>();
-    const run = vi.fn<Api["commands"]["run"]>(
-      (_repoId, request) =>
-        new Promise<CommandResult>((resolve) => {
-          if (request.command === "review" && request.featureId !== undefined) {
-            resolvers.set(request.featureId, resolve);
-          } else {
-            resolve(makeCommandResult(request.command));
-          }
-        }),
+  it("submits all pending features and renders bulk progress in the action column", async () => {
+    const reviewQueueEnqueue = vi.fn<Api["reviewQueue"]["enqueue"]>(async () => undefined);
+    let pushReviewState: ((state: ReviewQueueState) => void) | null = null;
+    const reviewQueueOnState = vi.fn<Api["reviewQueue"]["onState"]>((listener) => {
+      pushReviewState = listener;
+      return () => {
+        pushReviewState = null;
+      };
+    });
+    const run = vi.fn<Api["commands"]["run"]>(async (_repoId, request) =>
+      makeCommandResult(request.command),
     );
-    window.clawpatch = makeApi(run);
+    window.clawpatch = makeApi(run, { reviewQueueEnqueue, reviewQueueOnState });
 
     renderApp();
 
@@ -1101,28 +1171,33 @@ describe("ClawpatchApp header actions", () => {
       screen.getByRole("button", { name: "Review all 2 mapped features pending review" }),
     );
 
+    // Bulk review submits every pending feature to the queue.
     await waitFor(() =>
-      expect(run).toHaveBeenCalledWith("repo-auth", {
+      expect(reviewQueueEnqueue).toHaveBeenCalledWith("repo-auth", {
         command: "review",
         featureId: "feat-auth",
       }),
     );
-    expect(run).toHaveBeenCalledTimes(1);
-    expect(screen.queryByRole("status", { name: "Active task" })).not.toBeInTheDocument();
+    expect(reviewQueueEnqueue).toHaveBeenCalledWith("repo-auth", {
+      command: "review",
+      featureId: "feat-billing",
+    });
+    expect(reviewQueueEnqueue).toHaveBeenCalledTimes(2);
+
+    // The queue runs the first and holds the rest.
+    act(() => {
+      pushReviewState?.({
+        runningRepoId: "repo-auth",
+        runningFeatureId: "feat-auth",
+        queued: [{ repoId: "repo-auth", featureId: "feat-billing" }],
+        lastCompletion: null,
+      });
+    });
+
     const authenticationRow = screen.getByText("Authentication").closest('[role="row"]');
     const billingRow = screen.getByText("Billing").closest('[role="row"]');
     expect(authenticationRow).not.toBeNull();
     expect(billingRow).not.toBeNull();
-    expect(authenticationRow).not.toHaveClass("review-row-running");
-    expect(billingRow).not.toHaveClass("review-row-queued");
-    expect(within(authenticationRow as HTMLElement).getByText("pending")).toHaveClass(
-      "feature-status",
-    );
-    expect(within(billingRow as HTMLElement).getByText("error")).toHaveClass("feature-status");
-    expect(
-      within(authenticationRow as HTMLElement).queryByText("reviewing"),
-    ).not.toBeInTheDocument();
-    expect(within(billingRow as HTMLElement).queryByText("queued")).not.toBeInTheDocument();
     const runningButton = within(authenticationRow as HTMLElement).getByRole("button", {
       name: "Review running for Authentication",
     });
@@ -1136,17 +1211,6 @@ describe("ClawpatchApp header actions", () => {
     expect(screen.queryByText("Running")).not.toBeInTheDocument();
     expect(screen.queryByText("Queued")).not.toBeInTheDocument();
     expect(screen.queryByRole("complementary", { name: "Command output" })).not.toBeInTheDocument();
-
-    act(() => {
-      resolvers.get("feat-auth")?.(makeCommandResult("review"));
-    });
-    await waitFor(() =>
-      expect(run).toHaveBeenCalledWith("repo-auth", {
-        command: "review",
-        featureId: "feat-billing",
-      }),
-    );
-    expect(run).toHaveBeenCalledTimes(2);
   });
 
   it("retains only the latest command stream entries", async () => {

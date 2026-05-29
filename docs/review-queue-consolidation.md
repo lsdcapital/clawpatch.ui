@@ -111,28 +111,34 @@ dequeue(repoId, featureId): Promise<void>; onState(listener): () => void }`.
   command stream, and `ReviewCompletionSummary` was already a hand-written shared type. `pnpm build`
   confirms main/preload/renderer bundle cleanly. The renderer does **not** consume any of this yet.
 
-### Phase 3 — renderer becomes a thin view
+### Phase 3 — renderer becomes a thin view ✅ done (needs in-app verification)
 
-- In `useCommandRunner.ts`:
-  - Delete `reviewFeatureQueueRef`, `drainReviewFeatureQueueRef`, `drainReviewFeatureQueue`,
-    `updateReviewFeatureQueue`, and the re-enqueue rollback.
-  - `enqueueReviewFeatureCommand` → `window.clawpatch.reviewQueue.enqueue(...)`.
-  - Replace the local `queuedReviewFeatureIds` / `runningReviewFeatureId` / `lastReviewCompletion`
-    state with values fed from a `reviewQueue.onState` subscription (a small `useReviewQueueState`
-    hook backed by `useState` + `useEffect(onState)`, or a TanStack Query `subscription`).
-- `runRepoCommandOnce` keeps handling non-review repo commands (init/map/doctor); only the
-  _review-feature_ path moves to the service.
+- `useCommandRunner.ts` deleted the renderer queue: `reviewFeatureQueueRef`,
+  `drainReviewFeatureQueueRef`/`drainReviewFeatureQueue`, `updateReviewFeatureQueue`, the
+  re-enqueue rollback, the `isTriagePendingRef` interlock + triage `onSettled` re-drain, and the
+  `ReviewFeatureCommandRequest`/`QueuedReviewFeatureCommand` types.
+- `enqueueReviewFeatureCommand` now just calls `window.clawpatch.reviewQueue.enqueue(repoId, request)`
+  (the service dedupes, so the local guards are gone).
+- `queuedReviewFeatureIds` / `runningReviewFeatureId` / `lastReviewCompletion` are derived from a
+  `reviewQueue.onState` subscription (`reviewQueueState`), filtered to the selected repo.
+- The subscription also calls `invalidateRepo` on each new `lastCompletion` — the queue runs in the
+  main process, so this replaces the old `refreshAfterCommand` that refetched findings/feature map
+  after a review. Feature-map invalidation is still suppressed while a review runs
+  (`runningReviewRepoIdRef`).
+- `runRepoCommandOnce` keeps handling non-review repo commands **and batch review**
+  (`{command:"review"}` with no `featureId`, e.g. `WorkflowSetupPanel`); only the review-feature path
+  moved to the service. The unused `"batch"` completion bookkeeping was dropped (only the `"feature"`
+  kind is rendered, and `ClawpatchApp` already filters `lastReviewCompletion` by `repoId`).
+- Consumer prop names are unchanged (`ReviewMapPanel`/`ClawpatchApp`), so Phase 4 cleanup folded in
+  here — the values just originate from the subscription now.
+- The four `ClawpatchApp.test.tsx` review-queue tests were rewritten to the new contract: assert
+  `reviewQueue.enqueue` is called, then drive a captured `onState` listener to simulate the queue
+  pushing running/queued/completion. Serialization itself is covered by `reviewQueueService.test.ts`.
+- **Still needs the manual in-app checks below** — jsdom can't exercise the real cross-process timing.
 
-### Phase 4 — cleanup
+### Phase 5 — optional (not done)
 
-- Consumers (`ReviewMapPanel.tsx`, `ClawpatchApp.tsx`) keep the same prop names
-  (`queuedReviewFeatureIds` ×13, `runningReviewFeatureId` ×12, `lastReviewCompletion` ×16) — they now
-  originate from the subscription, so call sites are largely unchanged.
-
-### Phase 5 — optional
-
-- Bulk revalidation (`revalidateFindings`) is per-finding and lower-risk; leave it in the renderer,
-  or give it the same treatment later.
+- Bulk revalidation (`revalidateFindings`) is per-finding and lower-risk; left in the renderer.
 
 ## Consumer fiber sketch (illustrative — Effect 4 APIs are dual/pipeable)
 
